@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+<record id="view_order_form" model="ir.ui.view">
+    <field name="name">sale.order.form.workset</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_order_form"/>
+    <field name="arch" type="xml">
+        <xpath expr="//notebook" position="inside">
+            <page string="Workset" name="workset">
+                <group>
+                    <group>
+                        <field name="object_id"/>
+                    </group>
+                    <group>
+                        <field name="execution_start_date"/>
+                        <field name="execution_end_date"/>
+                    </group>
+                </group>
+            </page>
+        </xpath>
+    </field>
+</record>
+
+</odoo>
