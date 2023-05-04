@@ -1,0 +1,44 @@
+version: '3.2'
+
+volumes:
+  pg15data16:
+    driver: local
+
+  odoo16-container-data:
+    driver: local
+
+  odoo16-data:
+    driver: local
+
+  vscode-data:
+    driver: local
+
+services:
+  db-custom16:
+    image: postgres:15
+    ports:
+      - "5555:5432"
+    environment:
+      - POSTGRES_PASSWORD=odoo
+      - POSTGRES_USER=odoo
+    volumes:
+      - pg15data16:/var/lib/postgresql/data
+
+  odoo16:
+    links:
+      - db-custom16
+    tty: true
+    image: erpukraine/custom:odoo-16.0ee-erpu-latest
+    depends_on:
+      - db-custom16
+    environment:
+      - HOST=db-custom16
+    ports:
+      - "3000:3000"
+      - "8069:8069"
+    volumes:
+      - ./:/mnt/extra-addons:cached
+      - odoo16-container-data:/home/vscode/.local/share/Odoo
+      - odoo16-data:/var/lib/odoo
+      - ./odoo.conf:/etc/odoo/odoo.conf
+      - vscode-data:/home/vscode/.vscode-server
