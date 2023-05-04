@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+<template id="report_saleorder_document" inherit_id="sale.report_saleorder_document">
+    <xpath expr="//div[@id='informations']" position="inside">
+        <div t-if="doc.object_id" class="col-auto col-3 mw-100 mb-2" name="object_id">
+            <strong>Object:</strong>
+            <p class="m-0" t-field="doc.object_id"/>
+        </div>
+        <div t-if="doc.execution_start_date" class="col-auto col-3 mw-100 mb-2" name="execution_start_date">
+            <strong>Execution Start Date:</strong>
+            <p class="m-0" t-field="doc.execution_start_date" t-options="{'widget': 'date'}"/>
+        </div>
+        <div t-if="doc.execution_end_date" class="col-auto col-3 mw-100 mb-2" name="execution_start_date">
+            <strong>Execution End Date:</strong>
+            <p class="m-0" t-field="doc.execution_end_date" t-options="{'widget': 'date'}"/>
+        </div>
+    </xpath>
+</template>
+
+</odoo>

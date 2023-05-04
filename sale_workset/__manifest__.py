@@ -1,0 +1,20 @@
+{
+    'name': 'Sale Workset',
+    'summary': 'Customizations fot workset in module sale',
+    'author': 'ERP Ukraine LLC',
+    'website': 'https://erp.co.ua',
+    'support': 'support@erp.co.ua',
+    'license': 'LGPL-3',
+    'category': 'Other',
+    'version': '1.0',
+    'depends': ['sale'],
+    'data': [
+        'report/ir_actions_report_templates.xml',
+        'views/report_invoice.xml',
+        'views/account_move_views.xml',
+        'views/sale_views.xml',
+    ],
+    'auto_install': False,
+    'installable': True,
+    'application': False,
+}

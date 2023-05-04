@@ -1,0 +1,81 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* sale_workset
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 16.0+e-20230420\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-05-04 14:22+0000\n"
+"PO-Revision-Date: 2023-05-04 14:22+0000\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Plural-Forms: \n"
+
+#. module: sale_workset
+#: model_terms:ir.ui.view,arch_db:sale_workset.report_invoice_document
+#: model_terms:ir.ui.view,arch_db:sale_workset.report_saleorder_document
+msgid "<strong>Execution End Date:</strong>"
+msgstr "<strong>Термін виконання до:</strong>"
+
+#. module: sale_workset
+#: model_terms:ir.ui.view,arch_db:sale_workset.report_invoice_document
+#: model_terms:ir.ui.view,arch_db:sale_workset.report_saleorder_document
+msgid "<strong>Execution Start Date:</strong>"
+msgstr "<strong>Термін виконання з:</strong>"
+
+#. module: sale_workset
+#: model_terms:ir.ui.view,arch_db:sale_workset.report_invoice_document
+#: model_terms:ir.ui.view,arch_db:sale_workset.report_saleorder_document
+msgid "<strong>Object:</strong>"
+msgstr "<strong>Обʼєкт:</strong>"
+
+#. module: sale_workset
+#: model:ir.model.fields,field_description:sale_workset.field_account_bank_statement_line__execution_end_date
+#: model:ir.model.fields,field_description:sale_workset.field_account_move__execution_end_date
+#: model:ir.model.fields,field_description:sale_workset.field_account_payment__execution_end_date
+#: model:ir.model.fields,field_description:sale_workset.field_sale_order__execution_end_date
+msgid "Execution End Date"
+msgstr "Термін виконання до"
+
+#. module: sale_workset
+#: model:ir.model.fields,field_description:sale_workset.field_account_bank_statement_line__execution_start_date
+#: model:ir.model.fields,field_description:sale_workset.field_account_move__execution_start_date
+#: model:ir.model.fields,field_description:sale_workset.field_account_payment__execution_start_date
+#: model:ir.model.fields,field_description:sale_workset.field_sale_order__execution_start_date
+msgid "Execution Start Date"
+msgstr "Термін виконання з"
+
+#. module: sale_workset
+#: model:ir.model.fields,field_description:sale_workset.field_account_bank_statement_line__hide_qty_price
+#: model:ir.model.fields,field_description:sale_workset.field_account_move__hide_qty_price
+#: model:ir.model.fields,field_description:sale_workset.field_account_payment__hide_qty_price
+msgid "Hide Qty Price"
+msgstr "Приховати кількість і ціну"
+
+#. module: sale_workset
+#: model:ir.model,name:sale_workset.model_account_move
+msgid "Journal Entry"
+msgstr "Запис у журналі"
+
+#. module: sale_workset
+#: model:ir.model.fields,field_description:sale_workset.field_account_bank_statement_line__object_id
+#: model:ir.model.fields,field_description:sale_workset.field_account_move__object_id
+#: model:ir.model.fields,field_description:sale_workset.field_account_payment__object_id
+#: model:ir.model.fields,field_description:sale_workset.field_sale_order__object_id
+msgid "Object"
+msgstr "Обʼєкт"
+
+#. module: sale_workset
+#: model:ir.model,name:sale_workset.model_sale_order
+msgid "Sales Order"
+msgstr "Замовлення на продаж"
+
+#. module: sale_workset
+#: model_terms:ir.ui.view,arch_db:sale_workset.view_move_form
+#: model_terms:ir.ui.view,arch_db:sale_workset.view_order_form
+msgid "Workset"
+msgstr ""
