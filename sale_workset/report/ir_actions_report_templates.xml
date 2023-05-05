@@ -2,11 +2,11 @@
 <odoo>
 
 <template id="report_saleorder_document" inherit_id="sale.report_saleorder_document">
+    <xpath expr="//div[@id='informations']" position="attributes">
+        <attribute name="class" remove="mb-4" separator=" "/>
+    </xpath>
+
     <xpath expr="//div[@id='informations']" position="inside">
-        <div t-if="doc.object_id" class="col-auto col-3 mw-100 mb-2" name="object_id">
-            <strong>Object:</strong>
-            <p class="m-0" t-field="doc.object_id"/>
-        </div>
         <div t-if="doc.execution_start_date" class="col-auto col-3 mw-100 mb-2" name="execution_start_date">
             <strong>Execution Start Date:</strong>
             <p class="m-0" t-field="doc.execution_start_date" t-options="{'widget': 'date'}"/>
@@ -14,6 +14,16 @@
         <div t-if="doc.execution_end_date" class="col-auto col-3 mw-100 mb-2" name="execution_start_date">
             <strong>Execution End Date:</strong>
             <p class="m-0" t-field="doc.execution_end_date" t-options="{'widget': 'date'}"/>
+        </div>
+    </xpath>
+
+    <xpath expr="//div[@id='informations']" position="after">
+        <div class="row mb-4" id="object_details">
+            <div t-if="doc.object_id" class="col-auto col-12 mw-100 mb-2" name="object_id">
+                <strong>Object:</strong>
+                <t t-set="object_address" t-value="[doc.object_id.name, doc.object_id.zip,  doc.object_id.state_id.name, doc.object_id.city, doc.object_id.street, doc.object_id.country_id.name,]"/>
+                <p class="m-0" t-esc="', '.join(value for value in object_address if value)"/>
+            </div>
         </div>
     </xpath>
 </template>
