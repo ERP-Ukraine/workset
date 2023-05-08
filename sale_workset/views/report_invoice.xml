@@ -37,7 +37,7 @@
     </xpath>
 
     <xpath expr="//th[@name='th_price_unit']" position="attributes">
-        <attribute name="t-if">not o.hide_qty_price</attribute>
+        <attribute name="t-if">display_discount and not o.hide_qty_price</attribute>
     </xpath>
 
     <!-- hide quantity and price fields (td) -->
