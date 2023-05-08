@@ -6,7 +6,7 @@
     'support': 'support@erp.co.ua',
     'license': 'LGPL-3',
     'category': 'Other',
-    'version': '1.0',
+    'version': '1.1',
     'depends': ['sale'],
     'data': [
         'report/ir_actions_report_templates.xml',
