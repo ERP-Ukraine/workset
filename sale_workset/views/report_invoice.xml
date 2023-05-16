@@ -7,13 +7,13 @@
     </xpath>
 
     <xpath expr="//div[@id='informations']" position="inside">
-        <div t-if="o.execution_start_date" class="col-auto col-3 mw-100 mb-2" name="execution_start_date">
-            <strong>Execution Start Date:</strong>
-            <p class="m-0" t-field="o.execution_start_date" t-options="{'widget': 'date'}"/>
-        </div>
-        <div t-if="o.execution_end_date" class="col-auto col-3 mw-100 mb-2" name="execution_start_date">
-            <strong>Execution End Date:</strong>
-            <p class="m-0" t-field="o.execution_end_date" t-options="{'widget': 'date'}"/>
+        <div t-if="o.execution_start_date or o.execution_end_date" class="col-auto col-3 mw-100 mb-2" name="execution_dates">
+            <strong>Execution Period:</strong>
+            <p class="m-0">
+                <span t-field="o.execution_start_date" t-options="{'widget': 'date'}"/>
+                -
+                <span t-field="o.execution_end_date" t-options="{'widget': 'date'}"/>
+            </p>
         </div>
     </xpath>
 

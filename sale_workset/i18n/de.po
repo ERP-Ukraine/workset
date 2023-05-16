@@ -25,19 +25,19 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:sale_workset.report_invoice_document
 #: model_terms:ir.ui.view,arch_db:sale_workset.report_saleorder_document
 msgid "<strong>Execution Period:</strong>"
-msgstr "<strong>Термін виконання:</strong>"
+msgstr "<strong>Leistungszeitraum:</strong>"
 
 #. module: sale_workset
 #: model_terms:ir.ui.view,arch_db:sale_workset.report_invoice_document
 #: model_terms:ir.ui.view,arch_db:sale_workset.report_saleorder_document
 msgid "<strong>Object:</strong>"
-msgstr "<strong>Обʼєкт:</strong>"
+msgstr "<strong>Bauvorhaben:</strong>"
 
 #. module: sale_workset
 #: model_terms:ir.ui.view,arch_db:sale_workset.view_move_form
 #: model_terms:ir.ui.view,arch_db:sale_workset.view_order_form
 msgid "End Date"
-msgstr "Дата кінця"
+msgstr "Enddatum"
 
 #. module: sale_workset
 #: model:ir.model.fields,field_description:sale_workset.field_account_bank_statement_line__execution_end_date
@@ -45,13 +45,13 @@ msgstr "Дата кінця"
 #: model:ir.model.fields,field_description:sale_workset.field_account_payment__execution_end_date
 #: model:ir.model.fields,field_description:sale_workset.field_sale_order__execution_end_date
 msgid "Execution End Date"
-msgstr "Термін виконання до"
+msgstr "Ausführungsenddatum"
 
 #. module: sale_workset
 #: model_terms:ir.ui.view,arch_db:sale_workset.view_move_form
 #: model_terms:ir.ui.view,arch_db:sale_workset.view_order_form
 msgid "Execution Period"
-msgstr "Термін виконання"
+msgstr "Leistungszeitraum"
 
 #. module: sale_workset
 #: model:ir.model.fields,field_description:sale_workset.field_account_bank_statement_line__execution_start_date
@@ -59,19 +59,19 @@ msgstr "Термін виконання"
 #: model:ir.model.fields,field_description:sale_workset.field_account_payment__execution_start_date
 #: model:ir.model.fields,field_description:sale_workset.field_sale_order__execution_start_date
 msgid "Execution Start Date"
-msgstr "Термін виконання з"
+msgstr "Ausführungsstartdatum"
 
 #. module: sale_workset
 #: model:ir.model.fields,field_description:sale_workset.field_account_bank_statement_line__hide_qty_price
 #: model:ir.model.fields,field_description:sale_workset.field_account_move__hide_qty_price
 #: model:ir.model.fields,field_description:sale_workset.field_account_payment__hide_qty_price
 msgid "Hide Qty Price"
-msgstr "Приховати кількість і ціну"
+msgstr ""
 
 #. module: sale_workset
 #: model:ir.model,name:sale_workset.model_account_move
 msgid "Journal Entry"
-msgstr "Запис у журналі"
+msgstr "Buchungssatz"
 
 #. module: sale_workset
 #: model:ir.model.fields,field_description:sale_workset.field_account_bank_statement_line__object_id
@@ -79,18 +79,18 @@ msgstr "Запис у журналі"
 #: model:ir.model.fields,field_description:sale_workset.field_account_payment__object_id
 #: model:ir.model.fields,field_description:sale_workset.field_sale_order__object_id
 msgid "Object"
-msgstr "Обʼєкт"
+msgstr "Bauvorhaben"
 
 #. module: sale_workset
 #: model:ir.model,name:sale_workset.model_sale_order
 msgid "Sales Order"
-msgstr "Замовлення на продаж"
+msgstr "Verkaufsauftrag"
 
 #. module: sale_workset
 #: model_terms:ir.ui.view,arch_db:sale_workset.view_move_form
 #: model_terms:ir.ui.view,arch_db:sale_workset.view_order_form
 msgid "Start Date"
-msgstr "Дата початку"
+msgstr "Startdatum"
 
 #. module: sale_workset
 #: model_terms:ir.ui.view,arch_db:sale_workset.view_move_form

@@ -14,8 +14,14 @@
                         <field name="hide_qty_price"/>
                     </group>
                     <group>
-                        <field name="execution_start_date"/>
-                        <field name="execution_end_date"/>
+                        <label for="execution_start_date" string="Execution Period"/>
+                        <div class="d-flex">
+                            <field name="execution_start_date" placeholder="Start Date"/>
+                            <span class="o_form_label mx-3 oe_edit_only"> – </span>
+                            <field name="execution_end_date" placeholder="End Date"/>
+                        </div>
+                        <!-- <field name="execution_start_date"/> -->
+                        <!-- <field name="execution_end_date"/> -->
                     </group>
                 </group>
             </page>
