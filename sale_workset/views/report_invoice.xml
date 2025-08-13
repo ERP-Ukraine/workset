@@ -27,7 +27,7 @@
         </div>
     </xpath>
 
-    <!-- hide quantity and price fields (th) -->
+    <!-- hide quantity and price fields (th) 
     <xpath expr="//th[@name='th_quantity']" position="attributes">
         <attribute name="t-if">not o.hide_qty_price</attribute>
     </xpath>
@@ -38,6 +38,19 @@
 
     <xpath expr="//th[@name='th_price_unit']" position="attributes">
         <attribute name="t-if">display_discount and not o.hide_qty_price</attribute>
+    </xpath>  -->
+
+    <!-- hide quantity and price fields (th)-->
+    <xpath expr="//th[@name='th_quantity']" position="attributes">
+    <attribute name="t-if">not o.hide_qty_price</attribute>
+    </xpath>
+
+    <xpath expr="//th[@name='th_priceunit' or @name='th_price_unit']" position="attributes">
+    <attribute name="t-if">not o.hide_qty_price</attribute>
+    </xpath>
+
+    <xpath expr="//th[@name='th_discount']" position="attributes">
+    <attribute name="t-if">display_discount and not o.hide_qty_price</attribute>
     </xpath>
 
     <!-- hide quantity and price fields (td) -->
