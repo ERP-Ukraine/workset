@@ -6,7 +6,7 @@
     'license': 'LGPL-3',
     'category': 'Other',
     'version': '1.0',
-    'depends': ['hr_work_entry_contract_planning'],
+    'depends': ['hr_work_entry'],
     'data': [
     ],
     'auto_install': False,
