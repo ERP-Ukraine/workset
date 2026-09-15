@@ -1,13 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
+<!-- Odoo 19.0: об’єкт і період виконання в шапці рахунку; за прапорцем hide_qty_price ховаємо кількість і ціну.
+     Якорі перевірені за addons/account/views/report_invoice.xml гілки 19.0 (th_quantity, th_priceunit, th_discount,
+     td_quantity, td_price_unit, td_discount, div#informations). -->
 <template id="report_invoice_document" inherit_id="account.report_invoice_document">
     <xpath expr="//div[@id='informations']" position="attributes">
         <attribute name="class" remove="mb-4" separator=" "/>
     </xpath>
 
     <xpath expr="//div[@id='informations']" position="inside">
-        <div t-if="o.execution_start_date or o.execution_end_date" class="col-auto col-3 mw-100 mb-2" name="execution_dates">
+        <div t-if="o.execution_start_date or o.execution_end_date" class="col" name="execution_dates">
             <strong>Execution Period:</strong>
             <p class="m-0">
                 <span t-field="o.execution_start_date" t-options="{'widget': 'date'}"/>
@@ -19,50 +22,33 @@
 
     <xpath expr="//div[@id='informations']" position="after">
         <div class="row mb-4" id="object_details">
-            <div t-if="o.object_id" class="col-auto col-12 mw-100 mb-2" name="object_id">
+            <div t-if="o.object_id" class="col-12 mb-2" name="object_id">
                 <strong>Object:</strong>
-                <t t-set="object_address" t-value="[o.object_id.name, o.object_id.zip,  o.object_id.state_id.name, o.object_id.city, o.object_id.street, o.object_id.country_id.name,]"/>
-                <p class="m-0" t-esc="', '.join(value for value in object_address if value)"/>
+                <t t-set="object_address" t-value="[o.object_id.name, o.object_id.zip, o.object_id.state_id.name, o.object_id.city, o.object_id.street, o.object_id.country_id.name]"/>
+                <p class="m-0" t-out="', '.join(value for value in object_address if value)"/>
             </div>
         </div>
     </xpath>
 
-    <!-- hide quantity and price fields (th) 
+    <!-- заголовки колонок кількості, ціни та знижки -->
     <xpath expr="//th[@name='th_quantity']" position="attributes">
         <attribute name="t-if">not o.hide_qty_price</attribute>
     </xpath>
-
     <xpath expr="//th[@name='th_priceunit']" position="attributes">
         <attribute name="t-if">not o.hide_qty_price</attribute>
     </xpath>
-
-    <xpath expr="//th[@name='th_price_unit']" position="attributes">
-        <attribute name="t-if">display_discount and not o.hide_qty_price</attribute>
-    </xpath>  -->
-
-    <!-- hide quantity and price fields (th)-->
-    <xpath expr="//th[@name='th_quantity']" position="attributes">
-    <attribute name="t-if">not o.hide_qty_price</attribute>
-    </xpath>
-
-    <xpath expr="//th[@name='th_priceunit' or @name='th_price_unit']" position="attributes">
-    <attribute name="t-if">not o.hide_qty_price</attribute>
-    </xpath>
-
     <xpath expr="//th[@name='th_discount']" position="attributes">
-    <attribute name="t-if">display_discount and not o.hide_qty_price</attribute>
+        <attribute name="t-if">display_discount and not o.hide_qty_price</attribute>
     </xpath>
 
-    <!-- hide quantity and price fields (td) -->
-    <xpath expr="//span[@t-field='line.product_uom_id']/parent::td" position="attributes">
+    <!-- комірки рядків -->
+    <xpath expr="//td[@name='td_quantity']" position="attributes">
         <attribute name="t-if">not o.hide_qty_price</attribute>
     </xpath>
-
-    <xpath expr="//span[@t-field='line.price_unit']/parent::td" position="attributes">
+    <xpath expr="//td[@name='td_price_unit']" position="attributes">
         <attribute name="t-if">not o.hide_qty_price</attribute>
     </xpath>
-
-    <xpath expr="//td[@t-if='display_discount']" position="attributes">
+    <xpath expr="//td[@name='td_discount']" position="attributes">
         <attribute name="t-if">display_discount and not o.hide_qty_price</attribute>
     </xpath>
 </template>
