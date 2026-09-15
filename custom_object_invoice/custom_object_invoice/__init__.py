@@ -1,1 +1,0 @@
-# empty stub so the DB can start and we can uninstall the module
