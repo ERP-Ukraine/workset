@@ -5,8 +5,8 @@
     'support': 'support@erp.co.ua',
     'license': 'LGPL-3',
     'category': 'Other',
-    'version': '1.0',
-    'depends': ['hr_work_entry_contract_planning'],
+    'version': '19.0.1.0',
+    'depends': ['hr_work_entry'],
     'data': [
     ],
     'auto_install': False,
