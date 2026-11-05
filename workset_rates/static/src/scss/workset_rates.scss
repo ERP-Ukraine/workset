@@ -1,0 +1,15 @@
+// Полоса підсумків «Ставок»: штатні кольори теми (світла й темна), без власних заливок; на телефоні — дрібніше й щільніше.
+// Лише змінні й міксини Bootstrap (є в web.assets_backend): невідома змінна зламала б увесь бандл бекенду
+.o_workset_rates_summary .o_workset_rates_summary_item {
+    white-space: nowrap;
+}
+
+@include media-breakpoint-down(md) {
+    .o_workset_rates_summary {
+        column-gap: map-get($spacers, 2) !important;
+        row-gap: map-get($spacers, 1) !important;
+        padding-top: map-get($spacers, 1) !important;
+        padding-bottom: map-get($spacers, 1) !important;
+        font-size: $font-size-sm;
+    }
+}
