@@ -1,0 +1,21 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_workset_line_editor,workset.line editor,model_workset_line,workset_rates.group_editor,1,1,1,0
+access_workset_line_hr,workset.line hr,model_workset_line,hr.group_hr_user,1,0,0,0
+access_workset_line_account,workset.line account,model_workset_line,account.group_account_user,1,0,0,0
+access_workset_line_project,workset.line project,model_workset_line,project.group_project_manager,1,0,0,0
+access_workset_line_system,workset.line system,model_workset_line,base.group_system,1,1,1,1
+access_workset_rate_editor,workset.rate editor,model_workset_rate,workset_rates.group_editor,1,1,1,0
+access_workset_rate_hr,workset.rate hr,model_workset_rate,hr.group_hr_user,1,0,0,0
+access_workset_rate_account,workset.rate account,model_workset_rate,account.group_account_user,1,0,0,0
+access_workset_rate_project,workset.rate project,model_workset_rate,project.group_project_manager,1,0,0,0
+access_workset_rate_system,workset.rate system,model_workset_rate,base.group_system,1,1,1,1
+access_workset_rate_check_editor,workset.rate.check editor,model_workset_rate_check,workset_rates.group_editor,1,1,0,0
+access_workset_rate_check_hr,workset.rate.check hr,model_workset_rate_check,hr.group_hr_user,1,0,0,0
+access_workset_rate_check_account,workset.rate.check account,model_workset_rate_check,account.group_account_user,1,0,0,0
+access_workset_rate_check_project,workset.rate.check project,model_workset_rate_check,project.group_project_manager,1,0,0,0
+access_workset_rate_check_system,workset.rate.check system,model_workset_rate_check,base.group_system,1,1,1,1
+access_workset_rate_avg_editor,workset.rate.avg editor,model_workset_rate_avg,workset_rates.group_editor,1,0,0,0
+access_workset_rate_avg_hr,workset.rate.avg hr,model_workset_rate_avg,hr.group_hr_user,1,0,0,0
+access_workset_rate_avg_account,workset.rate.avg account,model_workset_rate_avg,account.group_account_user,1,0,0,0
+access_workset_rate_avg_project,workset.rate.avg project,model_workset_rate_avg,project.group_project_manager,1,0,0,0
+access_workset_rate_avg_system,workset.rate.avg system,model_workset_rate_avg,base.group_system,1,0,0,0

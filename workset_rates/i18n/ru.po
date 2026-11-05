@@ -1,0 +1,1115 @@
+# Russian translation of the Odoo module workset_rates.
+# Згенеровано tools/odoo_addon_po.py — не правити вручну.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Language: ru\n"
+"Plural-Forms: \n"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_res_partner__workset_rate_count
+#: model:ir.model.fields,field_description:workset_rates.field_hr_employee__workset_rate_count
+#: model:ir.model.fields,field_description:workset_rates.field_workset_line__rate_count
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_partner_form_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_employee_form_rates
+msgid "Діючих ставок"
+msgstr "Действующих ставок"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_project_project__workset_rate_count
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_project_form_rates
+msgid "Ставок замовника"
+msgstr "Ставок заказчика"
+
+#. module: workset_rates
+#: model:ir.model,name:workset_rates.model_workset_line
+#: model:ir.model.fields,field_description:workset_rates.field_workset_line__name
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__line_id
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__found_by__line
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__agent_source__line
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate_avg__dim__line
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__line_id
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+msgid "Лінія"
+msgstr "Линия"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_line__plan_ids
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+msgid "Вузли аналітики"
+msgstr "Узлы аналитики"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_line__plan_ids
+msgid "Вузли дерева аналітики, під якими лежать замовники лінії"
+msgstr "Узлы дерева аналитики, под которыми лежат заказчики линии"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_line__agent_id
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__line_agent_id
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+msgid "Агент лінії"
+msgstr "Агент линии"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_line__agent_id
+msgid "Довідково. Частку посередника в ставці рахують домовленості з посередниками (модуль посередників)."
+msgstr "Справочно. Долю посредника в ставке считают договорённости с посредниками (модуль посредников)."
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_line__share_line_found
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+msgid "Знайшла лінія"
+msgstr "Нашла линия"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_line__share_line_found
+msgid "Частка WorkSET, €/год, якщо людину знайшла лінія. 0 — правила немає: ціну вводять вручну"
+msgstr "Доля WorkSET, €/час, если человека нашла линия. 0 — правила нет: цену вводят вручную"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_line__share_we_found
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+msgid "Знайшли ми"
+msgstr "Нашли мы"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_line__share_we_found
+msgid "Частка WorkSET, €/год, якщо людину знайшли ми. 0 — правила немає: ціну вводять вручну"
+msgstr "Доля WorkSET, €/час, если человека нашли мы. 0 — правила нет: цену вводят вручную"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_line__agent_share
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+msgid "Частка агента"
+msgstr "Доля агента"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_line__agent_share
+msgid "Довідково, €/год. Частку посередника в ставці рахують домовленості з посередниками."
+msgstr "Справочно, €/час. Долю посредника в ставке считают договорённости с посредниками."
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_line__customer_ids
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+msgid "Замовники"
+msgstr "Заказчики"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_line__customer_ids
+msgid "За ними ставка сама знаходить лінію"
+msgstr "По ним ставка сама находит линию"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_line__min_share
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+msgid "Мінімум частки"
+msgstr "Минимум доли"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_line__min_share
+msgid "Нижче цієї частки WorkSET (€/год) ставка підсвічується червоним. Порожньо — правило лінії, а де його немає — мінімум за замовчуванням."
+msgstr "Ниже этой доли WorkSET (€/час) ставка подсвечивается красным. Пусто — правило линии, а где его нет — минимум по умолчанию."
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_line__good_share
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+msgid "Добра частка"
+msgstr "Хорошая доля"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_line__good_share
+msgid "Від цієї частки WorkSET (€/год) частка підсвічується зеленим. Порожньо — значення за замовчуванням."
+msgstr "От этой доли WorkSET (€/час) доля подсвечивается зелёным. Пусто — значение по умолчанию."
+
+#. module: workset_rates
+#. odoo-javascript
+#: model:ir.model.fields,field_description:workset_rates.field_workset_line__work_count
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__work_group__g1_work
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__work_count
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_avg_list
+#: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
+msgid "Працюють"
+msgstr "Работают"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_line__work_count
+msgid "Скільки людей лінії працює зараз (за табелями)"
+msgstr "Сколько людей линии работает сейчас (по табелям)"
+
+#. module: workset_rates
+#. odoo-javascript
+#: model:ir.model.fields,field_description:workset_rates.field_workset_line__avg_wage
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+#: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
+msgid "Сер. на руки"
+msgstr "Сред. на руки"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_line__avg_wage
+msgid "Середнє «На руки», €/год, по тих, хто працює зараз"
+msgstr "Среднее «На руки», €/час, по тем, кто работает сейчас"
+
+#. module: workset_rates
+#. odoo-javascript
+#: model:ir.model.fields,field_description:workset_rates.field_workset_line__avg_price
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+#: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
+msgid "Сер. ціна"
+msgstr "Сред. цена"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_line__avg_price
+msgid "Середня «Ціна», €/год, по тих, хто працює зараз"
+msgstr "Средняя «Цена», €/час, по тем, кто работает сейчас"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_line__avg_share
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+msgid "Сер. частка"
+msgstr "Сред. доля"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_line__avg_share
+msgid "Середня «Частка WorkSET», €/год, по тих, хто працює зараз; частка ≤ 0 не входить"
+msgstr "Средняя «Доля WorkSET», €/час, по тем, кто работает сейчас; доля ≤ 0 не входит"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__name
+msgid "Назва"
+msgstr "Название"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__person_id
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_map_search
+msgid "Працівник"
+msgstr "Работник"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate__person_id
+msgid "Робочий контакт картки працівника — один на всі фірми"
+msgstr "Рабочий контакт карточки работника — один на все фирмы"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__customer_id
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate_avg__dim__customer
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__customer_id
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_map_list
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_map_form
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_map_search
+msgid "Замовник"
+msgstr "Заказчик"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate__line_id
+msgid "Підставляється сама за замовником (список «Замовники» лінії); можна змінити"
+msgstr "Подставляется сама по заказчику (список «Заказчики» линии); можно изменить"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__found_by
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+msgid "Хто знайшов"
+msgstr "Кто нашёл"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate__found_by
+msgid "Лінія — людину знайшла лінія; Ми — знайшли ми. Від цього залежить частка WorkSET за правилом лінії."
+msgstr "Линия — человека нашла линия; Мы — нашли мы. От этого зависит доля WorkSET по правилу линии."
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__found_by__us
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
+msgid "Ми"
+msgstr "Мы"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__agent_share
+msgid "Частка посередника"
+msgstr "Доля посредника"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate__agent_share
+msgid "Підставляється сама: сума «€/год» діючих погодинних домовленостей з посередниками цього замовника або лінії; домовленості немає — частка агента лінії; можна змінити."
+msgstr "Подставляется сама: сумма «€/час» действующих почасовых договорённостей с посредниками этого заказчика или линии; договорённости нет — доля агента линии; можно изменить."
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__agent_source
+msgid "Частка посередника з"
+msgstr "Доля посредника из"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__agent_source__deal
+msgid "Домовленість"
+msgstr "Договорённость"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__agent_source__manual
+msgid "Вручну"
+msgstr "Вручную"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__agent_source__none
+msgid "Немає"
+msgstr "Нет"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__agent_note
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Посередники"
+msgstr "Посредники"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__price
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Ціна"
+msgstr "Цена"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate__price
+msgid "Що платить замовник або лінія за годину. Підставляється сама: на руки + частка WorkSET за правилом лінії + частка посередника; можна змінити."
+msgstr "Что платит заказчик или линия за час. Подставляется сама: на руки + доля WorkSET по правилу линии + доля посредника; можно изменить."
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__our_share
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Частка WorkSET"
+msgstr "Доля WorkSET"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate__our_share
+msgid "Ціна − на руки − частка посередника"
+msgstr "Цена − на руки − доля посредника"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__rule_share
+msgid "За правилом лінії"
+msgstr "По правилу линии"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__rule_ok
+msgid "За правилом"
+msgstr "По правилу"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__rule_text
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Правило лінії"
+msgstr "Правило линии"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__date_from
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Ставка з"
+msgstr "Ставка с"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate__date_from
+msgid "Перший день, з якого діє ця ставка (на руки, ціна) — в усіх проєктах замовника в усіх фірмах. Попередня ставка цієї пари закінчується напередодні. «Вартість години» в проєктах змінюється при збереженні (майбутня ставка — уночі в день «Ставка з»); уже внесені табелі не перераховуються."
+msgstr "Первый день, с которого действует эта ставка (на руки, цена) — во всех проектах заказчика во всех фирмах. Предыдущая ставка этой пары заканчивается накануне. «Стоимость часа» в проектах меняется при сохранении (будущая ставка — ночью в день «Ставка с»); уже внесённые табели не пересчитываются."
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate__date_to
+msgid "Останній день ставки: рахується сама як день перед «Ставка з» наступної ставки цієї пари. Порожньо — наступної ставки ще немає, ця діє досі."
+msgstr "Последний день ставки: считается сама как день перед «Ставка с» следующей ставки этой пары. Пусто — следующей ставки ещё нет, эта действует до сих пор."
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate__state
+msgid "Рахується за датами «Ставка з» і «Ставка до»: Діє — ставка в силі сьогодні; Майбутня — ще не почалась; Минула — її замінила новіша (історія ставок пари). Це не про те, чи людина зараз працює, — див. «Робота»."
+msgstr "Считается по датам «Ставка с» и «Ставка до»: Действует — ставка в силе сегодня; Будущая — ещё не началась; Прошлая — её заменила более новая (история ставок пары). Это не про то, работает ли человек сейчас, — см. «Работа»."
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__state__future
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Майбутня"
+msgstr "Будущая"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__state__current
+msgid "Діє"
+msgstr "Действует"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__state__past
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Минула"
+msgstr "Прошлая"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__last_hours
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Останні години"
+msgstr "Последние часы"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate__last_hours
+msgid "Дата останніх годин людини в табелях у цього замовника (усі картки людини, усі проєкти замовника в усіх фірмах). Порожньо — годин не було."
+msgstr "Дата последних часов человека в табелях у этого заказчика (все карточки человека, все проекты заказчика во всех фирмах). Пусто — часов не было."
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__work
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+msgid "Робота"
+msgstr "Работа"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate__work
+msgid "Працює — останні години в табелях у цього замовника не старші за вікно в днях; Не працює — старші; Годин не було — у цього замовника годин ще не було; Новий — ставка діє недавно, годин ще немає. Рахується для ставки зі статусом «Діє» щоночі й при зміні ставки."
+msgstr "Работает — последние часы в табелях у этого заказчика не старше окна в днях; Не работает — старше; Часов не было — у этого заказчика часов ещё не было; Новый — ставка действует недавно, часов ещё нет. Считается для ставки со статусом «Действует» каждую ночь и при изменении ставки."
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__work__work
+msgid "Працює"
+msgstr "Работает"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__work__work_new
+msgid "Новий"
+msgstr "Новый"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__work__z_idle
+msgid "Не працює"
+msgstr "Не работает"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__work__z_none
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__work_group__g3_none
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+msgid "Годин не було"
+msgstr "Часов не было"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__work_group
+msgid "Робота зараз"
+msgstr "Работа сейчас"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate__work_group
+msgid "Працюють — «Працює» і «Новий» разом; Не працюють; Годин не було. Для розділу «Робота» в панелі."
+msgstr "Работают — «Работает» и «Новый» вместе; Не работают; Часов не было. Для раздела «Работа» в панели."
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__work_group__g2_idle
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+msgid "Не працюють"
+msgstr "Не работают"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__company_ids
+msgid "Фірми"
+msgstr "Фирмы"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate__company_ids
+msgid "Фірми, у проєктах яких цей працівник стоїть у цього замовника (за картою проєктів)."
+msgstr "Фирмы, в проектах которых этот работник стоит у этого заказчика (по карте проектов)."
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__project_ids
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Проєкти"
+msgstr "Проекты"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate__project_ids
+msgid "Проєкти (об'єкти) цього замовника, де працівник стоїть у карті проєктів."
+msgstr "Проекты (объекты) этого заказчика, где работник стоит в карте проектов."
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__firms_text
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "У фірмах"
+msgstr "В фирмах"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__projects_text
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "На об'єктах"
+msgstr "На объектах"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__source
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Джерело"
+msgstr "Источник"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__source__whatsapp
+msgid "WhatsApp лінії"
+msgstr "WhatsApp линии"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__source__email
+msgid "Лист"
+msgstr "Письмо"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__source__contract
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Договір"
+msgstr "Договор"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__source__call
+msgid "Розмова"
+msgstr "Разговор"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__source__migration
+msgid "Перенесено з проєкту"
+msgstr "Перенесено из проекта"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__source__other
+msgid "Інше"
+msgstr "Другое"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__source_note
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Звідки саме"
+msgstr "Откуда именно"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__note
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Нотатка"
+msgstr "Заметка"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__contract_wage
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "У договорі"
+msgstr "В договоре"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__contract_company_id
+msgid "Фірма договору"
+msgstr "Фирма договора"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__contract_ok
+msgid "Договір збігається"
+msgstr "Договор совпадает"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__map_count
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Рядків у проєктах"
+msgstr "Строк в проектах"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__map_mismatch
+msgid "Розбіжностей у проєктах"
+msgstr "Расхождений в проектах"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__order_price_ok
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_map_list
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_map_form
+msgid "Ціна в замовленні"
+msgstr "Цена в заказе"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__to_check
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__issues
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_list
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+msgid "Перевірити"
+msgstr "Проверить"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__check_reason
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_check__body
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Що перевірити"
+msgstr "Что проверить"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__control_sig
+msgid "Відбиток контролю"
+msgstr "Отпечаток контроля"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__employee_ids
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__employee_summary
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Картки у фірмах"
+msgstr "Карточки в фирмах"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__pair_rate_ids
+msgid "Інші ставки пари"
+msgstr "Другие ставки пары"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__others_count
+msgid "Інших ставок"
+msgstr "Других ставок"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__others_note
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Інші ставки"
+msgstr "Другие ставки"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate__others_note
+msgid "Скільки ще діючих ставок цей працівник має в інших замовників. Список — у вкладці «Інші ставки» картки."
+msgstr "Сколько ещё действующих ставок этот работник имеет у других заказчиков. Список — во вкладке «Другие ставки» карточки."
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__person_rate_ids
+msgid "Ставки працівника"
+msgstr "Ставки работника"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__share_level
+msgid "Рівень частки"
+msgstr "Уровень доли"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate__share_level
+msgid "Низька — частка WorkSET ≤ 0 або нижче «Мінімуму частки» лінії; Добра — від «Доброї частки» лінії. Пороги — у картці лінії."
+msgstr "Низкая — доля WorkSET ≤ 0 или ниже «Минимума доли» линии; Хорошая — от «Хорошей доли» линии. Пороги — в карточке линии."
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__share_level__low
+msgid "Низька"
+msgstr "Низкая"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__share_level__mid
+msgid "Звичайна"
+msgstr "Обычная"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__share_level__good
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
+msgid "Добра"
+msgstr "Хорошая"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__subtitle
+msgid "Замовник · лінія"
+msgstr "Заказчик · линия"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__formula
+msgid "На руки + частка = ціна"
+msgstr "На руки + доля = цена"
+
+#. module: workset_rates
+#: model:ir.model,name:workset_rates.model_workset_rate_avg
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_avg_list
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_avg_search
+#: model:ir.actions.act_window,name:workset_rates.action_avg
+#: model:ir.ui.menu,name:workset_rates.menu_avg
+msgid "Середні"
+msgstr "Средние"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__name
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_avg_list
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_avg_search
+msgid "Розріз"
+msgstr "Срез"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__dim
+msgid "Розріз за"
+msgstr "Срез по"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate_avg__dim__company
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__company_id
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_map_search
+msgid "Фірма"
+msgstr "Фирма"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate_avg__dim__project
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__project_id
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_map_search
+msgid "Проєкт"
+msgstr "Проект"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__key
+msgid "Ключ розрізу"
+msgstr "Ключ среза"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate_avg__work_count
+msgid "Діючі ставки зі статусом роботи «Працює» або «Новий»"
+msgstr "Действующие ставки со статусом работы «Работает» или «Новый»"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__avg_wage
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_avg_list
+msgid "Середня на руки"
+msgstr "Средняя на руки"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate_avg__avg_wage
+msgid "Середнє «На руки», €/год, по тих, хто працює"
+msgstr "Среднее «На руки», €/час, по тем, кто работает"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__avg_price
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_avg_list
+msgid "Середня ціна"
+msgstr "Средняя цена"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate_avg__avg_price
+msgid "Середня «Ціна», €/год, по тих, хто працює"
+msgstr "Средняя «Цена», €/час, по тем, кто работает"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__avg_share
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_avg_list
+msgid "Середня частка WorkSET"
+msgstr "Средняя доля WorkSET"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate_avg__avg_share
+msgid "Середня «Частка WorkSET», €/год, по тих, хто працює; ставки з часткою ≤ 0 у середню не входять (їх число — у «Без частки»)"
+msgstr "Средняя «Доля WorkSET», €/час, по тем, кто работает; ставки с долей ≤ 0 в среднюю не входят (их число — в «Без доли»)"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__total
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_avg_list
+msgid "Усього ставок"
+msgstr "Всего ставок"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate_avg__total
+msgid "Усі діючі ставки розрізу, і працюючі, і ні"
+msgstr "Все действующие ставки среза, и работающие, и нет"
+
+#. module: workset_rates
+#. odoo-javascript
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__zero_share
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_avg_list
+#: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
+msgid "Без частки"
+msgstr "Без доли"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate_avg__zero_share
+msgid "Працюючі ставки з часткою WorkSET ≤ 0 — у середню частку не входять"
+msgstr "Работающие ставки с долей WorkSET ≤ 0 — в среднюю долю не входят"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__note
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_avg_list
+msgid "Станом на"
+msgstr "По состоянию на"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate_avg__note
+msgid "Опорна дата «Працює» і вікно в днях"
+msgstr "Опорная дата «Работает» и окно в днях"
+
+#. module: workset_rates
+#: model:ir.model,name:workset_rates.model_workset_rate_check
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_check_form
+msgid "Звірка ставок"
+msgstr "Сверка ставок"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_check__name
+#: model:ir.ui.menu,name:workset_rates.menu_check
+msgid "Звірка"
+msgstr "Сверка"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_check__issue_count
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_check_form
+msgid "Розбіжностей"
+msgstr "Расхождений"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_check__done
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_check_form
+msgid "Розібрано"
+msgstr "Разобрано"
+
+#. module: workset_rates
+#: model:res.groups,comment:workset_rates.group_editor
+msgid "Створює й править ставки та лінії; бачить кнопки «Нова ставка з дати» і «Застосувати зараз»"
+msgstr "Создаёт и правит ставки и линии; видит кнопки «Новая ставка с даты» и «Применить сейчас»"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_list
+msgid "Середнє"
+msgstr "Среднее"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Нова ставка з дати"
+msgstr "Новая ставка с даты"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Застосувати зараз"
+msgstr "Применить сейчас"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_search
+msgid "В архіві"
+msgstr "В архиве"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Перевірити:"
+msgstr "Проверить:"
+
+#. module: workset_rates
+#. odoo-javascript
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+#: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
+msgid "€/год"
+msgstr "€/час"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Сторони"
+msgstr "Стороны"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Гроші"
+msgstr "Деньги"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Посередник"
+msgstr "Посредник"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Напр.: група WhatsApp лінії, дата й час повідомлення"
+msgstr "Напр.: группа WhatsApp линии, дата и время сообщения"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Зараз"
+msgstr "Сейчас"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Перевірка"
+msgstr "Проверка"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Що домовилися, хто підтвердив"
+msgstr "О чём договорились, кто подтвердил"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Заповнюється само для діючої ставки: договір у картках, рядки в проєктах, ціна в замовленнях."
+msgstr "Заполняется само для действующей ставки: договор в карточках, строки в проектах, цена в заказах."
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Діючі ставки цього працівника в інших замовників і чи працює він там зараз."
+msgstr "Действующие ставки этого работника у других заказчиков и работает ли он там сейчас."
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Історія пари"
+msgstr "История пары"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Інші ставки цієї пари «працівник × замовник» — від нової до старої."
+msgstr "Другие ставки этой пары «работник × заказчик» — от новой к старой."
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+#: model:ir.actions.act_window,name:workset_rates.action_rates_current
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+#: model:ir.ui.menu,name:workset_rates.menu_current
+msgid "Працюють зараз"
+msgstr "Работают сейчас"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+msgid "Діють"
+msgstr "Действуют"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+msgid "Майбутні"
+msgstr "Будущие"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+msgid "Минулі"
+msgstr "Прошлые"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+msgid "Частка нижче мінімуму"
+msgstr "Доля ниже минимума"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+msgid "Частка WorkSET ≤ 0 або нижче «Мінімуму частки» лінії"
+msgstr "Доля WorkSET ≤ 0 или ниже «Минимума доли» линии"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+msgid "Частка WorkSET не нижче «Доброї частки» лінії"
+msgstr "Доля WorkSET не ниже «Хорошей доли» линии"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+msgid "Не за правилом"
+msgstr "Не по правилу"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+msgid "≠ договір"
+msgstr "≠ договор"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+msgid "Змінені цього місяця"
+msgstr "Изменённые в этом месяце"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+msgid "«Ставка з» у цьому місяці: нові ставки й зміни"
+msgstr "«Ставка с» в этом месяце: новые ставки и изменения"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_graph
+msgid "Частка WorkSET по лініях"
+msgstr "Доля WorkSET по линиям"
+
+#. module: workset_rates
+#: model_terms:ir.actions.act_window,help:workset_rates.action_rates_current
+#: model_terms:ir.actions.act_window,help:workset_rates.action_rates_all
+#: model_terms:ir.actions.act_window,help:workset_rates.action_rates_analytics
+msgid "Ставок ще немає"
+msgstr "Ставок пока нет"
+
+#. module: workset_rates
+#: model_terms:ir.actions.act_window,help:workset_rates.action_rates_current
+#: model_terms:ir.actions.act_window,help:workset_rates.action_rates_all
+#: model_terms:ir.actions.act_window,help:workset_rates.action_rates_analytics
+msgid "Натисніть «Новий»: оберіть працівника й замовника, ціна підставиться за правилом лінії."
+msgstr "Нажмите «Новый»: выберите работника и заказчика, цена подставится по правилу линии."
+
+#. module: workset_rates
+#: model:ir.actions.act_window,name:workset_rates.action_rates_all
+#: model:ir.ui.menu,name:workset_rates.menu_all
+msgid "Усі ставки"
+msgstr "Все ставки"
+
+#. module: workset_rates
+#: model:ir.actions.act_window,name:workset_rates.action_rates_review
+#: model:ir.ui.menu,name:workset_rates.menu_review
+msgid "Ставки з розбіжностями"
+msgstr "Ставки с расхождениями"
+
+#. module: workset_rates
+#: model_terms:ir.actions.act_window,help:workset_rates.action_rates_review
+msgid "Розбіжностей немає"
+msgstr "Расхождений нет"
+
+#. module: workset_rates
+#: model_terms:ir.actions.act_window,help:workset_rates.action_rates_review
+msgid "Діючі ставки збігаються з договорами, проєктами, замовленнями й правилами ліній."
+msgstr "Действующие ставки совпадают с договорами, проектами, заказами и правилами линий."
+
+#. module: workset_rates
+#: model:ir.actions.act_window,name:workset_rates.action_rates_analytics
+#: model:ir.ui.menu,name:workset_rates.menu_analytics
+msgid "Аналітика ставок"
+msgstr "Аналитика ставок"
+
+#. module: workset_rates
+#: model:ir.actions.server,name:workset_rates.action_server_nomap
+#: model:ir.ui.menu,name:workset_rates.menu_nomap
+msgid "Проєкти без ставки"
+msgstr "Проекты без ставки"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_search
+#: model:ir.actions.act_window,name:workset_rates.action_lines
+#: model:ir.ui.menu,name:workset_rates.menu_lines
+msgid "Лінії"
+msgstr "Линии"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
+msgid "Знайшла"
+msgstr "Нашла"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
+msgid "Частка WorkSET, €/год, якщо людину знайшла лінія"
+msgstr "Доля WorkSET, €/час, если человека нашла линия"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
+msgid "Частка WorkSET, €/год, якщо людину знайшли ми"
+msgstr "Доля WorkSET, €/час, если человека нашли мы"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
+msgid "Діючі"
+msgstr "Действующие"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
+msgid "Мінімум"
+msgstr "Минимум"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+msgid "Назва лінії (код)"
+msgstr "Название линии (код)"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+msgid "правила немає"
+msgstr "правила нет"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+msgid "Хто"
+msgstr "Кто"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+msgid "Перевірки"
+msgstr "Проверки"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+msgid "Правило словами: на руки + частка WorkSET, якщо людину знайшла лінія; інша частка, якщо знайшли ми"
+msgstr "Правило словами: на руки + доля WorkSET, если человека нашла линия; другая доля, если нашли мы"
+
+#. module: workset_rates
+#: model_terms:ir.actions.act_window,help:workset_rates.action_lines
+msgid "Ліній ще немає"
+msgstr "Линий пока нет"
+
+#. module: workset_rates
+#: model_terms:ir.actions.act_window,help:workset_rates.action_lines
+msgid "Додайте лінію: назва, частка WorkSET за правилом і замовники."
+msgstr "Добавьте линию: название, доля WorkSET по правилу и заказчики."
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_check_list
+#: model:ir.actions.act_window,name:workset_rates.action_checks
+msgid "Звірки ставок"
+msgstr "Сверки ставок"
+
+#. module: workset_rates
+#: model_terms:ir.actions.act_window,help:workset_rates.action_checks
+msgid "Звірок ще не було"
+msgstr "Сверок ещё не было"
+
+#. module: workset_rates
+#: model_terms:ir.actions.act_window,help:workset_rates.action_checks
+msgid "Після переносу ставок звірка складається щопонеділка о 8:00: якщо є розбіжності, тут з’явиться запис і задача."
+msgstr "После переноса ставок сверка собирается каждый понедельник в 8:00: если есть расхождения, здесь появится запись и задача."
+
+#. module: workset_rates
+#: model_terms:ir.actions.act_window,help:workset_rates.action_avg
+msgid "Середніх ще немає"
+msgstr "Средних пока нет"
+
+#. module: workset_rates
+#: model_terms:ir.actions.act_window,help:workset_rates.action_avg
+msgid "Вони з’являться, коли будуть діючі ставки тих, хто працює."
+msgstr "Они появятся, когда будут действующие ставки тех, кто работает."
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_map_list
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_map_search
+msgid "Рядки в проєктах"
+msgstr "Строки в проектах"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_map_list
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_map_form
+msgid "Вартість години"
+msgstr "Стоимость часа"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_map_list
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_map_form
+msgid "Вартість змінено вручну"
+msgstr "Стоимость изменена вручную"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_map_form
+msgid "Рядок у проєкті"
+msgstr "Строка в проекте"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_map_form
+msgid "Вартість години ставить автоматика зі ставки працівника в замовника; змінити — нова ставка в додатку «Ставки»."
+msgstr "Стоимость часа ставит автоматика из ставки работника у заказчика; изменить — новая ставка в приложении «Ставки»."
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_map_search
+msgid "Працював за 60 днів"
+msgstr "Работал за 60 дней"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_map_search
+msgid "Без табелів 60 днів"
+msgstr "Без табелей 60 дней"
+
+#. module: workset_rates
+#: model:ir.ui.menu,name:workset_rates.menu_checks
+msgid "Звіти звірки"
+msgstr "Отчёты сверки"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
+msgid "з"
+msgstr "из"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
+msgid "Сер. частка WorkSET"
+msgstr "Сред. доля WorkSET"

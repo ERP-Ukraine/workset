@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <!-- Одна-дві строки: на телефоні пункти переносяться (flex-wrap), підписи дрібні, числа — напівжирні -->
+    <t t-name="workset_rates.RatesSummary">
+        <div class="o_workset_rates_summary d-flex flex-wrap align-items-baseline gap-3 px-3 py-2 border-bottom" t-if="state.data">
+            <div class="o_workset_rates_summary_item">
+                <span class="text-muted small">Працюють</span>
+                <span class="fw-semibold ms-1" t-esc="state.data.working"/>
+                <span class="text-muted small ms-1">з <t t-esc="state.data.total"/></span>
+            </div>
+            <div class="o_workset_rates_summary_item">
+                <span class="text-muted small">Сер. на руки</span>
+                <span class="fw-semibold ms-1" t-esc="money(state.data.avg_wage)"/>
+                <span class="text-muted small ms-1">€/год</span>
+            </div>
+            <div class="o_workset_rates_summary_item">
+                <span class="text-muted small">Сер. ціна</span>
+                <span class="fw-semibold ms-1" t-esc="money(state.data.avg_price)"/>
+                <span class="text-muted small ms-1">€/год</span>
+            </div>
+            <div class="o_workset_rates_summary_item">
+                <span class="text-muted small">Сер. частка WorkSET</span>
+                <span class="fw-semibold ms-1" t-esc="money(state.data.avg_share)"/>
+                <span class="text-muted small ms-1">€/год</span>
+            </div>
+            <div class="o_workset_rates_summary_item">
+                <span class="text-muted small">Без частки</span>
+                <span class="fw-semibold ms-1" t-att-class="state.data.zero_share ? 'text-danger' : ''" t-esc="state.data.zero_share"/>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="workset_rates.ListRenderer" t-inherit="web.ListRenderer" t-inherit-mode="primary">
+        <xpath expr="//div[hasclass('o_list_renderer')]" position="before">
+            <RatesSummary model="props.list.model"/>
+        </xpath>
+        <xpath expr="//div[hasclass('o_list_renderer')]" position="attributes">
+            <attribute name="class" add="h-auto" separator=" "/>
+        </xpath>
+    </t>
+
+    <t t-name="workset_rates.KanbanRenderer" t-inherit="web.KanbanRenderer" t-inherit-mode="primary">
+        <xpath expr="//div[hasclass('o_kanban_renderer')]" position="before">
+            <RatesSummary model="props.list.model"/>
+        </xpath>
+        <xpath expr="//div[hasclass('o_kanban_renderer')]" position="attributes">
+            <attribute name="class" add="h-auto" separator=" "/>
+        </xpath>
+    </t>
+</templates>

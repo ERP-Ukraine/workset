@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- noupdate: оновлення модуля не повертає розклад і «увімкнена» (А4 вмикає інструмент штабу після переносу ставок) -->
+    <data noupdate="1">
+        <!-- А3 «Ставки: щодня»: 22:15 UTC = 00:15 за Києвом узимку (01:15 улітку) — завжди після півночі -->
+        <record id="cron_daily" model="ir.cron">
+            <field name="name">Ставки: щодня</field>
+            <field name="model_id" ref="model_workset_rate"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_daily()</field>
+            <field name="user_id" ref="base.user_root"/>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="nextcall" eval="(DateTime.now() + relativedelta(days=1, hour=22, minute=15, second=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="active" eval="True"/>
+        </record>
+
+        <!-- А4 «Ставки: звірка»: щопонеділка 06:00 UTC = 08:00 за Києвом узимку; створюється вимкненою (до переносу ставок звірка — сотні «без ставки») -->
+        <record id="cron_check" model="ir.cron">
+            <field name="name">Ставки: звірка</field>
+            <field name="model_id" ref="model_workset_rate"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_check()</field>
+            <field name="user_id" ref="base.user_root"/>
+            <field name="interval_number">1</field>
+            <field name="interval_type">weeks</field>
+            <field name="nextcall" eval="(DateTime.now() + relativedelta(days=1, weekday=0, hour=6, minute=0, second=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="active" eval="False"/>
+        </record>
+    </data>
+</odoo>

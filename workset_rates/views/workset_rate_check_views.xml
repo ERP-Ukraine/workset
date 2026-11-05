@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_check_list" model="ir.ui.view">
+        <field name="name">workset.rate.check.list</field>
+        <field name="model">workset.rate.check</field>
+        <field name="arch" type="xml">
+            <list string="Звірки ставок" create="0" decoration-muted="done">
+                <field name="date" options="{'numeric': True}"/>
+                <field name="name"/>
+                <field name="issue_count"/>
+                <field name="activity_ids" widget="list_activity" optional="show"/>
+                <field name="done"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Звірка: назва, цифра «Розбіжностей» крупно, «Розібрано» — звичайна галочка, список — на всю ширину -->
+    <record id="view_check_form" model="ir.ui.view">
+        <field name="name">workset.rate.check.form</field>
+        <field name="model">workset.rate.check</field>
+        <field name="arch" type="xml">
+            <form string="Звірка ставок" create="0">
+                <sheet>
+                    <widget name="web_ribbon" title="Розібрано" bg_color="text-bg-secondary" invisible="not done"/>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <div class="row g-3 my-2" name="figures">
+                        <div class="col-6 col-lg-3">
+                            <div class="text-muted text-uppercase small">Розбіжностей</div>
+                            <div class="fs-1 fw-semibold lh-1"><field name="issue_count" nolabel="1" readonly="1" class="fs-1 fw-semibold o_input_5ch"/></div>
+                        </div>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="date" string="Дата" readonly="1" options="{'numeric': True}"/>
+                        </group>
+                        <group>
+                            <field name="done" string="Розібрано"/>
+                        </group>
+                    </group>
+                    <field name="body" readonly="1" nolabel="1"/>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_checks" model="ir.actions.act_window">
+        <field name="name">Звірки ставок</field>
+        <field name="res_model">workset.rate.check</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Звірок ще не було</p>
+            <p>Після переносу ставок звірка складається щопонеділка о 8:00: якщо є розбіжності, тут з’явиться запис і задача.</p>
+        </field>
+    </record>
+</odoo>
