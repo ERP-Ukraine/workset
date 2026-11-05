@@ -31,6 +31,7 @@ FOUND_BY = [('line', 'Лінія'), ('us', 'Ми')]
 STATES = [('future', 'Майбутня'), ('current', 'Діє'), ('past', 'Минула')]
 WORKS = [('work', 'Працює'), ('work_new', 'Новий'), ('z_idle', 'Не працює'), ('z_none', 'Годин не було')]
 WORK_GROUPS = [('g1_work', 'Працюють'), ('g2_idle', 'Не працюють'), ('g3_none', 'Годин не було')]
+AGENT_SOURCES = [('deal', 'Домовленість'), ('line', 'Лінія'), ('manual', 'Вручну'), ('none', 'Немає')]
 SHARE_LEVELS = [('low', 'Низька'), ('mid', 'Звичайна'), ('good', 'Добра')]
 SOURCES = [('whatsapp', 'WhatsApp лінії'), ('email', 'Лист'), ('contract', 'Договір'), ('call', 'Розмова'), ('migration', 'Перенесено з проєкту'), ('other', 'Інше')]
 
@@ -61,6 +62,8 @@ class WorksetRate(models.Model):
                                   compute='_compute_agent_share', store=True, readonly=False,
                                   help='Підставляється сама: сума «€/год» діючих погодинних домовленостей з посередниками цього замовника або лінії; '
                                        'домовленості немає — частка агента лінії; можна змінити.')
+    # звідки частка посередника: правка руками ставить «вручну» — ніч таку ставку не чіпає; зміна замовника, лінії чи дати — знову ланцюжок
+    agent_source = fields.Selection(AGENT_SOURCES, string='Частка посередника з', compute='_compute_agent_share', store=True, readonly=False)
     agent_note = fields.Char(string='Посередники', compute='_compute_agent_note')
     price = fields.Monetary(string='Ціна', currency_field='currency_id', tracking=7, aggregator='avg', compute='_compute_price', store=True, readonly=False,
                             help='Що платить замовник або лінія за годину. Підставляється сама: на руки + частка WorkSET за правилом лінії + частка посередника; можна змінити.')
@@ -186,30 +189,34 @@ class WorksetRate(models.Model):
         """Домовленості з посередниками (адаптер agent_deals.py); None — моделі посередників немає."""
         return agent_deals.read_deals(self.env)
 
-    def _agent_choice(self, deals, today=None, manual=None):
-        """Ланцюжок частки посередника однієї ставки (calc.agent_choice): дата пошуку — calc.agent_day за статусом."""
+    def _agent_choice(self, deals, today=None, keep_manual=True):
+        """Частка посередника однієї ставки з джерелом (calc.agent_choice): дата пошуку — calc.agent_day за статусом.
+        keep_manual False — ланцюжок заново (зміна замовника, лінії, дати скидає «вручну»)."""
         today = calc.iso(today or self._today())
         day = calc.agent_day(self.state, calc.iso(self.date_from), calc.iso(self.date_to), today)
         line = self.line_id
         return calc.agent_choice(deals, cust_of(self.customer_id), line.id, day, bool(line.agent_id), line.agent_share,
-                                 self.agent_share if manual is None else manual)
+                                 self.agent_source if keep_manual else '', self.agent_share)
 
     @api.depends('customer_id', 'line_id', 'date_from')
     def _compute_agent_share(self):
-        # домовленість → частка лінії з агентом → введене вручну (поле можна правити; ланцюжок спрацьовує при зміні замовника, лінії, дати)
+        # спрацьовує при створенні й зміні замовника, лінії, дати: ланцюжок домовленість → лінія → 0 заново, «вручну» скидається
         deals = self._deals()
         today = self._today()
         for r in self:
-            r.agent_share = r._agent_choice(deals, today)['value']
+            choice = r._agent_choice(deals, today, keep_manual=False)
+            r.agent_share = choice['value']
+            r.agent_source = choice['source']
 
-    @api.depends('agent_share', 'customer_id', 'line_id', 'date_from', 'state')
+    @api.depends('agent_source', 'agent_share', 'customer_id', 'line_id', 'date_from', 'state')
     @api.depends_context('lang')
     def _compute_agent_note(self):
         deals = self._deals()
         today = self._today()
         lang = self._lang()
         for r in self:
-            r.agent_note = calc.agent_note(r._agent_choice(deals, today), r.agent_share, lang)
+            ids = r._agent_choice(deals, today)['ids'] if r.agent_source == 'deal' else []
+            r.agent_note = calc.agent_note(r.agent_source or 'none', ids, deals is not None, lang)
 
     @api.depends('wage', 'found_by', 'line_id', 'agent_share')
     def _compute_price(self):
@@ -325,16 +332,31 @@ class WorksetRate(models.Model):
     # ——— А1: створення, правка полів-тригерів, видалення ———
     def _no_sync(self):
         # «без автоматики» (тести, службові правки) — лише суперкористувачу або адміністратору; іншим контекст ігнорується
-        return bool(self.env.context.get('workset_rates_no_sync')) and (self.env.su or self.env.user._is_admin())
+        return bool(self.env.context.get('workset_rates_no_sync')) and self._is_admin()
+
+    @staticmethod
+    def _mark_manual(vals):
+        # частку посередника задали руками (без зміни замовника, лінії, дати й без явного джерела) — джерело «вручну»
+        if 'agent_share' in vals and 'agent_source' not in vals and not ({'customer_id', 'line_id', 'date_from'} & set(vals)):
+            vals = dict(vals, agent_source='manual')
+        return vals
 
     @api.model_create_multi
     def create(self, vals_list):
         recs = super().create(vals_list)
+        # частку посередника передали явно й вона ≠ ланцюжку для цієї пари й дати — «вручну» (переживе ніч); збігається — джерело ланцюжка
+        given = [(rec, vals) for rec, vals in zip(recs, vals_list) if vals.get('agent_share') is not None and 'agent_source' not in vals]
+        deals = self._deals() if given else None
+        for rec, vals in given:
+            src = calc.create_source(vals['agent_share'], rec._agent_choice(deals, keep_manual=False))
+            if src != rec.agent_source:
+                rec.write({'agent_source': src})
         if not self._no_sync():
             recs._after_change({}, set())
         return recs
 
     def write(self, vals):
+        vals = self._mark_manual(vals)
         if self._no_sync() or not (TRIGGERS & set(vals)):
             return super().write(vals)
         old = {}
@@ -756,12 +778,12 @@ class WorksetRate(models.Model):
         # тоді А1 пари й рядки карти, без зайвих записів
         agents = 0
         deals = self._deals()
-        for r in self.env[RATE].sudo().search([('state', 'in', ['current', 'future'])]):
-            value = r._agent_choice(deals, today)['value']
-            if not calc.same_money(value, r.agent_share):
+        for r in self.env[RATE].sudo().search([('state', 'in', ['current', 'future']), ('agent_source', '!=', 'manual')]):
+            choice = r._agent_choice(deals, today)
+            if not calc.same_money(choice['value'], r.agent_share) or choice['source'] != (r.agent_source or 'none'):
                 agents += 1
                 if not dry:
-                    r.write({'agent_share': value})
+                    r.write({'agent_share': choice['value'], 'agent_source': choice['source']})
         moved = updated = reverted = 0
         pairs = me._all_pairs()
         for key in pairs:
@@ -860,11 +882,9 @@ class WorksetRate(models.Model):
         agent_rows = []
         deals = me._deals()
         if deals is not None:
-            for r in cur.filtered(lambda x: x.line_id.agent_id):
-                choice = r._agent_choice(deals, today)
-                if choice['source'] != 'deal':
-                    agent_rows.append([rate_cell(r), r.customer_id.name or '', r.line_id.agent_id.name or '', calc.money(r.agent_share) + ' €',
-                                       calc.agent_note(choice, r.agent_share, lang)])
+            for r in cur.filtered(lambda x: x.line_id.agent_id and x.agent_source != 'deal'):
+                agent_rows.append([rate_cell(r), r.customer_id.name or '', r.line_id.agent_id.name or '', calc.money(r.agent_share) + ' €',
+                                   calc.agent_note(r.agent_source or 'none', [], True, lang)])
         days = calc.RECENT_DAYS
         t = lambda k: calc.t(k, lang)  # noqa: E731
         cols_map = [t('c_project'), t('c_firm'), t('c_customer'), t('c_card'), t('c_cost'), t('c_note')]

@@ -272,16 +272,60 @@ class TestWorksetRates(TransactionCase):
             self.skipTest('модуль посередників встановлено — ланцюжок перевіряють чисті функції calc')
         r = self._rate()
         self.assertEqual(r.agent_share, 0.0, 'домовленостей немає, агента в лінії немає — 0')
+        self.assertEqual(r.agent_source, 'none')
         self.assertIn('посередників немає', r.agent_note)
         agent = self.env['res.partner'].create({'name': 'Тест посередник'})
         self.line.write({'agent_id': agent.id, 'agent_share': 3})
         r2 = self._rate(date_from=NEXT, wage=14)
         self.assertAlmostEqual(r2.agent_share, 3, msg='запасне правило: частка агента з лінії')
+        self.assertEqual(r2.agent_source, 'line')
         self.assertAlmostEqual(r2.price, 24, msg='ціна = на руки + правило 7 + посередник 3')
         self.assertAlmostEqual(r2.our_share, 7)
-        r2.agent_share = 2
-        self.assertAlmostEqual(r2.agent_share, 2, msg='частку можна правити вручну')
-        self.assertIn('вручну', r2.agent_note)
+
+    def test_agent_manual_survives_night_and_resets_on_date(self):
+        agent = self.env['res.partner'].create({'name': 'Тест посередник'})
+        self.line.write({'agent_id': agent.id, 'agent_share': 3})
+        r = self._rate()
+        self.assertEqual(r.agent_source, 'line')
+        r.agent_share = 2
+        self.assertEqual(r.agent_source, 'manual', 'правка руками — джерело «вручну»')
+        self.assertIn('вручну', r.agent_note)
+        self.R.rates_daily()
+        self.assertAlmostEqual(r.agent_share, 2, msg='ніч ручну правку не перетирає (лінія 3)')
+        r.date_from = calc.add_days(DAY, -1)
+        self.assertEqual(r.agent_source, 'line', 'зміна дати скидає «вручну» — знову ланцюжок')
+        self.assertAlmostEqual(r.agent_share, 3)
+
+    def test_agent_manual_on_create_survives_night(self):
+        agent = self.env['res.partner'].create({'name': 'Тест посередник'})
+        self.line.write({'agent_id': agent.id, 'agent_share': 3})
+        r = self._rate(agent_share=2)
+        self.assertEqual(r.agent_source, 'manual', 'при створенні число ≠ ланцюжку (лінія 3) — «вручну»')
+        self.assertAlmostEqual(r.agent_share, 2)
+        self.R.rates_daily()
+        self.assertAlmostEqual(r.agent_share, 2, msg='ніч ручну частку зі створення не перетирає')
+        same = self._rate(date_from=NEXT, agent_share=3)
+        self.assertEqual(same.agent_source, 'line', 'число = ланцюжку — джерело ланцюжка')
+
+    def test_agent_source_gone_falls_to_next_level(self):
+        agent = self.env['res.partner'].create({'name': 'Тест посередник'})
+        self.line.write({'agent_id': agent.id, 'agent_share': 3})
+        r = self._rate()
+        self.assertAlmostEqual(r.agent_share, 3)
+        self.line.write({'agent_id': False})
+        self.R.rates_daily()
+        self.assertAlmostEqual(r.agent_share, 0, msg='джерело (лінія) перестало діяти — 0, а не збережене число')
+        self.assertEqual(r.agent_source, 'none')
+
+    def test_customer_change_resets_manual(self):
+        agent = self.env['res.partner'].create({'name': 'Тест посередник'})
+        self.line.write({'agent_id': agent.id, 'agent_share': 3, 'customer_ids': [(4, self.cust2.id)]})
+        r = self._rate()
+        r.agent_share = 1
+        self.assertEqual(r.agent_source, 'manual')
+        r.customer_id = self.cust2
+        self.assertEqual(r.agent_source, 'line', 'зміна замовника скидає «вручну»')
+        self.assertAlmostEqual(r.agent_share, 3)
 
     def test_unlink_dry_and_no_sync_only_admin(self):
         r = self._rate()

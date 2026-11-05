@@ -489,28 +489,44 @@ def agent_day(state, date_from, date_to, today):
     return today
 
 
-def agent_choice(deals, cust_id, line_id, day, line_agent, line_share, manual):
-    """Частка посередника ставки — ланцюжок: (а) домовленості (погодинні, діючі на day, за замовником або лінією);
-    (б) домовленостей немає, а в лінії є агент і частка — частка лінії; (в) інакше — введене вручну (або 0).
-    deals None — моделі посередників немає. → {'value', 'source': 'deal'|'line'|'manual', 'ids', 'module': є модель}"""
-    if deals is not None:
+AGENT_SOURCES = ('deal', 'line', 'manual', 'none')
+
+
+def agent_choice(deals, cust_id, line_id, day, line_agent, line_share, source='', manual=0.0):
+    """Частка посередника ставки з джерелом. source — збережене джерело ставки: 'manual' (число поставили руками) — число
+    лишається як є, ланцюжок не діє (скидається лише зміною замовника, лінії чи дати — тоді source порожнє). Інакше ланцюжок:
+    (а) домовленості (погодинні, діючі на day, за замовником або лінією) → (б) агент і частка лінії → (в) 0 ('none').
+    Джерело перестало діяти (домовленість закрили, у лінії прибрали агента) — наступний рівень, а не збережене число.
+    deals None — моделі посередників немає. → {'value', 'source': deal|line|manual|none, 'ids', 'module': є модель}"""
+    module = deals is not None
+    if source == 'manual':
+        return {'value': round(float(manual or 0.0), 2), 'source': 'manual', 'ids': [], 'module': module}
+    if module:
         total, used = agent_share_for(deals, cust_id, line_id, day)
         if used:
             return {'value': total, 'source': 'deal', 'ids': used, 'module': True}
     if line_agent and line_share:
-        return {'value': round(float(line_share), 2), 'source': 'line', 'ids': [], 'module': deals is not None}
-    return {'value': float(manual or 0.0), 'source': 'manual', 'ids': [], 'module': deals is not None}
+        return {'value': round(float(line_share), 2), 'source': 'line', 'ids': [], 'module': module}
+    return {'value': 0.0, 'source': 'none', 'ids': [], 'module': module}
 
 
-def agent_note(choice, stored, lang):
-    """Пояснення до частки посередника; stored ≠ value ланцюжка — частку правили вручну."""
-    if choice['source'] == 'deal' and same_money(stored, choice['value']):
-        return t('agent_deals', lang) % ', '.join('№ %d' % i for i in choice['ids'])
-    if choice['source'] == 'line' and same_money(stored, choice['value']):
+def create_source(given, choice):
+    """Джерело частки посередника при створенні: число передали явно (given не None) і воно ≠ ланцюжку — «вручну»;
+    збігається або не передали — джерело ланцюжка."""
+    if given is not None and not same_money(given, choice['value']):
+        return 'manual'
+    return choice['source']
+
+
+def agent_note(source, ids, module, lang):
+    """Пояснення до частки посередника — за збереженим джерелом."""
+    if source == 'deal':
+        return t('agent_deals', lang) % (', '.join('№ %d' % i for i in ids) or '—')
+    if source == 'line':
         return t('agent_line', lang)
-    if stored and not same_money(stored, 0):
+    if source == 'manual':
         return t('agent_manual', lang)
-    return t('agent_zero', lang) if choice['module'] else t('agent_none', lang)
+    return t('agent_zero', lang) if module else t('agent_none', lang)
 
 
 def panel_values(values, order_counts=None, keep_zero=False):

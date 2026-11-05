@@ -23,7 +23,7 @@ class WorksetRateCheck(models.Model):
 
     def write(self, vals):
         # звірку пише код (sudo); редактор — лише «Розібрано»
-        if not (self.env.su or self.env.user._is_admin()):
+        if not (self.env.su or self.env.user.has_group('base.group_system')):
             extra = [f for f in vals if f not in USER_FIELDS and not f.startswith(('message_', 'activity_'))]
             if extra:
                 raise AccessError(calc.t('check_only_done', calc.lang_of(self.env.lang)) % ', '.join(sorted(extra)))

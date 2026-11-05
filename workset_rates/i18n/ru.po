@@ -31,6 +31,7 @@ msgstr "Ставок заказчика"
 #: model:ir.model.fields,field_description:workset_rates.field_workset_line__name
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__line_id
 #: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__found_by__line
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__agent_source__line
 #: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate_avg__dim__line
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__line_id
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
@@ -248,6 +249,26 @@ msgstr "Доля посредника"
 #: model:ir.model.fields,help:workset_rates.field_workset_rate__agent_share
 msgid "Підставляється сама: сума «€/год» діючих погодинних домовленостей з посередниками цього замовника або лінії; домовленості немає — частка агента лінії; можна змінити."
 msgstr "Подставляется сама: сумма «€/час» действующих почасовых договорённостей с посредниками этого заказчика или линии; договорённости нет — доля агента линии; можно изменить."
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__agent_source
+msgid "Частка посередника з"
+msgstr "Доля посредника из"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__agent_source__deal
+msgid "Домовленість"
+msgstr "Договорённость"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__agent_source__manual
+msgid "Вручну"
+msgstr "Вручную"
+
+#. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__agent_source__none
+msgid "Немає"
+msgstr "Нет"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__agent_note
