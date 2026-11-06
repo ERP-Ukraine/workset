@@ -152,6 +152,12 @@ TX = {
     'p_all_partner': ['Усе — партнер (гроші лінії)', 'Всё — партнёр (деньги линии)'],
     'p_all_worker_fund': ['Усе — з фонду працівників', 'Всё — из фонда работников'],
     'p_all_customer': ['Усе — замовник', 'Всё — заказчик'],
+    # круг 3в: заголовки списків, які відкривають числа екранів (назва лінії й місяць — з даних)
+    'o_ts': ['Табелі: %s, %s', 'Табели: %s, %s'], 'o_lines': ['Рядки ліній: %s', 'Строки линий: %s'],
+    'o_costs': ['Витрати ліній: %s', 'Расходы линий: %s'], 'o_line': ['Рядок лінії: %s, %s', 'Строка линии: %s, %s'],
+    'o_kind': ['%s: %s, %s', '%s: %s, %s'], 'o_rule': ['Хто платить · %s: %s', 'Кто платит · %s: %s'],
+    'o_rules': ['Правила «Хто платить»: %s', 'Правила «Кто платит»: %s'], 'o_check': ['Звірка: %s', 'Сверка: %s'],
+    't_owner': ['Власник %s · %s', 'Собственник %s · %s'],
     'months': [('січень', 'лютий', 'березень', 'квітень', 'травень', 'червень', 'липень', 'серпень', 'вересень', 'жовтень', 'листопад',
                 'грудень'),
                ('январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь')],
@@ -1130,6 +1136,21 @@ def share_split(row):
     return [{'key': k, 'amount': eur(v), 'pct': pct.get(k, 0) / 100.0} for k, v in parts]
 
 
+def kind_refs(entries, refs):
+    """Записи кожного виду кожної лінії місяця (круг 3в: крок водоспаду й сегмент «Куди йде частка» відкривають свої записи): entries і
+    refs — розклад місяця (_month_entries) → {лінія: {поле: {'aal': [id], 'txn': [id]}}} (id без повторів, за зростанням); записи не
+    лінії (без лінії, компанія) не беруться."""
+    out = {}
+    for e, ref in zip(entries or [], refs or []):
+        key = e.get('key') or ()
+        if not key or key[0] != 'line' or not key[1]:
+            continue
+        g = out.setdefault(key[1], {}).setdefault(e.get('field'), {'aal': set(), 'txn': set()})
+        g['aal'].update((ref or {}).get('aal') or [])
+        g['txn'].update((ref or {}).get('txn') or [])
+    return {line: {f: {'aal': sorted(g['aal']), 'txn': sorted(g['txn'])} for f, g in by_field.items()} for line, by_field in out.items()}
+
+
 def split_legend(splits, min_pct=SPLIT_LEGEND_MIN):
     """Легенда «Куди йде частка» (круг 3б): splits — [share_split лінії] за місяць → ключі SPLIT (у їх порядку), що хоч в одній лінії
     займають ≥ min_pct % смуги; частина без помітного сегмента (паливо 0,2 % в одній лінії) у легенду не йде."""
@@ -1257,17 +1278,24 @@ def pays_fold(items, lang='uk'):
     """«Хто платить» картки лінії згорнуто: платник більшості видів — одним рядком («Усе платимо ми (у «чисто»)»), нижче — лише винятки:
     вид з іншим платником і замовники лінії зі своїм правилом. items — [{'label', 'payer_key' (ключ PAYER_KEYS), 'payer' (підпис), 'except':
     [{'name', 'payer_key', 'payer'}], 'cards'}]. Рівно — перший ключ PAYER_KEYS (ми). → {'head', 'rows': [{'label', 'payer'}] (платник з
-    малої), 'cards': [картки DKV палива]}; видів немає — head ''."""
+    малої; є в пункті чи винятку 'open' — і він, круг 3в), 'cards': [картки DKV палива]}; видів немає — head ''."""
     items = items or []
     keys = [i.get('payer_key') or 'we' for i in items]
     if not keys:
         return {'head': '', 'rows': [], 'cards': []}
     common = max(PAYER_KEYS, key=lambda k: (keys.count(k), -PAYER_KEYS.index(k)))
     rows, cards = [], []
+
+    def row(label, src):
+        # опис списку для кліку (круг 3в: правило, за яким визначено платника) — як є, коли він є в пункті
+        out = {'label': label, 'payer': _low(src.get('payer'))}
+        if 'open' in src:
+            out['open'] = src['open']
+        return out
     for it, k in zip(items, keys):
         if k != common:
-            rows.append({'label': it.get('label') or '', 'payer': _low(it.get('payer'))})
+            rows.append(row(it.get('label') or '', it))
         for ex in it.get('except') or []:
-            rows.append({'label': '%s · %s' % (it.get('label') or '', ex.get('name') or ''), 'payer': _low(ex.get('payer'))})
+            rows.append(row('%s · %s' % (it.get('label') or '', ex.get('name') or ''), ex))
         cards += [c for c in it.get('cards') or [] if c not in cards]
     return {'head': t('p_all_' + common, lang), 'rows': rows, 'cards': cards}
