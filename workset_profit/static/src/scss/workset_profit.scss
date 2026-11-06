@@ -1,6 +1,7 @@
 // Екрани «Прибутковості» (М3, круг 2; макети A, B, C — стиль «Огляду ставок»): сітки на всю ширину без порожніх полів, кольори — лише класи
-// й змінні Bootstrap теми (світла й темна тема Odoo), своїх кольорів немає; колір — лише в тривог. Лише змінні й міксини Bootstrap (є в
-// web.assets_backend): невідома змінна зламала б увесь бандл бекенду. Класи — у своєму просторі .o_workset_profit_*
+// й SCSS-змінні Bootstrap ($primary, $gray-*, $border-color, $body-bg…; світлий і темний бандли Odoo компілюють їх кожен зі своїми
+// значеннями), своїх кольорів немає; колір — лише в тривог. CSS-змінних var(--bs-…) Odoo 19 не задає — вони дають прозоре (06.11, копія 20).
+// Лише змінні й міксини Bootstrap (є в web.assets_backend): невідома змінна зламала б увесь бандл бекенду. Класи — .o_workset_profit_*
 .o_workset_profit {
     // клік — список або картка: вказівник і видимий відгук при наведенні (рамка в колір теми)
     .o_workset_profit_chip,
@@ -15,8 +16,8 @@
 
         &:hover,
         &:focus-visible {
-            border-color: var(--bs-primary);
-            box-shadow: 0 0 0 1px var(--bs-primary);
+            border-color: $primary;
+            box-shadow: 0 0 0 1px $primary;
         }
     }
     // смуга п'яти підсумків: вузько — перший рядком зверху, решта 2 × 2; широко — п'ять колонок із роздільниками
@@ -34,7 +35,7 @@
             grid-column: 1 / -1;
         }
         &:nth-child(odd):not(:first-child) {
-            border-left: 1px solid var(--bs-border-color);
+            border-left: 1px solid $border-color;
         }
     }
     .o_workset_profit_num {
@@ -57,8 +58,8 @@
         min-width: 0;
     }
     .o_workset_profit_count {
-        background-color: var(--bs-secondary-bg, var(--bs-gray-200));
-        color: var(--bs-body-color);
+        background-color: $gray-200;
+        color: $body-color;
         font-weight: 500;
         font-variant-numeric: tabular-nums;
     }
@@ -116,9 +117,9 @@
     .o_workset_profit_split_bar {
         display: flex;
         height: 1rem;
-        border-radius: var(--bs-border-radius, 0.25rem);
+        border-radius: $border-radius;
         overflow: hidden;
-        background-color: var(--bs-secondary-bg, var(--bs-gray-200));
+        background-color: $gray-200;
     }
     .o_workset_profit_part {
         display: block;
@@ -133,22 +134,22 @@
         vertical-align: middle;
     }
     .o_workset_profit_part_net {
-        background-color: var(--bs-primary);
+        background-color: $primary;
     }
     .o_workset_profit_part_housing {
-        background-color: var(--bs-gray-700);
+        background-color: $gray-700;
     }
     .o_workset_profit_part_auto {
-        background-color: var(--bs-gray-600);
+        background-color: $gray-600;
     }
     .o_workset_profit_part_fuel {
-        background-color: var(--bs-gray-500);
+        background-color: $gray-500;
     }
     .o_workset_profit_part_tool {
-        background-color: var(--bs-gray-400);
+        background-color: $gray-400;
     }
     .o_workset_profit_part_transport {
-        background-color: var(--bs-gray-300);
+        background-color: $gray-300;
     }
     // водоспад картки лінії: колонки однакової ширини, стовпець — у полі фіксованої висоти за геометрією сервера (bottom / height у %)
     .o_workset_profit_fall {
@@ -165,7 +166,7 @@
         position: relative;
         height: 13rem;
         margin: 1.5rem 0;
-        border-bottom: 1px solid var(--bs-border-color);
+        border-bottom: 1px solid $border-color;
     }
     .o_workset_profit_fall_bar {
         position: absolute;
@@ -181,16 +182,16 @@
         line-height: 1.4;
     }
     .o_workset_profit_fall_total {
-        background-color: var(--bs-gray-500);
+        background-color: $gray-500;
     }
     .o_workset_profit_fall_down {
-        background-color: var(--bs-gray-700);
+        background-color: $gray-700;
     }
     .o_workset_profit_fall_up {
-        background-color: var(--bs-gray-400);
+        background-color: $gray-400;
     }
     .o_workset_profit_fall_net {
-        background-color: var(--bs-primary);
+        background-color: $primary;
     }
     // «Лінії × місяці»: таблиця гортається вбік, колонка «Лінія» закріплена (телефон)
     .o_workset_profit_matrix_wrap {
@@ -208,14 +209,14 @@
         position: sticky;
         left: 0;
         z-index: 1;
-        background-color: var(--bs-body-bg);
+        background-color: $body-bg;
     }
     .o_workset_profit_cell_unit {
         font-size: 0.75em;
         opacity: 0.75;
     }
     .o_workset_profit_company {
-        border-top: 2px solid var(--bs-border-color);
+        border-top: 2px solid $border-color;
     }
     @include media-breakpoint-up(lg) {
         .o_workset_profit_band {
@@ -227,7 +228,7 @@
                 grid-column: auto;
             }
             &:not(:first-child) {
-                border-left: 1px solid var(--bs-border-color);
+                border-left: 1px solid $border-color;
             }
         }
         .o_workset_profit_panels {
