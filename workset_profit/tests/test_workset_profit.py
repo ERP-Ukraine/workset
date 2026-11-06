@@ -633,6 +633,37 @@ class TestWorksetProfit(TransactionCase):
             Check.create({'month': M, 'ok': True})
             self.env.flush_all()
 
+    def test_check_store_when_record_unseen(self):
+        # «Звірити» чекав замка, поки перерахунок створив запис місяця: перший пошук його не бачить (знімок до замка) — створення
+        # впирається в унікальність, і _store_check оновлює запис, а не падає «Звірка цього місяця вже є»
+        Check = self.env['workset.profit.check'].sudo()
+        self._run()
+        real = type(Check).search
+        calls = []
+
+        def stale_first(me, domain, *args, **kwargs):
+            calls.append(domain)
+            return me.browse() if len(calls) == 1 else real(me, domain, *args, **kwargs)
+        with patch.object(type(Check), 'search', stale_first):
+            self.Month._store_check(M, {'ok': False, 'text': 'unseen'})
+        recs = Check.search([('month', '=', M)])
+        self.assertEqual(len(recs), 1, 'одна звірка на місяць')
+        self.assertEqual(recs.text, 'unseen', 'запис, якого не було видно, — оновлено')
+        self.assertGreaterEqual(len(calls), 2, 'після відмови унікальності — ще один пошук')
+
+    def test_recompute_reads_housing_rules_once(self):
+        # правила житла «Ставок» — одне читання на перерахунок місяця (не _housing_at на кожну «лінію × замовника × день»)
+        Housing = type(self.env['workset.line.housing'])
+        real = Housing._rules
+        n = []
+
+        def counted(me):
+            n.append(1)
+            return real(me)
+        with patch.object(Housing, '_rules', counted), patch.object(Housing, '_housing_at', side_effect=AssertionError('_housing_at')):
+            self._run()
+        self.assertEqual(len(n), 1)
+
     def test_open_card_only_from_2026(self):
         self._screen_rows()
         old = self._rows('2025-12-01', row_kind='line', line_id=self.line_a.id)

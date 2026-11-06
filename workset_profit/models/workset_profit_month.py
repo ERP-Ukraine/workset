@@ -22,8 +22,12 @@ import datetime
 import logging
 from zoneinfo import ZoneInfo
 
+from psycopg2.errors import UniqueViolation
+
 from odoo import _, api, fields, models
+from odoo.addons.workset_rates.models import calc as rates_calc
 from odoo.exceptions import AccessError
+from odoo.tools import mute_logger
 
 from . import calc
 from .workset_profit_map import MAP_KINDS
@@ -305,28 +309,35 @@ class WorksetProfitMonth(models.Model):
         free = txns.filtered(lambda x: (x.invoice_no or '').strip() not in known)
         return {'n': len(free), 'amount': round(sum(free.mapped('amount_gross')), 2)}
 
-    def _housing_payer(self, line_id, cust_id, day, cache):
-        # хто платить житло — правило житла лінії «Ставок» (правило замовника, а немає — лінії) на день суми
-        key = (line_id, cust_id, day)
-        if key not in cache:
-            Partner = self.env['res.partner'].sudo()
-            rule = self.env['workset.line.housing'].sudo()._housing_at(self.env['workset.line'].sudo().browse(line_id),
-                                                                       Partner.browse(cust_id) if cust_id else Partner, day)
-            cache[key] = calc.housing_payer(rule.payer if rule else '')
-        return cache[key]
-
-    def _customer_housing_input(self, month_ts, segs, plans, cust_lines):
-        """Дані для calc.customer_housing: людино-дні ліній (calc.housing_days) і правило житла (_housing_at) на кожен «лінія × замовник ×
-        день» із годинами → (days, day_rules)."""
-        days = calc.housing_days(month_ts, segs, plans, cust_lines)
-        Line, Partner = self.env['workset.line'].sudo(), self.env['res.partner'].sudo()
+    def _housing_rules(self):
+        """Правила житла «Ставок» — один раз на перерахунок місяця або запит екрана (Housing._housing_at читає всі правила на кожен виклик):
+        {'rules' (Housing._rules() — для rates_calc.housing_pick, тієї ж функції, що в _housing_at), 'payer', 'amount', 'unit': {id: …}}."""
         Housing = self.env['workset.line.housing'].sudo()
+        rules = Housing._rules()
+        got = Housing.browse([r['id'] for r in rules]).read(['payer', 'amount', 'amount_unit'])
+        return {'rules': rules, 'payer': {h['id']: h['payer'] or '' for h in got}, 'amount': {h['id']: h['amount'] or 0.0 for h in got},
+                'unit': {h['id']: h['amount_unit'] or '' for h in got}}
+
+    def _housing_pick(self, hr, line_id, cust_id, day):
+        """Правило житла пари «лінія × замовник» (id; замовник — комерційний, 0 — без замовника) на day з правил hr (як Housing._housing_at:
+        правило замовника, а немає — лінії) → id або 0."""
+        return rates_calc.housing_pick(hr['rules'], line_id, cust_id or 0, calc.iso(day)) if line_id else 0
+
+    def _housing_payer(self, hr, line_id, cust_id, day):
+        # хто платить житло — правило житла лінії «Ставок» (правило замовника, а немає — лінії) на день суми
+        rid = self._housing_pick(hr, line_id, cust_id, day)
+        return calc.housing_payer(hr['payer'].get(rid, '') if rid else '')
+
+    def _customer_housing_input(self, month_ts, segs, plans, cust_lines, hr):
+        """Дані для calc.customer_housing: людино-дні ліній (calc.housing_days) і правило житла (_housing_pick з правил hr) на кожен
+        «лінія × замовник × день» із годинами → (days, day_rules)."""
+        days = calc.housing_days(month_ts, segs, plans, cust_lines)
         day_rules = []
         for line, cust, day in sorted({(d['line'], d['cust'], d['date']) for d in days}):
-            rule = Housing._housing_at(Line.browse(line), Partner.browse(cust) if cust else Partner, day)
-            if rule:
-                day_rules.append({'line': line, 'cust': cust, 'date': day, 'payer': rule.payer or '', 'amount': rule.amount or 0.0,
-                                  'unit': rule.amount_unit or ''})
+            rid = self._housing_pick(hr, line, cust, day)
+            if rid:
+                day_rules.append({'line': line, 'cust': cust, 'date': day, 'payer': hr['payer'].get(rid, ''), 'amount': hr['amount'].get(rid, 0.0),
+                                  'unit': hr['unit'].get(rid, '')})
         return days, day_rules
 
     def _txns(self, first, last):
@@ -346,11 +357,13 @@ class WorksetProfitMonth(models.Model):
         segs = calc.segments(month_ts, self._rate_days(persons, last) if persons else [], first, last)
         plans = self._plans(segs)
         hours = calc.hour_rows(segs, plans, cust_lines)
-        # 1б. житло, яке вираховує замовник: правило житла лінії на кожен день із годинами → сума за одиницею правила
+        # 1б. житло, яке вираховує замовник: правило житла лінії на кожен день із годинами → сума за одиницею правила; правила житла —
+        # одне читання на місяць (і для «Хто платить» житла в кроці 2)
+        hr = self._housing_rules()
         hours += [{'key': calc.key_of('line', line=line), 'housing_customer': v}
-                  for line, v in calc.customer_housing(*self._customer_housing_input(month_ts, segs, plans, cust_lines))]
+                  for line, v in calc.customer_housing(*self._customer_housing_input(month_ts, segs, plans, cust_lines, hr))]
         # 2–4. аналітика, DKV, перевезення за прибуттями (_month_entries — ті самі записи бачить картка лінії)
-        entries, _refs = self._month_entries(first, last, cust_lines, line_nodes, ts)
+        entries, _refs = self._month_entries(first, last, cust_lines, line_nodes, ts, hr)
         rows = calc.assemble(hours, entries)
         # 5. запис: місяць заново (рядки пише лише код)
         self.search([('month', '=', first)]).unlink()
@@ -358,11 +371,12 @@ class WorksetProfitMonth(models.Model):
         self.create([self._row_vals(r, first, names) for r in rows])
         return len(rows)
 
-    def _month_entries(self, first, last, cust_lines, line_nodes, ts=None):
+    def _month_entries(self, first, last, cust_lines, line_nodes, ts=None, hr=None):
         """Записи розкладу місяця (кроки 2–4 перерахунку): аналітика за розміткою, транзакції DKV за періодом картки, перевезення без лінії —
         між лініями за прибуттями. → (entries, refs): refs[i] — звідки entries[i]: {'aal': [id], 'txn': [id], 'analytic', 'account',
         'card', 'pool'} — для «Рядків за місяць» картки лінії (ті самі записи, що в перерахунку, — без розбіжності). ts — табелі від
-        first − розрив − 1 до last (немає — читаються, лише коли є перевезення без лінії). Викликати на sudo."""
+        first − розрив − 1 до last (немає — читаються, лише коли є перевезення без лінії); hr — правила житла (_housing_rules; немає —
+        читаються тут один раз). Викликати на sudo."""
         # 2. аналітика: розмітка → вид, лінія, замовник → хто платить → рядок і стовпець
         rules = self.env['workset.profit.analytic.map']._rules()
         by_id = {r['id']: r for r in rules}
@@ -371,7 +385,8 @@ class WorksetProfitMonth(models.Model):
         # рахунки DKV із транзакціями: їхня аналітика — рядок 'dkv' і «DKV різниця» (calc.dkv_bill_entries), не вдруге
         gross = self._dkv_gross({i['move_id'] for i in items if i['move_id']})
         totals = self._bill_totals(set(gross))
-        entries, refs, pool, hcache, bills = [], [], [], {}, {}
+        hr = hr if hr is not None else self._housing_rules()
+        entries, refs, pool, bills = [], [], [], {}
         for it in items:
             if it['move_id'] in gross:
                 bills.setdefault(it['move_id'], []).append(it)
@@ -379,7 +394,7 @@ class WorksetProfitMonth(models.Model):
             c = calc.classify(it, by_id.get(calc.map_pick(rules, it)), line_nodes, cust_lines)
             payer = ''
             if c['line_id'] and c['kind'] == 'housing':
-                payer = self._housing_payer(c['line_id'], c['cust'], it['date'], hcache)
+                payer = self._housing_payer(hr, c['line_id'], c['cust'], it['date'])
             elif c['line_id'] and c['kind'] in calc.COST_KINDS:
                 payer = calc.cost_payer(cost_rules, c['line_id'], c['cust'], c['kind'], it['date'])
             tgt = calc.target(c, it, payer)
@@ -421,17 +436,28 @@ class WorksetProfitMonth(models.Model):
 
     def _store_check(self, month, check):
         """Підсумок звірки місяця — у «Звірку місяця» (екрани читають його, а не звіряють наново): є запис місяця — оновити, немає —
-        створити. Замок місяця (той самий, що в перерахунку) — плановий перерахунок і кнопка «Звірити» одночасно не створять двох записів
-        (другий чекає першого й оновлює); унікальність month у моделі — страховка. Викликати на sudo."""
-        Check = self.env['workset.profit.check'].sudo()
+        створити. Замок місяця (той самий, що в перерахунку) — першим, пошук — уже під ним: другий запис чекає, поки перший закінчить
+        транзакцію. Але знімок бази транзакції Odoo (REPEATABLE READ) фіксується першим читанням — у «Звірити» ще до замка, тож запис,
+        який перерахунок створив, поки «Звірити» чекав, пошук не бачить. Тоді створення впирається в унікальність month (точка збереження,
+        без помилки в журналі): ще раз пошук і оновлення; не видно й тепер — запис чужої транзакції новіший за наш знімок (її звірка
+        бачила рядки, яких ми ще не бачили), лишаємо його. Викликати на sudo."""
         first = calc.month_first(calc.iso(month))
         self.env.cr.execute('SELECT pg_advisory_xact_lock(%s, %s)', (LOCK_NS, int(first[0:4] + first[5:7])))
+        Check = self.env['workset.profit.check'].sudo()
         vals = {'ok': bool(check.get('ok')), 'text': check.get('text') or '', 'checked_at': fields.Datetime.now()}
         rec = Check.search([('month', '=', first)], limit=1)
         if rec:
             rec.write(vals)
-        else:
-            Check.create(dict(vals, month=first))
+            return
+        try:
+            with mute_logger('odoo.sql_db'), self.env.cr.savepoint():
+                Check.create(dict(vals, month=first))
+        except UniqueViolation:
+            rec = Check.search([('month', '=', first)], limit=1)
+            if rec:
+                rec.write(vals)
+            else:
+                _logger.info('Звірка %s: запис місяця щойно створила інша транзакція — лишаємо її (новіша за наш знімок)', first)
 
     def _names(self, rows):
         def of(model, key):

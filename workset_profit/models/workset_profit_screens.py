@@ -10,7 +10,6 @@ profit_line_card, profit_matrix. Числа — збережений підсу�
 Лише читання; sudo — для правил житла «Ставок», табелів і аналітики картки лінії (після перевірки групи); відкрити записи — за правами
 самого користувача."""
 from odoo import api, fields, models
-from odoo.addons.workset_rates.models import calc as rates_calc
 from odoo.exceptions import AccessError
 
 from . import calc
@@ -60,17 +59,9 @@ class WorksetProfitScreens(models.Model):
     def _cur_month(self, today):
         return max(calc.month_first(today), calc.MIN_MONTH)
 
-    def _housing_rules(self):
-        """Правила житла «Ставок» — один раз на запит (раніше _housing_at читав усі правила на кожну пару «лінія × замовник»: в «Огляді»
-        30–40 читань): {'rules' (як Housing._rules() — для rates_calc.housing_pick, тієї ж функції, що в _housing_at), 'payer': {id: ключ}}."""
-        Housing = self.env['workset.line.housing'].sudo()
-        rules = Housing._rules()
-        payer = {h['id']: h['payer'] or '' for h in Housing.browse([r['id'] for r in rules]).read(['payer'])}
-        return {'rules': rules, 'payer': payer}
-
-    def _housing_pick(self, hr, line, cust, day):
-        """Правило житла пари «лінія × замовник» на day (як Housing._housing_at: правило замовника, а немає — лінії) → id або 0."""
-        return rates_calc.housing_pick(hr['rules'], line.id, calc.cust_of(cust), calc.iso(day)) if line else 0
+    # правила житла «Ставок» — _housing_rules / _housing_pick моделі підсумку (workset_profit_month.py): один раз на запит, та сама
+    # функція rates_calc.housing_pick, що в _housing_at і в перерахунку (раніше _housing_at читав усі правила на кожну пару: в «Огляді»
+    # 30–40 читань)
 
     # ——— A «Огляд» ———
     @api.model
@@ -130,7 +121,7 @@ class WorksetProfitScreens(models.Model):
         важить: «Житло не наше» з «Хто платить» = партнер — теж буфер лінії."""
         Partner = self.env['res.partner'].sudo()
         line = self.env['workset.line'].sudo().browse(line_id)
-        ids = [self._housing_pick(hr, line, cust, day) for cust in [Partner] + list(line.customer_ids)]
+        ids = [self._housing_pick(hr, line.id, calc.cust_of(cust), day) for cust in [Partner] + list(line.customer_ids)]
         return calc.housing_from([hr['payer'].get(i) for i in ids if i])
 
     def _overview_alerts(self, month, mine, line_rows, lang):
@@ -233,18 +224,17 @@ class WorksetProfitScreens(models.Model):
         → [{'key', 'label', 'payer', 'except': [{'name', 'payer'}], 'cards': [назва]}]."""
         Housing = self.env['workset.line.housing'].sudo()
         Cost = self.env['workset.line.cost.rule']
-        Partner = self.env['res.partner'].sudo()
         line = line.sudo()
         h_labels = dict(Housing._fields['payer']._description_selection(self.env))
         c_labels = dict(Cost._fields['payer']._description_selection(self.env))
         custs = list(line.customer_ids)
         hr = self._housing_rules()
-        base = self._housing_pick(hr, line, Partner, day)
+        base = self._housing_pick(hr, line.id, 0, day)
         base_payer = hr['payer'].get(base, '') if base else ''
         item = {'key': 'housing', 'label': calc.t('s_housing', lang), 'payer': h_labels.get(base_payer) or c_labels.get('we', ''),
                 'except': [], 'cards': []}
         for cust in custs:
-            rid = self._housing_pick(hr, line, cust, day)
+            rid = self._housing_pick(hr, line.id, calc.cust_of(cust), day)
             payer = hr['payer'].get(rid, '') if rid else ''
             if rid and rid != base and payer != base_payer:
                 item['except'].append({'name': cust.display_name, 'payer': h_labels.get(payer) or c_labels.get('we', '')})
@@ -271,7 +261,7 @@ class WorksetProfitScreens(models.Model):
         рахунком (аналітика), карткою (DKV) або «перевезення за прибуттями»; ще оренда авто й житло, яке вирахував замовник (зі ставок і
         правил), і табелі лінії одним рядком. Рядок — {'title', 'sub', 'amount', 'chain' (у «чисто»), 'open' (опис списку або False — без
         кліку)}. Порядок: ланцюжок (найбільші витрати першими), «не в нашому чисто», табелі; показано CARD_ROWS — {'rows', 'rows_total',
-        'stale' (частка + рядки ланцюжка ≠ збереженому «Чисто»: записи змінили після перерахунку)}."""
+        'stale' (частка + рядки ланцюжка ≠ збереженому «Чисто»: аналітику, DKV або прибуття змінили після перерахунку)}."""
         me = self.sudo()
         first, last = month, calc.month_last(month)
         cust_lines, line_nodes = me._lines_index()
@@ -325,8 +315,9 @@ class WorksetProfitScreens(models.Model):
                         'chain': True, 'open': can and self._open(calc.t('r_hc_title', lang), [('line_id', '=', line.id), ('payer', '=', 'customer')],
                                                                   'workset.line.housing')})
         out.sort(key=lambda r: (0 if r['chain'] else 1, calc.cents(r['amount']) if r['chain'] else -abs(calc.cents(r['amount']))))
-        # ланцюжок — зі збереженого рядка, список — розклад наново: частка + рядки ланцюжка (усі, не лише показані) ≠ «Чисто» — аналітику,
-        # DKV або табелі змінили після перерахунку (до наступного «Перерахувати» картка попереджає)
+        # ланцюжок — зі збереженого рядка, список — розклад наново: частка + рядки ланцюжка (усі, не лише показані) ≠ «Чисто» — після
+        # перерахунку змінили аналітику, транзакції DKV або прибуття (перевезення ділиться за табелями); частка, оренда авто й житло, яке
+        # вирахував замовник, — зі збереженого рядка, тож правку годин чи ставок у табелях мітка не ловить (до «Перерахувати»)
         stale = calc.cents(row['share']) + sum(calc.cents(r['amount']) for r in out if r['chain']) != calc.cents(row['net'])
         total = len(out) + 1
         shown = out[:calc.CARD_ROWS - 1]
