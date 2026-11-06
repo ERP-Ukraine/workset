@@ -1477,6 +1477,30 @@ TX.update({
                          '«Посредник — своё»: укажите причину (почему для этого человека другая сумма, чем в договорённости).'],
     'ov_fund': ['Фонд', 'Фонд'],
     'ov_norate_sub': ['%s · %s год за %d днів', '%s · %s ч за %d дней'],
+    # «Огляд», круг вигляду 06.11 (слово власника «вид: А–В до прода»: лише важливе, без порожнього й обрізаного): «Тривоги» трьома групами,
+    # заголовок звірки — «пункти», а не «проблеми»; підказки, чим число звірки відрізняється від плитки й списку
+    'ov_g_action': ['Потрібна дія', 'Нужно действие'],
+    'ov_g_contract': ['Договір ≠ база — подробиці', 'Договор ≠ база — подробности'],
+    'ov_g_data': ['Неповні дані', 'Неполные данные'],
+    'ov_check_head': ['Звірка від %s · %s', 'Сверка от %s · %s'],
+    'ov_check_done': ['розібрано', 'разобрано'],
+    'ov_tip_check': ['Пункти звірки: рядок на кожну розбіжність — одна ставка може дати кілька пунктів (напр., по картці в кожній фірмі). '
+                     'Список «Ставки з розбіжностями» рахує ставки, тому там число менше. Клік — запис звірки.',
+                     'Пункты сверки: строка на каждое расхождение — одна ставка может дать несколько пунктов (напр., по карточке в каждой фирме). '
+                     'Список «Ставки с расхождениями» считает ставки, поэтому там число меньше. Клик — запись сверки.'],
+    'ov_tip_contract': ['Ставки (за фільтром сторінки), де зарплата ≠ погодинна ставка договору — зараз. «Тривоги» показують пункти звірки '
+                        '(по картці в кожній фірмі, на дату звірки), тому там число інше.',
+                        'Ставки (по фильтру страницы), где зарплата ≠ почасовая ставка договора — сейчас. «Тревоги» показывают пункты сверки '
+                        '(по карточке в каждой фирме, на дату сверки), поэтому там число другое.'],
+    'ov_tip_people': ['%s: людей у ставках, що діють зараз', '%s: людей в действующих ставках'],
+    'ov_tip_price': ['платять нам %s €/год', 'платят нам %s €/час'],
+    'ov_tip_net': ['після бонусів офісу %s €/год', 'после бонусов офиса %s €/час'],
+    'ov_tip_below': ['нижче мінімуму: %s', 'ниже минимума: %s'],
+    'ov_tip_line': ['Клік — показати на сторінці лише цю лінію (ще раз — усі лінії)', 'Клик — показать на странице только эту линию (ещё раз — все линии)'],
+    'ov_line_list': ['Ставки лінії', 'Ставки линии'],
+    'ov_anchor_markup': ['надбавка', 'надбавка'], 'ov_anchor_tariff': ['тариф', 'тариф'],
+    'ov_agent_wait': ['посередника очікується', 'посредник ожидается'],
+    'ov_share_short': ['частка', 'доля'],
     # майстер правки з рядка списку («Нова ставка з дати» / «Виправити помилку») і «Переговорити»
     'e_wage': ['Зарплата працівника', 'Зарплата работника'], 'e_price': ['Платять нам', 'Платят нам'], 'e_agent': ['Посередник', 'Посредник'],
     'e_title': ['%s: нове значення', '%s: новое значение'],
@@ -1683,19 +1707,21 @@ def month_series(rates, days):
     return out
 
 
-def share_buckets(shares, cap=BUCKETS_MAX):
-    """«Розподіл частки WorkSET»: стовпці по €/год з кроком 1 (частка 5,40 → стовпець 5–6) без пропусків між найменшою й найбільшою;
-    стовпців не більше cap — вищі частки йдуть в останній («N+»). → [{'from', 'label', 'count'}]; часток немає — []."""
-    vals = [int(float(s or 0) // 1) for s in shares]
+def share_buckets(shares, cap=BUCKETS_MAX, step=1):
+    """«Розподіл частки WorkSET»: стовпці по €/год з кроком step (крок 1: частка 5,40 → стовпець 5–6; крок 2: 4–6, межі — парні) без
+    пропусків між найменшою й найбільшою — отже від першого непорожнього до останнього непорожнього; стовпців не більше cap — вищі частки
+    йдуть в останній («N+»). → [{'from', 'to', 'label', 'count'}]; часток немає — []."""
+    step = max(1, int(step or 1))
+    vals = [int(float(s or 0) // step) * step for s in shares]
     if not vals:
         return []
     lo, hi = min(vals), max(vals)
-    top = min(hi, lo + cap - 1)
-    counts = {k: 0 for k in range(lo, top + 1)}
+    top = min(hi, lo + (cap - 1) * step)
+    counts = {k: 0 for k in range(lo, top + 1, step)}
     for v in vals:
         counts[min(v, top)] += 1
-    return [{'from': k, 'label': ('%d+' % k) if (k == top and hi > top) else '%d–%d' % (k, k + 1), 'count': counts[k]}
-            for k in range(lo, top + 1)]
+    return [{'from': k, 'to': k + step, 'label': ('%d+' % k) if (k == top and hi > top) else '%d–%d' % (k, k + step), 'count': counts[k]}
+            for k in range(lo, top + 1, step)]
 
 
 def overview_summary(rows, only_working):
@@ -1869,10 +1895,11 @@ def ov_tiles_open(base, only_working, lang):
 
 
 def bucket_domain(bucket):
-    """Стовпець «Розподілу частки» (share_buckets) → домен тих самих ставок: частка від N до N+1; останній «N+» — без верхньої межі."""
+    """Стовпець «Розподілу частки» (share_buckets) → домен тих самих ставок: частка від 'from' до 'to' (стовпця без 'to' — до from + 1);
+    останній «N+» — без верхньої межі."""
     dom = [['our_share', '>=', bucket['from']]]
     if not str(bucket['label']).endswith('+'):
-        dom.append(['our_share', '<', bucket['from'] + 1])
+        dom.append(['our_share', '<', bucket.get('to', bucket['from'] + 1)])
     return dom
 
 
@@ -1911,6 +1938,62 @@ def check_sections(body):
     import re
     return [{'title': html_lib.unescape(m.group(1)).strip(), 'count': int(m.group(2))}
             for m in re.finditer(r'<h3>(.*?) — (\d+)</h3>', str(body or ''))]
+
+
+# «Тривоги» «Огляду» (круг вигляду 06.11): розділи звірки трьома групами. Ключ розділу → ключ заголовка в TX (заголовки звірки пишуться мовою
+# того, хто її запустив, — плановий запуск пише російською, тому «Огляд» розпізнає обидві мови й показує заголовок мовою користувача)
+CHECK_TITLES = {'contract': 's_contract', 'wagebad': 's_wagebad', 'tempver': 's_tempver', 'updown': 's_updown', 'low': 's_low', 'raise': 's_raise',
+                'mismatch': 's_mism', 'nomap': 's_nomap', 'nocust': 's_nocust', 'currency': 's_cur', 'order': 's_order', 'rule': 's_rule',
+                'norule': 's_norule', 'found': 's_found', 'check': 's_check', 'agent': 's_agent', 'housing': 's_housing'}
+# «Потрібна дія» — гроші й люди без ставки; «Договір ≠ база — подробиці»; «Неповні дані» — довідкове, згорнуто. Невідомий розділ — у «Неповні дані»
+CHECK_GROUPS = (('action', ('nomap', 'low', 'rule', 'contract', 'mismatch')),
+                ('contract', ('wagebad', 'updown', 'order', 'tempver')),
+                ('data', ('norule', 'found', 'check', 'nocust', 'currency', 'agent', 'housing', 'raise')))
+OV_POINTS = {'uk': ('пункт', 'пункти', 'пунктів'), 'ru': ('пункт', 'пункта', 'пунктов')}
+
+
+def check_section_key(title, lang):
+    """Заголовок розділу звірки (будь-якою з двох мов, з числом у дужках чи сумою) → (ключ розділу, заголовок мовою lang); невідомий —
+    (None, заголовок як є)."""
+    import re
+    text = str(title or '').strip()
+    for key, tx in CHECK_TITLES.items():
+        for pattern in TX[tx]:
+            rx = '^' + re.sub(r'%[ds]', lambda m: r'(\d+)' if m.group(0) == '%d' else r'([\d\s.,]+)', re.escape(pattern)) + '$'
+            m = re.match(rx, text)
+            if m:
+                args = tuple(int(g) if p == '%d' else g for g, p in zip(m.groups(), re.findall(r'%[ds]', pattern)))
+                return key, (t(tx, lang) % args) if args else t(tx, lang)
+    return None, text
+
+
+def points_text(n, lang):
+    """«444 пункти» / «1 пункт» / «5 пунктів» — число пунктів звірки з роздільником тисяч."""
+    one, few, many = OV_POINTS['ru' if lang == 'ru' else 'uk']
+    return '%s %s' % (num_group(n), plural(n, one, few, many))
+
+
+def check_groups(sections, lang, skip=()):
+    """Розділи останньої звірки (check_sections) → групи «Тривог»: [{'key': 'action' | 'contract' | 'data', 'title', 'total', 'total_text',
+    'items': [{'key', 'title', 'count', 'text'}]}] у порядку CHECK_GROUPS; text — «88 пунктів» (пункти звірки, не ставки); розділи з нулем
+    і групи без розділів не повертаються. skip — ключі розділів, які «Огляд» уже показує живою тривогою (напр. 'nomap' при «Працюють без
+    ставки»), щоб одне не стояло двічі."""
+    by_group = {g: [] for g, _keys in CHECK_GROUPS}
+    order = {k: (g, i) for g, keys in CHECK_GROUPS for i, k in enumerate(keys)}
+    for n, s in enumerate(sections or []):
+        key, title = check_section_key(s.get('title'), lang)
+        if key in skip or not s.get('count'):
+            continue
+        group, pos = order.get(key, ('data', 100 + n))
+        count = int(s['count'])
+        by_group[group].append((pos, {'key': key or '', 'title': title, 'count': count, 'text': points_text(count, lang)}))
+    out = []
+    for g, _keys in CHECK_GROUPS:
+        items = [x for _p, x in sorted(by_group[g], key=lambda p: p[0])]
+        if items:
+            total = sum(x['count'] for x in items)
+            out.append({'key': g, 'title': t('ov_g_' + g, lang), 'total': total, 'total_text': points_text(total, lang), 'items': items})
+    return out
 
 
 def gantt_stop(state, date_from, date_to, today, days=GANTT_OPEN_DAYS):

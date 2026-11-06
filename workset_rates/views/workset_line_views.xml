@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Список ліній без правки на місці: «правила немає» — порожня комірка; правлять і створюють у картці лінії -->
+    <!-- Список ліній без правки на місці: «правила немає» — порожня комірка; правлять і створюють у картці лінії. Розбір вигляду 06.11:
+         «Знайшла» / «Ми» (у більшості ліній порожні) — у додаткових стовпцях; заголовки чисел — з шириною, без обрізання; нуль — порожньо -->
     <record id="view_line_list" model="ir.ui.view">
         <field name="name">workset.line.list</field>
         <field name="model">workset.line</field>
@@ -8,16 +9,16 @@
             <list string="Лінії">
                 <field name="sequence" widget="handle"/>
                 <field name="name" string="Лінія"/>
-                <field name="code"/>
-                <field name="share_line_found" string="Знайшла" help="Частка WorkSET, €/год, якщо людину знайшла лінія" invisible="not share_line_found"/>
-                <field name="share_we_found" string="Ми" help="Частка WorkSET, €/год, якщо людину знайшли ми" invisible="not share_we_found"/>
+                <field name="code" width="60px"/>
+                <field name="share_line_found" string="Знайшла" help="Частка WorkSET, €/год, якщо людину знайшла лінія" invisible="not share_line_found" optional="hide"/>
+                <field name="share_we_found" string="Ми" help="Частка WorkSET, €/год, якщо людину знайшли ми" invisible="not share_we_found" optional="hide"/>
                 <field name="customer_ids" widget="many2many_tags"/>
                 <field name="plan_ids" widget="many2many_tags" optional="hide"/>
-                <field name="rate_count" string="Діючі"/>
-                <field name="work_count" string="Працюють"/>
-                <field name="avg_wage" string="Сер. зарплата працівника"/>
-                <field name="avg_price" string="Сер. платять нам"/>
-                <field name="avg_share" string="Сер. частка"/>
+                <field name="rate_count" string="Діючі" width="70px"/>
+                <field name="work_count" string="Працюють" width="90px"/>
+                <field name="avg_wage" string="Сер. зарплата" width="110px" invisible="not avg_wage"/>
+                <field name="avg_price" string="Сер. платять" width="110px" invisible="not avg_price"/>
+                <field name="avg_share" string="Сер. частка" width="100px" invisible="not avg_share"/>
                 <field name="min_share" string="Мінімум" optional="hide"/>
                 <field name="good_share" string="Добра" optional="hide"/>
                 <field name="agent_id" string="Агент" optional="hide"/>
@@ -43,24 +44,26 @@
                     <div class="oe_title">
                         <h1><field name="name" placeholder="Назва лінії (код)"/></h1>
                     </div>
-                    <div class="row g-3 my-2" name="figures">
-                        <div class="col-6 col-lg-3">
+                    <!-- частки правила лінії — лише ті, що є; правила лінії немає — один сірий рядок замість двох великих нулів (розбір
+                         вигляду 06.11) -->
+                    <field name="rule_id" invisible="1"/>
+                    <div class="row g-3 my-2" name="figures" invisible="not share_line_found and not share_we_found">
+                        <div class="col-6 col-lg-3" invisible="not share_line_found">
                             <div class="text-muted text-uppercase small">Знайшла лінія</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
                                 <field name="share_line_found" nolabel="1" class="fs-1 fw-semibold o_input_5ch w-auto text-end"/>
                                 <div class="fs-6 fw-normal text-muted">€/год</div>
                             </div>
-                            <div class="text-muted small" invisible="share_line_found">правила немає</div>
                         </div>
-                        <div class="col-6 col-lg-3">
+                        <div class="col-6 col-lg-3" invisible="not share_we_found">
                             <div class="text-muted text-uppercase small">Знайшли ми</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
                                 <field name="share_we_found" nolabel="1" class="fs-1 fw-semibold o_input_5ch w-auto text-end"/>
                                 <div class="fs-6 fw-normal text-muted">€/год</div>
                             </div>
-                            <div class="text-muted small" invisible="share_we_found">правила немає</div>
                         </div>
                     </div>
+                    <div class="text-muted my-2" invisible="not id or rule_id">Загальної ставки лінії немає</div>
                     <div class="row g-3 my-2" name="figures_work" invisible="not id">
                         <div class="col-6 col-lg-3">
                             <div class="text-muted text-uppercase small">Працюють зараз</div>
@@ -88,57 +91,73 @@
                             </div>
                         </div>
                     </div>
+                    <!-- на виду — замовники й код; посередник і партнер лінії, мінімум і добра частка (здебільшого порожні) — вкладками внизу:
+                         форма Odoo 19 завжди в режимі правки, тож порожні поля не ховаються, а прибираються з першого екрана (розбір вигляду 06.11) -->
                     <group>
                         <group name="who" string="Хто">
                             <field name="customer_ids" string="Замовники" widget="many2many_tags" options="{'no_create': True}" domain="['|', ('is_company', '=', True), ('customer_rank', '&gt;', 0)]"/>
-                            <field name="agent_id" string="Агент лінії" options="{'no_create': True}"/>
-                            <field name="partner_id" string="Партнер лінії" options="{'no_create': True}" placeholder="з ким говорити про ставки лінії"/>
-                            <label for="agent_share" string="Частка агента"/>
-                            <div class="d-flex align-items-baseline gap-2 flex-wrap">
-                                <field name="agent_share" nolabel="1" class="o_input_7ch w-auto"/>
-                                <div class="text-muted">€/год</div>
-                            </div>
                         </group>
                         <group name="odoo" string="В Odoo">
                             <field name="code" string="Код"/>
                             <field name="plan_ids" string="Вузли аналітики" widget="many2many_tags" options="{'no_create': True}"/>
-                        </group>
-                        <group name="checks" string="Перевірки">
-                            <label for="min_share" string="Мінімум частки"/>
-                            <div class="d-flex align-items-baseline gap-2 flex-wrap">
-                                <field name="min_share" nolabel="1" class="o_input_7ch w-auto"/>
-                                <div class="text-muted">€/год</div>
-                            </div>
-                            <label for="good_share" string="Добра частка"/>
-                            <div class="d-flex align-items-baseline gap-2 flex-wrap">
-                                <field name="good_share" nolabel="1" class="o_input_7ch w-auto"/>
-                                <div class="text-muted">€/год</div>
-                            </div>
                         </group>
                     </group>
                     <div class="mb-3">
                         <label for="rule_note" string="Правило"/>
                         <field name="rule_note" placeholder="Правило словами: зарплата працівника + частка WorkSET, якщо людину знайшла лінія; інша частка, якщо знайшли ми"/>
                     </div>
-                    <!-- М2c (розділ 3.13): житло лінії — правка на місці; правлять «Ставки: правила ліній» (іншим Odoo ховає правку за правами моделі) -->
+                    <!-- М2c (розділ 3.13): житло лінії — правка на місці; правлять «Ставки: правила ліній» (іншим Odoo ховає правку за правами моделі).
+                         Заголовки — короткі; «Джерело» й «Звідки саме» обов'язкові й правляться лише тут — видно завжди, «звідки саме»
+                         вузьким стовпцем із переносом -->
                     <notebook>
                         <page name="housing" string="Житло" invisible="not id">
                             <div class="text-muted mb-2">Як лінія рахує житло людей: правило всієї лінії та правила замовників (об'єктів) з датами — одне на дату.</div>
                             <field name="housing_ids" nolabel="1">
                                 <list editable="bottom" default_order="customer_id, date_from desc">
                                     <field name="currency_id" column_invisible="1"/>
-                                    <field name="customer_id" options="{'no_create': True}" placeholder="уся лінія"/>
+                                    <field name="customer_id" string="Замовник" options="{'no_create': True}" placeholder="уся лінія"/>
                                     <field name="kind"/>
-                                    <field name="amount" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}"/>
-                                    <field name="amount_unit"/>
-                                    <field name="hours_per_person" optional="show" invisible="kind != 'hour_deduction'"/>
-                                    <field name="payer"/>
-                                    <field name="date_from" options="{'numeric': True}"/>
-                                    <field name="date_to" options="{'numeric': True}"/>
-                                    <field name="source"/>
-                                    <field name="source_note"/>
+                                    <field name="amount" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" invisible="kind in ('customer_deducts', 'none')"/>
+                                    <field name="amount_unit" invisible="kind in ('customer_deducts', 'none')"/>
+                                    <field name="hours_per_person" string="Годин" optional="show" invisible="kind != 'hour_deduction'"/>
+                                    <field name="payer" string="Платить"/>
+                                    <field name="date_from" options="{'numeric': True}" width="90px"/>
+                                    <field name="date_to" options="{'numeric': True}" width="90px"/>
+                                    <field name="source" optional="show"/>
+                                    <field name="source_note" optional="show" class="text-wrap" width="160px"/>
                                 </list>
                             </field>
+                        </page>
+                        <page name="agent" string="Посередник і партнер">
+                            <group>
+                                <group>
+                                    <field name="agent_id" string="Агент лінії" options="{'no_create': True}"/>
+                                    <label for="agent_share" string="Частка агента"/>
+                                    <div class="d-flex align-items-baseline gap-2 flex-wrap">
+                                        <field name="agent_share" nolabel="1" class="o_input_7ch w-auto"/>
+                                        <div class="text-muted">€/год</div>
+                                    </div>
+                                </group>
+                                <group>
+                                    <field name="partner_id" string="Партнер лінії" options="{'no_create': True}" placeholder="з ким говорити про ставки лінії"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page name="checks" string="Перевірки">
+                            <group>
+                                <group>
+                                    <label for="min_share" string="Мінімум частки"/>
+                                    <div class="d-flex align-items-baseline gap-2 flex-wrap">
+                                        <field name="min_share" nolabel="1" class="o_input_7ch w-auto"/>
+                                        <div class="text-muted">€/год</div>
+                                    </div>
+                                    <label for="good_share" string="Добра частка"/>
+                                    <div class="d-flex align-items-baseline gap-2 flex-wrap">
+                                        <field name="good_share" nolabel="1" class="o_input_7ch w-auto"/>
+                                        <div class="text-muted">€/год</div>
+                                    </div>
+                                </group>
+                            </group>
                         </page>
                     </notebook>
                 </sheet>

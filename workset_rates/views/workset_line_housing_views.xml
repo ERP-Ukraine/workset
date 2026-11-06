@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!-- «Житло ліній» (розділ 3.13 спеціфікації М2): одне правило на пару «лінія × замовник» на дату; правило замовника (об'єкта) точніше за
-         правило лінії. Правка на місці — групі «Ставки: правила ліній» (іншим Odoo сам ховає «Новий» і правку за правами моделі) -->
+         правило лінії. Правка на місці — групі «Ставки: правила ліній» (іншим Odoo сам ховає «Новий» і правку за правами моделі). Розбір
+         вигляду 06.11: без групування за замовчуванням (сортування за лінією) — одне «Додати рядок» унизу, а не в кожній групі; підсумків
+         групи немає (сума складала €/год і €/міс — aggregator у моделі вимкнено); суми й одиниці там, де житло не наше або вираховує замовник,
+         — порожньо; «Джерело» й «Звідки саме» обов'язкові (правка в рядку) — видно завжди, «звідки саме» (шляхи файлів) — вузьким
+         стовпцем із переносом -->
     <record id="view_housing_list" model="ir.ui.view">
         <field name="name">workset.line.housing.list</field>
         <field name="model">workset.line.housing</field>
@@ -10,16 +14,16 @@
                 <field name="currency_id" column_invisible="1"/>
                 <field name="active" column_invisible="1"/>
                 <field name="line_id" options="{'no_create': True}"/>
-                <field name="customer_id" options="{'no_create': True}" placeholder="уся лінія"/>
+                <field name="customer_id" string="Замовник" options="{'no_create': True}" placeholder="уся лінія"/>
                 <field name="kind"/>
-                <field name="amount" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}"/>
-                <field name="amount_unit"/>
-                <field name="hours_per_person" optional="show" invisible="kind != 'hour_deduction'"/>
-                <field name="payer"/>
-                <field name="date_from" options="{'numeric': True}"/>
-                <field name="date_to" options="{'numeric': True}"/>
-                <field name="source"/>
-                <field name="source_note"/>
+                <field name="amount" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" invisible="kind in ('customer_deducts', 'none')"/>
+                <field name="amount_unit" invisible="kind in ('customer_deducts', 'none')"/>
+                <field name="hours_per_person" string="Годин" optional="show" invisible="kind != 'hour_deduction'"/>
+                <field name="payer" string="Платить"/>
+                <field name="date_from" options="{'numeric': True}" width="90px"/>
+                <field name="date_to" options="{'numeric': True}" width="90px"/>
+                <field name="source" optional="show"/>
+                <field name="source_note" optional="show" class="text-wrap" width="160px"/>
                 <field name="note" optional="hide"/>
             </list>
         </field>
@@ -105,7 +109,6 @@
         <field name="res_model">workset.line.housing</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_housing_search"/>
-        <field name="context">{'search_default_groupby_line': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">Правил житла ще немає</p>
             <p>Як кожна лінія рахує житло людей: вирахування годинами, буфер з оплати чи рахунків, вираховує замовник або житло не наше.</p>

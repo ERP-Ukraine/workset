@@ -10,3 +10,11 @@ export function groupNumber(value, { digits = 2, trailingZeros = true, decimalPo
     const sign = n < 0 && /[1-9]/.test(text) ? "-" : "";
     return sign + whole.replace(/\B(?=(\d{3})+(?!\d))/g, " ") + (frac ? decimalPoint + frac : "");
 }
+
+/** Колір з обчисленого стилю («rgb(r, g, b)» / «rgba(…)», як віддає getComputedStyle) → той самий колір із прозорістю alpha (сітка й
+ *  нейтральний сектор графіків «Огляду» — від кольору тексту теми, світлої й темної). Інший запис або порожньо — undefined (Chart.js тоді
+ *  бере свій типовий колір). */
+export function withAlpha(color, alpha) {
+    const m = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/i.exec(String(color || "").trim());
+    return m ? `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${alpha})` : undefined;
+}

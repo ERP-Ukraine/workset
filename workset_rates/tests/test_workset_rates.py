@@ -2287,9 +2287,10 @@ class TestWorksetRates(TransactionCase):
             self.assertIn('Тест посередник 0611 · +48 000 000 002', t.contact_text)
         self.assertIsNone(agent_deals.deal_link(self.env, [], 'тест'), 'без домовленостей — без посилання')
 
-    def test_c_0611_talk_private_phone_only_hr(self):
-        """Особистий телефон картки (поле кадрів) — у «Переговорити» лише користувачу з групою кадрів: редактор ставок без неї його не бачить
-        ні в майстрі, ні в нотатці задачі (її читають бухгалтерія й проєкти); робочий — бачить (ревю 06.11)."""
+    def test_c_0611_talk_private_phone_all_editors(self):
+        """Особистий телефон картки — у «Переговорити» всім, хто пише ставки, і без групи кадрів (рішення власника 06.11 «телефон: всем
+        редакторам», замість «лише кадрам» з ревю): у майстрі й у нотатці задачі; він першим — перед мобільним і робочим. Номера немає —
+        рядок без «телефон: —» (розбір вигляду 06.11)."""
         self._isolate()
         self._quiet_bonuses()
         if 'private_phone' not in self.env['hr.employee']._fields:
@@ -2298,27 +2299,55 @@ class TestWorksetRates(TransactionCase):
         with a, b:
             r = self._rate()
         self.person.phone = False
-        (self.emp_a | self.emp_b | self.emp_uah | self.emp_out).sudo().write({'mobile_phone': False, 'work_phone': False})
-        self.emp_a.sudo().private_phone = '+48 000 000 009'
+        (self.emp_a | self.emp_b | self.emp_uah | self.emp_out).sudo().write({'mobile_phone': False, 'work_phone': False, 'private_phone': False})
         firms = list(self.env.context['allowed_company_ids'])
         editor = new_test_user(self.env, login='ws_c_0611_editor', groups='base.group_user,workset_rates.group_editor',
                                company_id=self.env.company.id, company_ids=[(6, 0, firms)])
-        hr_editor = new_test_user(self.env, login='ws_c_0611_hr', groups='base.group_user,workset_rates.group_editor,hr.group_hr_user',
-                                  company_id=self.env.company.id, company_ids=[(6, 0, firms)])
         self.assertFalse(editor.has_group('hr.group_hr_user'))
+        Talk = self.env['workset.rate.talk'].with_user(editor)
         with a, b:
-            t = self.env['workset.rate.talk'].with_user(editor).create({'rate_id': r.id, 'who': 'worker'})
-            self.assertNotIn('000 009', t.contact_text)
-            self.assertIn('телефон: —', t.contact_text)
+            t = Talk.create({'rate_id': r.id, 'who': 'worker'})
+            self.assertEqual(t.contact_text, self.person.name, 'номера немає — лише ім\'я, без «телефон: —»')
+            self.emp_a.sudo().write({'private_phone': '+48 000 000 009', 'work_phone': '+48 000 000 008'})
+            t = Talk.create({'rate_id': r.id, 'who': 'worker'})
+            self.assertIn('+48 000 000 009', t.contact_text, 'редактор без кадрів бачить особистий')
+            self.assertNotIn('000 008', t.contact_text, 'особистий — першим, робочий — лише коли особистого немає')
             t.action_create()
             note = str(self.env['mail.activity'].search([('res_model', '=', 'workset.rate'), ('res_id', '=', r.id)]).note)
-            self.assertNotIn('000 009', note, 'нотатка — лише те, що бачить користувач')
-            self.emp_a.sudo().work_phone = '+48 000 000 008'
-            t = self.env['workset.rate.talk'].with_user(editor).create({'rate_id': r.id, 'who': 'worker'})
-            self.assertIn('+48 000 000 008', t.contact_text, 'робочий телефон — бачить')
-            self.emp_a.sudo().work_phone = False
-            t = self.env['workset.rate.talk'].with_user(hr_editor).create({'rate_id': r.id, 'who': 'worker'})
-            self.assertIn('+48 000 000 009', t.contact_text, 'кадри — бачать особистий')
+            self.assertIn('+48 000 000 009', note, 'і в нотатці задачі')
+            self.emp_a.sudo().private_phone = False
+            t = Talk.create({'rate_id': r.id, 'who': 'worker'})
+            self.assertIn('+48 000 000 008', t.contact_text, 'особистого немає — робочий')
+
+    def test_c_0611_talk_user_by_role(self):
+        """«Кому доручити» за замовчуванням (розбір вигляду 06.11): замовник і посередник — користувач параметра workset_rates.talk_customer_uid,
+        працівник — той, хто ставить; параметра немає або його користувач не читає ставок — той, хто ставить; змінили «З ким говорити» —
+        підставляється знову; обраний вручну — лишається."""
+        self._isolate()
+        self._quiet_bonuses()
+        a, b = self._no_agents()
+        with a, b:
+            r = self._rate()
+        firms = list(self.env.context['allowed_company_ids'])
+        me = new_test_user(self.env, login='ws_c_talk_me', groups='base.group_user,workset_rates.group_editor',
+                           company_id=self.env.company.id, company_ids=[(6, 0, firms)])
+        manager = new_test_user(self.env, login='ws_c_talk_manager', groups='base.group_user,workset_rates.group_editor')
+        plain = new_test_user(self.env, login='ws_c_talk_plain2', groups='base.group_user')
+        Param = self.env['ir.config_parameter'].sudo()
+        Talk = self.env['workset.rate.talk'].with_user(me)
+        with a, b:
+            Param.set_param('workset_rates.talk_customer_uid', False)
+            self.assertEqual(Talk.create({'rate_id': r.id, 'who': 'customer'}).user_id, me, 'параметра немає — сам')
+            Param.set_param('workset_rates.talk_customer_uid', str(manager.id))
+            self.assertEqual(Talk.create({'rate_id': r.id, 'who': 'customer'}).user_id, manager, 'замовник — менеджер із параметра')
+            self.assertEqual(Talk.create({'rate_id': r.id, 'who': 'worker'}).user_id, me, 'працівник — сам')
+            self.assertEqual(Talk.create({'rate_id': r.id, 'who': 'customer', 'user_id': me.id}).user_id, me, 'обраний вручну — лишається')
+            f = Form(Talk.with_context(**r.action_talk()['context']), view='workset_rates.view_rate_talk_form')
+            self.assertEqual((f.who, f.user_id), ('worker', me))
+            f.who = 'customer'
+            self.assertEqual(f.user_id, manager, 'змінили «З ким говорити» — менеджер підставився')
+            Param.set_param('workset_rates.talk_customer_uid', str(plain.id))
+            self.assertEqual(Talk.create({'rate_id': r.id, 'who': 'customer'}).user_id, me, 'не читає ставок — сам')
 
     def test_c_0611_current_list_without_state(self):
         """«Працюють зараз» — свій вид без стовпця «Статус ставки»; «Усі ставки» — зі статусом (слово власника 06.11 «статус: убрать»)."""
@@ -2334,6 +2363,46 @@ class TestWorksetRates(TransactionCase):
         self.assertFalse(state_hidden(self.env.ref('workset_rates.view_rate_list').id)[0], 'у загальному списку стовпець є')
         # типовий список моделі (форма лінії, «Усі ставки» без view_id) — базовий, зі статусом
         self.assertEqual(self.R.get_views([(False, 'list')])['views']['list']['id'], self.env.ref('workset_rates.view_rate_list').id)
+
+    def test_c_0611_view_essentials(self):
+        """Вид А–В 06.11 («лише важлива інформація»): лінія в списку — кодом (коду немає — назвою, змінили код — змінилось); «Працюють
+        зараз» — без «Робота»; «Ставки з розбіжностями» — свій вид, «Перевірити» другим стовпцем; «Нова ставка з дати» — «Джерело»
+        «Розмова»; назва звірки — українською за будь-якої мови виконавця."""
+        self._isolate()
+        self._quiet_bonuses()
+        a, b = self._no_agents()
+        with a, b:
+            r = self._rate()
+        self.assertEqual(r.line_code, 'TL')
+        self.line.code = 'TL2'
+        self.assertEqual(r.line_code, 'TL2', 'змінили код лінії — змінилось і в ставці')
+        self.line.code = False
+        self.assertEqual(r.line_code, 'Тест лінія', 'коду немає — назва')
+
+        def cols(view_id):
+            arch = etree.fromstring(self.R.get_views([(view_id, 'list')])['views']['list']['arch'])
+            return [(f.get('name'), f.get('column_invisible'), f.get('optional')) for f in arch.iter('field')]
+
+        cur = cols(self.env.ref('workset_rates.view_rate_list_current').id)
+        self.assertIn(dict((n, c) for n, c, _o in cur)['work'], ('1', 'True'), '«Працюють зараз» — без «Робота»')
+        review = self.env.ref('workset_rates.view_rate_list_review')
+        self.assertEqual(self.env.ref('workset_rates.action_rates_review').view_id, review)
+        visible = [n for n, c, _o in cols(review.id) if c not in ('1', 'True')]
+        self.assertEqual(visible[:2], ['person_id', 'issues'], '«Перевірити» — другим стовпцем')
+        self.assertEqual(dict((n, o) for n, _c, o in cols(review.id))['issues'], None, '«Перевірити» не ховається')
+        base = dict((n, o) for n, c, o in cols(self.env.ref('workset_rates.view_rate_list').id) if c not in ('1', 'True'))
+        self.assertEqual(sorted(n for n, o in base.items() if o is None),
+                         sorted(['person_id', 'customer_id', 'line_code', 'wage', 'price', 'our_share', 'net_share', 'date_from']),
+                         'за замовчуванням — 9 стовпців (з «Перевірити» й «Робота» — optional show)')
+        self.assertEqual(r.action_new_from_date()['context']['default_source'], 'call')
+        # виконавець звірки — російською (як у test_m2b_control_html_by_lang): текст звірки його мовою, назва запису — українською
+        self.env['res.lang']._activate_lang('ru_RU')
+        self.env.ref('base.user_admin').lang = 'ru_RU'
+        r.write({'to_check': True, 'check_reason': 'тест: звірка'})
+        with a, b:
+            res = self.R.rates_check()
+        self.assertTrue(res['created'], 'позначка «Перевірити» — пункт звірки, запис є')
+        self.assertEqual(self.env['workset.rate.check'].browse(res['created']).name, 'Звірка ставок 02.03.2026')
 
     def test_c_map_row_same_card_cost_not_mismatch(self):
         """Odoo 19: is_cost_changed — readonly-обчислюване cost ≠ hourly_cost картки; спільний write перераховує його з cost, тож при
