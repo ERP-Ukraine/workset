@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- «Житло ліній» (розділ 3.13 спеціфікації М2): одне правило на пару «лінія × замовник» на дату; правило замовника (об'єкта) точніше за
+         правило лінії. Правка на місці — групі «Ставки: правила ліній» (іншим Odoo сам ховає «Новий» і правку за правами моделі) -->
+    <record id="view_housing_list" model="ir.ui.view">
+        <field name="name">workset.line.housing.list</field>
+        <field name="model">workset.line.housing</field>
+        <field name="arch" type="xml">
+            <list string="Житло ліній" editable="bottom" decoration-muted="not active" default_order="line_id, customer_id, date_from desc">
+                <field name="currency_id" column_invisible="1"/>
+                <field name="active" column_invisible="1"/>
+                <field name="line_id" options="{'no_create': True}"/>
+                <field name="customer_id" options="{'no_create': True}" placeholder="уся лінія"/>
+                <field name="kind"/>
+                <field name="amount" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}"/>
+                <field name="amount_unit"/>
+                <field name="hours_per_person" optional="show" invisible="kind != 'hour_deduction'"/>
+                <field name="payer"/>
+                <field name="date_from" options="{'numeric': True}"/>
+                <field name="date_to" options="{'numeric': True}"/>
+                <field name="source"/>
+                <field name="source_note"/>
+                <field name="note" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Картка правила (відкривається з історії й посилань звірки): назва, блоки «Що», «Гроші», «Джерело», історія змін -->
+    <record id="view_housing_form" model="ir.ui.view">
+        <field name="name">workset.line.housing.form</field>
+        <field name="model">workset.line.housing</field>
+        <field name="arch" type="xml">
+            <form string="Житло лінії">
+                <sheet>
+                    <widget name="web_ribbon" title="В архіві" bg_color="text-bg-danger" invisible="active"/>
+                    <field name="currency_id" invisible="1"/>
+                    <field name="active" invisible="1"/>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1" placeholder="Лінія · замовник · як рахуємо з дати"/></h1>
+                    </div>
+                    <group>
+                        <group name="what" string="Що">
+                            <label for="line_id" string="Лінія" class="fw-semibold"/>
+                            <field name="line_id" nolabel="1" options="{'no_create': True}"/>
+                            <field name="customer_id" options="{'no_create': True}" placeholder="уся лінія"/>
+                            <label for="kind" string="Як рахуємо" class="fw-semibold"/>
+                            <field name="kind" nolabel="1"/>
+                            <field name="payer" string="Хто платить"/>
+                        </group>
+                        <group name="money" string="Гроші">
+                            <label for="amount" string="Сума"/>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap">
+                                <field name="amount" nolabel="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
+                                <field name="amount_unit" nolabel="1" class="w-auto"/>
+                            </div>
+                            <label for="hours_per_person" string="Годин на особу" invisible="kind != 'hour_deduction'"/>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap" invisible="kind != 'hour_deduction'">
+                                <field name="hours_per_person" nolabel="1" class="o_input_7ch w-auto"/>
+                                <div class="text-muted">год за період</div>
+                            </div>
+                        </group>
+                    </group>
+                    <group>
+                        <group name="source" string="Джерело">
+                            <label for="date_from" string="З" class="fw-semibold"/>
+                            <field name="date_from" nolabel="1" options="{'numeric': True}"/>
+                            <field name="date_to" string="До" options="{'numeric': True}"/>
+                            <label for="source" string="Джерело" class="fw-semibold"/>
+                            <field name="source" nolabel="1"/>
+                            <label for="source_note" string="Звідки саме" class="fw-semibold"/>
+                            <field name="source_note" nolabel="1" placeholder="Напр.: слово власника, дата; розбір рахунків лінії"/>
+                        </group>
+                    </group>
+                    <div class="mb-3">
+                        <label for="note" string="Нотатка"/>
+                        <field name="note" placeholder="Як саме лінія рахує житло, хто підтвердив"/>
+                    </div>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_housing_search" model="ir.ui.view">
+        <field name="name">workset.line.housing.search</field>
+        <field name="model">workset.line.housing</field>
+        <field name="arch" type="xml">
+            <search string="Житло ліній">
+                <field name="line_id"/>
+                <field name="customer_id"/>
+                <filter name="line_level" string="Правила ліній" domain="[('customer_id', '=', False)]"/>
+                <filter name="customer_level" string="Замовники й об'єкти" domain="[('customer_id', '!=', False)]"/>
+                <separator/>
+                <filter name="archived" string="В архіві" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="groupby_line" string="Лінія" context="{'group_by': 'line_id'}"/>
+                    <filter name="groupby_kind" string="Як рахуємо" context="{'group_by': 'kind'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_housing" model="ir.actions.act_window">
+        <field name="name">Житло ліній</field>
+        <field name="res_model">workset.line.housing</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_housing_search"/>
+        <field name="context">{'search_default_groupby_line': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Правил житла ще немає</p>
+            <p>Як кожна лінія рахує житло людей: вирахування годинами, буфер з оплати чи рахунків, вираховує замовник або житло не наше.</p>
+        </field>
+    </record>
+</odoo>

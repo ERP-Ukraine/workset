@@ -1,31 +1,44 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
-    <!-- Одна-дві строки: на телефоні пункти переносяться (flex-wrap), підписи дрібні, числа — напівжирні -->
+    <!-- Ряд плиток (уровень A, 6б): крупне число, підпис дрібно; плитки тягнуться на всю ширину ряду (flex-grow), на телефоні — по дві в ряд
+         (SCSS). «Нижче мінімуму», «Договір ≠ база» — червоним, «Тимчасових» — жовтим, коли > 0; «Без частки» — лише коли > 0 -->
     <t t-name="workset_rates.RatesSummary">
-        <div class="o_workset_rates_summary d-flex flex-wrap align-items-baseline gap-3 px-3 py-2 border-bottom" t-if="state.data">
-            <div class="o_workset_rates_summary_item">
-                <span class="text-muted small">Працюють</span>
-                <span class="fw-semibold ms-1" t-esc="state.data.working"/>
-                <span class="text-muted small ms-1">з <t t-esc="state.data.total"/></span>
+        <div class="o_workset_rates_tiles d-flex flex-wrap gap-2 px-3 py-2 border-bottom" t-if="state.data">
+            <div class="o_workset_rates_tile border rounded px-3 py-2">
+                <div class="fs-3 fw-semibold lh-1"><t t-esc="state.data.working"/><span class="fs-6 fw-normal text-muted ms-1">з <t t-esc="state.data.total"/></span></div>
+                <div class="text-muted small">Працюють</div>
             </div>
-            <div class="o_workset_rates_summary_item">
-                <span class="text-muted small">Сер. на руки</span>
-                <span class="fw-semibold ms-1" t-esc="money(state.data.avg_wage)"/>
-                <span class="text-muted small ms-1">€/год</span>
+            <div class="o_workset_rates_tile border rounded px-3 py-2">
+                <div class="fs-3 fw-semibold lh-1"><t t-esc="money(state.data.avg_wage)"/><span class="fs-6 fw-normal text-muted ms-1">€/год</span></div>
+                <div class="text-muted small">Сер. на руки</div>
             </div>
-            <div class="o_workset_rates_summary_item">
-                <span class="text-muted small">Сер. ціна</span>
-                <span class="fw-semibold ms-1" t-esc="money(state.data.avg_price)"/>
-                <span class="text-muted small ms-1">€/год</span>
+            <div class="o_workset_rates_tile border rounded px-3 py-2">
+                <div class="fs-3 fw-semibold lh-1"><t t-esc="money(state.data.avg_price)"/><span class="fs-6 fw-normal text-muted ms-1">€/год</span></div>
+                <div class="text-muted small">Сер. ціна</div>
             </div>
-            <div class="o_workset_rates_summary_item">
-                <span class="text-muted small">Сер. частка WorkSET</span>
-                <span class="fw-semibold ms-1" t-esc="money(state.data.avg_share)"/>
-                <span class="text-muted small ms-1">€/год</span>
+            <div class="o_workset_rates_tile border rounded px-3 py-2">
+                <div class="fs-3 fw-semibold lh-1"><t t-esc="money(state.data.avg_share)"/><span class="fs-6 fw-normal text-muted ms-1">€/год</span></div>
+                <div class="text-muted small">Сер. частка WorkSET</div>
             </div>
-            <div class="o_workset_rates_summary_item">
-                <span class="text-muted small">Без частки</span>
-                <span class="fw-semibold ms-1" t-att-class="state.data.zero_share ? 'text-danger' : ''" t-esc="state.data.zero_share"/>
+            <div class="o_workset_rates_tile border rounded px-3 py-2">
+                <div class="fs-3 fw-semibold lh-1"><t t-esc="money(state.data.avg_net)"/><span class="fs-6 fw-normal text-muted ms-1">€/год</span></div>
+                <div class="text-muted small">Сер. чиста частка</div>
+            </div>
+            <div class="o_workset_rates_tile border rounded px-3 py-2">
+                <div class="fs-3 fw-semibold lh-1" t-att-class="state.data.below_min ? 'text-danger' : ''" t-esc="state.data.below_min"/>
+                <div class="text-muted small">Нижче мінімуму</div>
+            </div>
+            <div class="o_workset_rates_tile border rounded px-3 py-2">
+                <div class="fs-3 fw-semibold lh-1" t-att-class="state.data.raises ? 'text-warning' : ''" t-esc="state.data.raises"/>
+                <div class="text-muted small">Тимчасових</div>
+            </div>
+            <div class="o_workset_rates_tile border rounded px-3 py-2">
+                <div class="fs-3 fw-semibold lh-1" t-att-class="state.data.contract_diff ? 'text-danger' : ''" t-esc="state.data.contract_diff or 0"/>
+                <div class="text-muted small">Договір ≠ база</div>
+            </div>
+            <div class="o_workset_rates_tile border rounded px-3 py-2" t-if="state.data.zero_share">
+                <div class="fs-3 fw-semibold lh-1 text-danger" t-esc="state.data.zero_share"/>
+                <div class="text-muted small">Без частки</div>
             </div>
         </div>
     </t>

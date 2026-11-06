@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- «Загальні ставки» (розділ 6 спеціфікації М2): правило лінії (замовник порожній — сірим «усі замовники лінії») і тарифи замовників з
+         датами; групування за лінією за замовчуванням. Захищене (правило лінії, частки, мінімуми, якір, фікс) перевіряє код при збереженні -->
+    <record id="view_rule_list" model="ir.ui.view">
+        <field name="name">workset.rate.rule.list</field>
+        <field name="model">workset.rate.rule</field>
+        <field name="arch" type="xml">
+            <list string="Загальні ставки" decoration-muted="state == 'past'" default_order="line_id, customer_id, date_from desc">
+                <field name="currency_id" column_invisible="1"/>
+                <field name="level" column_invisible="1"/>
+                <field name="line_id" widget="badge"/>
+                <field name="customer_text" string="Замовник" decoration-muted="level == 'line'"/>
+                <field name="anchor" widget="badge" decoration-info="anchor == 'markup'"/>
+                <field name="price_mode" widget="badge" decoration-info="price_mode == 'fixed_month'"/>
+                <field name="share_line_found" string="Знайшла" widget="monetary" options="{'currency_field': 'currency_id'}" avg="Середнє"/>
+                <field name="share_we_found" string="Ми" widget="monetary" options="{'currency_field': 'currency_id'}" avg="Середнє"/>
+                <field name="price" widget="monetary" options="{'currency_field': 'currency_id'}" avg="Середнє"/>
+                <field name="fixed_month" string="Фікс" widget="monetary" options="{'currency_field': 'currency_id'}" optional="show"/>
+                <field name="min_share" string="Мінімум" widget="monetary" options="{'currency_field': 'currency_id'}" optional="show"/>
+                <field name="client_price" widget="monetary" options="{'currency_field': 'currency_id'}" optional="show"/>
+                <field name="date_from" options="{'numeric': True}"/>
+                <field name="date_to" options="{'numeric': True}" optional="show"/>
+                <field name="state" widget="badge" decoration-success="state == 'current'" decoration-info="state == 'future'" decoration-muted="state == 'past'"/>
+                <field name="inherit_count" optional="show"/>
+                <field name="own_count" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Картка правила за стандартом форми: шапка (кнопки + статус), назва, цифри, блоки «Що», «Гроші», «Джерело», історія -->
+    <record id="view_rule_form" model="ir.ui.view">
+        <field name="name">workset.rate.rule.form</field>
+        <field name="model">workset.rate.rule</field>
+        <field name="arch" type="xml">
+            <form string="Загальна ставка">
+                <header>
+                    <field name="can_edit_line" invisible="1"/>
+                    <button name="action_new_from_date" type="object" string="Нова з дати" class="btn-primary"
+                            invisible="not id or not active or state == 'past' or (level == 'line' and not can_edit_line)"
+                            groups="workset_rates.group_editor,base.group_system"/>
+                    <button name="action_apply_wizard" type="object" string="Застосувати з дати" class="btn-secondary" invisible="not id or not active or state == 'past'"
+                            groups="workset_rates.group_editor,base.group_system"/>
+                    <field name="state" widget="statusbar" statusbar_visible="future,current,past"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_inherit" type="object" class="oe_stat_button" icon="fa-link" invisible="not id">
+                            <field name="inherit_count" widget="statinfo" string="Наслідують"/>
+                        </button>
+                        <button name="action_open_own" type="object" class="oe_stat_button" icon="fa-user" invisible="not id">
+                            <field name="own_count" widget="statinfo" string="Своїх"/>
+                        </button>
+                    </div>
+                    <widget name="web_ribbon" title="В архіві" bg_color="text-bg-danger" invisible="active"/>
+                    <widget name="web_ribbon" title="Минула" bg_color="text-bg-secondary" invisible="not active or state != 'past'"/>
+                    <widget name="web_ribbon" title="Майбутня" bg_color="text-bg-secondary" invisible="not active or state != 'future'"/>
+                    <field name="currency_id" invisible="1"/>
+                    <field name="active" invisible="1"/>
+                    <field name="level" invisible="1"/>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1" placeholder="Лінія · замовник · з дати"/></h1>
+                    </div>
+                    <div class="row g-3 my-2" name="figures">
+                        <div class="col-6 col-lg-3" invisible="price_mode == 'fixed_month'">
+                            <div class="text-muted text-uppercase small">Знайшла лінія</div>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
+                                <field name="share_line_found" nolabel="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="fs-1 fw-semibold o_input_5ch w-auto text-end"/>
+                                <div class="fs-6 fw-normal text-muted">€/год</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg-3" invisible="price_mode == 'fixed_month'">
+                            <div class="text-muted text-uppercase small">Знайшли ми</div>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
+                                <field name="share_we_found" nolabel="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="fs-1 fw-semibold o_input_5ch w-auto text-end"/>
+                                <div class="fs-6 fw-normal text-muted">€/год</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg-3" invisible="price_mode == 'fixed_month'">
+                            <div class="text-muted text-uppercase small">Ціна нам</div>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
+                                <field name="price" nolabel="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="fs-1 fw-semibold o_input_5ch w-auto text-end"/>
+                                <div class="fs-6 fw-normal text-muted">€/год</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg-3" invisible="price_mode == 'fixed_month'">
+                            <div class="text-muted text-uppercase small">Мінімум</div>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
+                                <field name="min_share" nolabel="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="fs-1 fw-semibold o_input_5ch w-auto text-end"/>
+                                <div class="fs-6 fw-normal text-muted">€/год</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg-3" invisible="price_mode != 'fixed_month'">
+                            <div class="text-muted text-uppercase small">Фікс за місяць</div>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
+                                <field name="fixed_month" nolabel="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="fs-1 fw-semibold o_input_5ch w-auto text-end"/>
+                                <div class="fs-6 fw-normal text-muted">€/міс</div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- А7: правка правила ставок не змінює — нагадування, скільки ставок наслідують і що робити -->
+                    <div class="d-flex align-items-baseline gap-2 flex-wrap fw-semibold my-2" role="alert" invisible="not id or (not inherit_count and not own_count)">
+                        <div><i class="fa fa-info-circle me-1" role="img" title="Наслідують"/></div>
+                        <div>Наслідують</div>
+                        <field name="inherit_count" readonly="1" nolabel="1" class="w-auto"/>
+                        <div>ставок; своїх</div>
+                        <field name="own_count" readonly="1" nolabel="1" class="w-auto"/>
+                        <div>— не зміняться. Натисніть «Застосувати з дати».</div>
+                    </div>
+                    <group>
+                        <group name="what" string="Що">
+                            <label for="line_id" string="Лінія" class="fw-semibold"/>
+                            <field name="line_id" nolabel="1" options="{'no_create': True}"/>
+                            <field name="customer_id" string="Замовник" options="{'no_create': True}" placeholder="усі замовники лінії"/>
+                            <label for="anchor" string="Якір" class="fw-semibold"/>
+                            <field name="anchor" nolabel="1" widget="radio" options="{'horizontal': True}"/>
+                            <field name="price_mode" string="Тип ціни" widget="radio" options="{'horizontal': True}"/>
+                        </group>
+                        <group name="money" string="Гроші">
+                            <label for="client_price" string="Ціна клієнта"/>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap">
+                                <field name="client_price" nolabel="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
+                                <div class="text-muted">€/год</div>
+                            </div>
+                            <field name="client_price_source" string="Джерело ціни" invisible="not client_price" required="client_price"/>
+                            <field name="client_price_date" string="Дата ціни" invisible="not client_price" required="client_price" options="{'numeric': True}"/>
+                            <field name="people_agent_payer" string="Хто платить агенту" placeholder="Лінія"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group name="source" string="Джерело">
+                            <label for="date_from" string="Ставка з" class="fw-semibold"/>
+                            <field name="date_from" nolabel="1" options="{'numeric': True}"/>
+                            <field name="date_to" string="Ставка до" readonly="1" invisible="not date_to" options="{'numeric': True}"/>
+                            <label for="source" string="Джерело" class="fw-semibold"/>
+                            <field name="source" nolabel="1"/>
+                            <label for="source_note" string="Звідки саме" class="fw-semibold"/>
+                            <field name="source_note" nolabel="1" placeholder="Напр.: слово власника, дата; рахунок замовника, номер і дата"/>
+                        </group>
+                    </group>
+                    <div class="mb-3">
+                        <label for="note" string="Нотатка"/>
+                        <field name="note" placeholder="Що домовилися, хто підтвердив"/>
+                    </div>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_rule_search" model="ir.ui.view">
+        <field name="name">workset.rate.rule.search</field>
+        <field name="model">workset.rate.rule</field>
+        <field name="arch" type="xml">
+            <search string="Загальні ставки">
+                <field name="line_id"/>
+                <field name="customer_id"/>
+                <filter name="current" string="Діють" domain="[('state', '=', 'current')]"/>
+                <filter name="future" string="Майбутні" domain="[('state', '=', 'future')]"/>
+                <filter name="past" string="Минулі" domain="[('state', '=', 'past')]"/>
+                <separator/>
+                <filter name="level_line" string="Правила ліній" domain="[('level', '=', 'line')]"/>
+                <filter name="level_customer" string="Тарифи замовників" domain="[('level', '=', 'customer')]"/>
+                <separator/>
+                <filter name="markup" string="Надбавка" domain="[('anchor', '=', 'markup')]"/>
+                <filter name="tariff" string="Тариф" domain="[('anchor', '=', 'tariff')]"/>
+                <filter name="fixed_month" string="Фікс за місяць" domain="[('price_mode', '=', 'fixed_month')]"/>
+                <separator/>
+                <filter name="archived" string="В архіві" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="groupby_line" string="Лінія" context="{'group_by': 'line_id'}"/>
+                    <filter name="groupby_customer" string="Замовник" context="{'group_by': 'customer_id'}"/>
+                    <filter name="groupby_anchor" string="Якір" context="{'group_by': 'anchor'}"/>
+                    <filter name="groupby_price_mode" string="Тип ціни" context="{'group_by': 'price_mode'}"/>
+                    <filter name="groupby_state" string="Статус" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_rules" model="ir.actions.act_window">
+        <field name="name">Загальні ставки</field>
+        <field name="res_model">workset.rate.rule</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_rule_search"/>
+        <field name="context">{'search_default_groupby_line': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Загальних ставок ще немає</p>
+            <p>Додайте правило лінії (частка для надбавки) або тариф замовника.</p>
+        </field>
+    </record>
+
+    <!-- Майстер «Застосувати з дати»: дата, скільки ставок отримають нову ставку / перерахуються на місці / без змін, хто «Свій» -->
+    <record id="view_rule_apply_form" model="ir.ui.view">
+        <field name="name">workset.rate.rule.apply.form</field>
+        <field name="model">workset.rate.rule.apply</field>
+        <field name="arch" type="xml">
+            <form string="Застосувати з дати">
+                <group>
+                    <group>
+                        <field name="rule_id" readonly="1"/>
+                        <label for="date" string="Застосувати з" class="fw-semibold"/>
+                        <field name="date" nolabel="1" options="{'numeric': True}"/>
+                    </group>
+                    <group>
+                        <field name="governed_count" readonly="1"/>
+                        <field name="inherit_count" readonly="1"/>
+                        <field name="late_count" readonly="1" invisible="not late_count"/>
+                        <field name="same_count" readonly="1" invisible="not same_count"/>
+                        <field name="own_count" readonly="1"/>
+                    </group>
+                </group>
+                <separator string="Було → стане"/>
+                <field name="preview_html" readonly="1" nolabel="1"/>
+                <separator string="Свої — не змінено, вирішіть"/>
+                <field name="own_html" readonly="1" nolabel="1"/>
+                <footer>
+                    <button name="action_apply" type="object" string="Застосувати" class="btn-primary" invisible="not inherit_count and not late_count"/>
+                    <button string="Скасувати" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

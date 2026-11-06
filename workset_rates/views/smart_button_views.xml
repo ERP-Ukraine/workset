@@ -24,8 +24,7 @@
         <field name="priority">2000</field>
         <field name="arch" type="xml">
             <xpath expr="//div[@name='button_box']" position="inside">
-                <button name="action_workset_rates" type="object" class="oe_stat_button" icon="fa-eur"
-                        groups="workset_rates.group_editor,hr.group_hr_user,account.group_account_user,project.group_project_manager,base.group_system">
+                <button name="action_workset_rates" type="object" class="oe_stat_button" icon="fa-eur" groups="hr.group_hr_user">
                     <field name="workset_rate_count" widget="statinfo" string="Діючих ставок"/>
                 </button>
             </xpath>
