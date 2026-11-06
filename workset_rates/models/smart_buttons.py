@@ -35,7 +35,9 @@ class ResPartner(models.Model):
 class HrEmployee(models.Model):
     _inherit = 'hr.employee'
 
-    workset_rate_count = fields.Integer(string='Діючих ставок', compute='_compute_workset_rate_count')
+    # groups обов'язково: поля hr.employee, яких немає на hr.employee.public, без групи ламають читання картки працівника
+    # користувачем без прав кадрів (тест Odoo hr test_employee_fields_groups; сборка Odoo.sh 41352965, 06.11.2026)
+    workset_rate_count = fields.Integer(string='Діючих ставок', compute='_compute_workset_rate_count', groups='hr.group_hr_user')
 
     def _compute_workset_rate_count(self):
         R = self.env[RATE].sudo()
