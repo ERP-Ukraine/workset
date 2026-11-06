@@ -10,6 +10,7 @@
 ціна клієнта й частка лінії, посередник і агент людей, бонуси офісу й чиста частка, фікс за місяць, тимчасові зміни з доплатою по місяцях.
 «Договір → база»: нова версія договору дає нову ставку з її дати (позначка «Тимчасово (не база)» — ні), щоночі — догон і страж «вгору і назад».
 Житло ліній: як кожна лінія рахує житло людей (правило лінії або замовника з датами) — для прибутковості й розкладу оплат.
+«Огляд ставок»: плитки, картки ліній, графіки по місяцях і тривоги на одній сторінці; «Стрічка» — ставки смугами в часі.
 Дані (лінії, правила, бонуси, периметр фірм, редактори) пише інструмент через API — у модулі лише устрій.
 """,
     'author': 'WorkSET',
@@ -19,8 +20,9 @@
     'version': '19.0.2.0.0',
     # hr — картки й групи кадрів; account — група бухгалтерії й customer_rank; project — група адміністраторів проєктів і форма проєкту;
     # sale_timesheet — карта проєктів (project.sale.line.employee.map) і табелі (через hr_timesheet; hourly_cost — hr_hourly_cost).
-    # hourly_wage версії договору (hr_payroll, Enterprise) читається м'яко: поля немає — «У договорі» 0
-    'depends': ['hr', 'account', 'project', 'sale_timesheet'],
+    # hourly_wage версії договору (hr_payroll, Enterprise) читається м'яко: поля немає — «У договорі» 0.
+    # web_gantt (Enterprise) — вид «Стрічка» (тип gantt є лише з ним)
+    'depends': ['hr', 'account', 'project', 'sale_timesheet', 'web_gantt'],
     'data': [
         'security/workset_rates_security.xml',
         'security/ir.model.access.csv',
@@ -35,6 +37,7 @@
         'views/project_map_views.xml',
         'views/smart_button_views.xml',
         'views/hr_version_views.xml',
+        'views/workset_rate_overview_views.xml',
         'views/menus.xml',
         'data/ir_cron.xml',
     ],
@@ -43,6 +46,8 @@
             'workset_rates/static/src/scss/workset_rates.scss',
             'workset_rates/static/src/js/rates_summary.js',
             'workset_rates/static/src/xml/rates_summary.xml',
+            'workset_rates/static/src/js/rates_overview.js',
+            'workset_rates/static/src/xml/rates_overview.xml',
         ],
     },
     'installable': True,

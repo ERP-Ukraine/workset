@@ -15,8 +15,8 @@
                 <field name="plan_ids" widget="many2many_tags" optional="hide"/>
                 <field name="rate_count" string="Діючі"/>
                 <field name="work_count" string="Працюють"/>
-                <field name="avg_wage" string="Сер. на руки"/>
-                <field name="avg_price" string="Сер. ціна"/>
+                <field name="avg_wage" string="Сер. зарплата працівника"/>
+                <field name="avg_price" string="Сер. платять нам"/>
                 <field name="avg_share" string="Сер. частка"/>
                 <field name="min_share" string="Мінімум" optional="hide"/>
                 <field name="good_share" string="Добра" optional="hide"/>
@@ -66,14 +66,14 @@
                             <div class="fs-1 fw-semibold lh-1"><field name="work_count" nolabel="1" readonly="1" class="fs-1 fw-semibold o_input_5ch w-auto"/></div>
                         </div>
                         <div class="col-6 col-lg-3">
-                            <div class="text-muted text-uppercase small">Сер. на руки</div>
+                            <div class="text-muted text-uppercase small">Сер. зарплата працівника</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
                                 <field name="avg_wage" nolabel="1" readonly="1" class="fs-1 fw-semibold o_input_5ch w-auto text-end"/>
                                 <div class="fs-6 fw-normal text-muted">€/год</div>
                             </div>
                         </div>
                         <div class="col-6 col-lg-3">
-                            <div class="text-muted text-uppercase small">Сер. ціна</div>
+                            <div class="text-muted text-uppercase small">Сер. платять нам</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
                                 <field name="avg_price" nolabel="1" readonly="1" class="fs-1 fw-semibold o_input_5ch w-auto text-end"/>
                                 <div class="fs-6 fw-normal text-muted">€/год</div>
@@ -116,7 +116,7 @@
                     </group>
                     <div class="mb-3">
                         <label for="rule_note" string="Правило"/>
-                        <field name="rule_note" placeholder="Правило словами: на руки + частка WorkSET, якщо людину знайшла лінія; інша частка, якщо знайшли ми"/>
+                        <field name="rule_note" placeholder="Правило словами: зарплата працівника + частка WorkSET, якщо людину знайшла лінія; інша частка, якщо знайшли ми"/>
                     </div>
                     <!-- М2c (розділ 3.13): житло лінії — правка на місці; правлять «Ставки: правила ліній» (іншим Odoo ховає правку за правами моделі) -->
                     <notebook>

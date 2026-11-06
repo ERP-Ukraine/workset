@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!-- Список ставок: гроші — хранимі поля з усередненням (у рядку групи — середнє, у підвалі — середнє по списку); над списком — полоса
-         підсумків (js_class). Минула — сірим; частка WorkSET або чиста нижче мінімуму — червоним; «Добра частка» — зелена комірка частки.
-         М2: «Чиста частка» видно завжди, решта ланцюжка — у «Додаткових стовпцях» (optional="hide") -->
+         підсумків (js_class). Минула — сірим; частка WorkSET або «Після бонусів офісу» нижче мінімуму — червоним; «Добра частка» — зелена
+         комірка частки. М2: «Після бонусів офісу» видно завжди, «Посередник» — теж, між «Платять нам» і «Частка WorkSET» (видно, що
+         віднімається: платять нам − зарплата − посередник = частка); решта ланцюжка — у «Додаткових стовпцях» (optional="hide") -->
     <record id="view_rate_list" model="ir.ui.view">
         <field name="name">workset.rate.list</field>
         <field name="model">workset.rate</field>
@@ -28,7 +29,7 @@
                 <field name="line_share" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" avg="Середнє"/>
                 <field name="wage" widget="monetary" options="{'currency_field': 'currency_id'}" avg="Середнє"/>
                 <field name="price" widget="monetary" options="{'currency_field': 'currency_id'}" avg="Середнє"/>
-                <field name="agent_client_share" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" avg="Середнє"/>
+                <field name="agent_client_share" widget="monetary" options="{'currency_field': 'currency_id'}" optional="show" avg="Середнє"/>
                 <field name="our_share" widget="monetary" options="{'currency_field': 'currency_id'}" class="fw-semibold" decoration-success="share_level == 'good'" avg="Середнє"/>
                 <field name="office_bonus" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" avg="Середнє"/>
                 <field name="net_share" widget="monetary" options="{'currency_field': 'currency_id'}" class="fw-semibold" decoration-danger="net_level == 'low'" avg="Середнє"/>
@@ -51,7 +52,7 @@
                     <button name="action_new_from_date" type="object" string="Нова ставка з дати" class="btn-primary" invisible="not id or not active or state == 'past'" groups="workset_rates.group_editor,base.group_system"/>
                     <button name="action_apply_now" type="object" string="Застосувати зараз" class="btn-secondary" invisible="not id or not active" groups="workset_rates.group_editor,base.group_system"/>
                     <button name="action_back_to_rule" type="object" string="Повернути до загальної" class="btn-secondary" invisible="not id or not is_own or not rule_id"
-                            groups="workset_rates.group_editor,base.group_system" confirm="Ціна нам, тип ціни й фікс стануть як у загальній ставці. Продовжити?"/>
+                            groups="workset_rates.group_editor,base.group_system" confirm="«Платять нам», тип ціни й фікс стануть як у загальній ставці. Продовжити?"/>
                     <button name="action_new_raise" type="object" string="Тимчасова зміна" class="btn-secondary" invisible="not id or not active or state == 'past'"
                             groups="workset_rates.group_editor,base.group_system"/>
                     <field name="state" widget="statusbar" statusbar_visible="future,current,past"/>
@@ -71,6 +72,7 @@
                     <field name="share_level" invisible="1"/>
                     <field name="net_level" invisible="1"/>
                     <field name="rule_id" invisible="1"/>
+                    <field name="agent_deal_ok" invisible="1"/>
                     <div class="oe_title">
                         <h1><field name="person_id" placeholder="Працівник" options="{'no_create': True}" domain="[('workset_is_worker', '=', True)]"/></h1>
                         <div class="d-flex align-items-baseline gap-2 flex-wrap text-muted" invisible="not subtitle and not others_note">
@@ -78,11 +80,11 @@
                             <field name="others_note" readonly="1" invisible="not others_note" class="w-auto fw-semibold"/>
                         </div>
                     </div>
-                    <!-- М2: чотири цифри «На руки · Ціна нам · Частка WorkSET · Чиста частка»; під «На руки» сірим — «зараз 17 до 30.11», коли діє
-                         тимчасова зміна (у карту проєктів і частки вона не входить) -->
+                    <!-- М2: чотири цифри «Зарплата працівника · Платять нам · Частка WorkSET · Після бонусів офісу»; під зарплатою сірим — «зараз 17
+                         до 30.11», коли діє тимчасова зміна (у карту проєктів і частки вона не входить) -->
                     <div class="row g-3 my-2" name="figures">
                         <div class="col-6 col-lg-3">
-                            <div class="text-muted text-uppercase small fw-semibold">На руки</div>
+                            <div class="text-muted text-uppercase small fw-semibold">Зарплата працівника</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
                                 <field name="wage" nolabel="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="fs-1 fw-semibold o_input_5ch w-auto text-end"/>
                                 <div class="fs-6 fw-normal text-muted">€/год</div>
@@ -90,7 +92,7 @@
                             <field name="raise_note" readonly="1" nolabel="1" class="text-muted small" invisible="not raise_note"/>
                         </div>
                         <div class="col-6 col-lg-3">
-                            <div class="text-muted text-uppercase small">Ціна нам</div>
+                            <div class="text-muted text-uppercase small">Платять нам</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
                                 <field name="price" nolabel="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="fs-1 fw-semibold o_input_5ch w-auto text-end"/>
                                 <div class="fs-6 fw-normal text-muted">€/год</div>
@@ -105,7 +107,7 @@
                             </div>
                         </div>
                         <div class="col-6 col-lg-3" invisible="not price">
-                            <div class="text-muted text-uppercase small">Чиста частка</div>
+                            <div class="text-muted text-uppercase small">Після бонусів офісу</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
                                 <field name="net_share" nolabel="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="fs-1 fw-semibold o_input_5ch w-auto text-end" readonly="1"
                                        decoration-danger="net_level == 'low'"/>
@@ -151,7 +153,7 @@
                                 <field name="line_share" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
                                 <div class="text-muted">€/год</div>
                             </div>
-                            <div class="o_form_label" invisible="not price">Ціна нам</div>
+                            <div class="o_form_label" invisible="not price">Платять нам</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap" invisible="not price">
                                 <field name="price" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
                                 <div class="text-muted">€/год</div>
@@ -159,11 +161,15 @@
                                 <field name="rule_price" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="w-auto text-muted"
                                        invisible="not is_own or not rule_id"/>
                             </div>
+                            <!-- «Домовленість» — до домовленостей посередника із замовником ставки (модель модуля посередників — лише через
+                                 адаптер agent_deals.py; моделі немає, як на проді, — кнопки не видно, форма відкривається) -->
                             <div class="o_form_label" invisible="not agent_client_share">Посередник</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap" invisible="not agent_client_share">
                                 <field name="agent_client_share" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
                                 <div class="text-muted">€/год</div>
                                 <field name="agent_client_note" nolabel="1" readonly="1" class="w-auto text-muted"/>
+                                <button name="action_open_agent_deal" type="object" string="Домовленість" icon="fa-handshake-o" class="btn-link p-0"
+                                        invisible="not agent_deal_ok"/>
                             </div>
                             <div class="o_form_label" invisible="not agent_people_share">Агент людей</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap" invisible="not agent_people_share">
@@ -171,7 +177,7 @@
                                 <div class="text-muted">€/год · платить:</div>
                                 <field name="people_agent_payer" nolabel="1" class="w-auto text-muted"/>
                             </div>
-                            <div class="o_form_label">На руки</div>
+                            <div class="o_form_label">Зарплата працівника</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap">
                                 <field name="wage" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
                                 <div class="text-muted">€/год</div>
@@ -194,7 +200,7 @@
                                 <field name="bonus_norm" invisible="1"/>
                                 <div class="text-muted" invisible="not bonus_norm">за нормою годин</div>
                             </div>
-                            <div class="o_form_label" invisible="not price">Чиста частка</div>
+                            <div class="o_form_label" invisible="not price">Після бонусів офісу</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap fw-semibold" invisible="not price">
                                 <field name="net_share" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"
                                        decoration-danger="net_level == 'low'"/>
@@ -336,7 +342,7 @@
                     <t t-name="card">
                         <field name="person_id" class="fw-semibold fs-5"/>
                         <field name="customer_id" class="text-muted"/>
-                        <!-- «на руки + частка = ціна €/год · чиста Ч» -->
+                        <!-- «зарплата + частка = платять нам €/год · після бонусів Ч» -->
                         <field name="card_line" class="fs-5"/>
                         <div class="text-muted" invisible="not others_note"><field name="others_note"/></div>
                         <footer class="d-flex align-items-baseline gap-2 flex-wrap">
@@ -373,7 +379,7 @@
                 <filter name="future" string="Майбутні" domain="[('state', '=', 'future')]"/>
                 <filter name="past" string="Минулі" domain="[('state', '=', 'past')]"/>
                 <separator/>
-                <filter name="share_low" string="Нижче мінімуму" help="Частка WorkSET або чиста частка ≤ 0 чи нижче мінімуму (загальної ставки, лінії або за замовчуванням)"
+                <filter name="share_low" string="Нижче мінімуму" help="Частка WorkSET або «Після бонусів офісу» ≤ 0 чи нижче мінімуму (загальної ставки, лінії або за замовчуванням)"
                         domain="['|', ('share_level', '=', 'low'), ('net_level', '=', 'low')]"/>
                 <filter name="share_good" string="Добра частка" help="Частка WorkSET не нижче «Доброї частки» лінії" domain="[('share_level', '=', 'good')]"/>
                 <separator/>
@@ -415,8 +421,8 @@
         </field>
     </record>
 
-    <!-- Зведена й графік: гроші — середні (aggregator avg), не суми. М2: міри «Частка WorkSET», «Чиста частка», «Бонус офісу», «Частка лінії»,
-         «Посередник»; службові числа (договір, рядки карти, «На руки до договору») — сховані з переліку мір -->
+    <!-- Зведена й графік: гроші — середні (aggregator avg), не суми. М2: міри «Частка WorkSET», «Після бонусів офісу», «Бонус офісу», «Частка
+         лінії», «Посередник»; службові числа (договір, рядки карти, «Зарплата до договору») — сховані з переліку мір -->
     <record id="view_rate_pivot" model="ir.ui.view">
         <field name="name">workset.rate.pivot</field>
         <field name="model">workset.rate</field>
@@ -444,7 +450,7 @@
         <field name="arch" type="xml">
             <graph string="Частка WorkSET по лініях" type="bar" sample="1">
                 <field name="line_id"/>
-                <!-- графік показує одну міру за раз (остання в арці — типова): «Чиста частка» — у переліку мір, типова — «Частка WorkSET» -->
+                <!-- графік показує одну міру за раз (остання в арці — типова): «Після бонусів офісу» — у переліку мір, типова — «Частка WorkSET» -->
                 <field name="net_share" type="measure"/>
                 <field name="our_share" type="measure"/>
                 <field name="contract_wage" invisible="1"/>

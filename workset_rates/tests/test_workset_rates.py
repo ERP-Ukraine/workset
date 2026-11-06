@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 """Тести «Ставок»: запускаються Odoo.sh на dev-збірці (і локально: odoo-bin -i workset_rates --test-enable --test-tags workset_rates).
 Усі дані — вигадані в самому тесті; «сьогодні» підміняється контекстом rates_today (лише адміністратору)."""
+import ast
 from unittest.mock import patch
+
+from lxml import etree
 
 from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tests.common import TransactionCase, new_test_user, tagged
@@ -594,6 +597,27 @@ class TestWorksetRates(TransactionCase):
         self.assertEqual((n.agent_client_share, n.our_share), (0, 5), 'моделей посередників немає — 0, без помилки')
         self.assertEqual(n.agent_client_note, 'посередники не підключені')
 
+    def test_m2_16b_deal_by_customer_before_line(self):
+        # домовленість із замовниками підходить лише за замовником ставки, без замовників — за лінією: дві домовленості одного посередника
+        # на одній лінії з різними замовниками не додаються (було: кожна ставка лінії отримувала суму обох)
+        other = self._cust('Тест замовник Б лінії')
+        far = self.env['workset.line'].create({'name': 'Тест лінія далека'})
+        far_cust = self._cust('Тест замовник далекої лінії', far)
+        deal = {'state': 'active', 'kind': 'hour', 'date_from': '', 'date_to': '', 'agent': 'Тест посередник А'}
+        deals = [dict(deal, **{'id': 1, 'rate': 2.5, 'customer_ids': [self.cust.id], 'line_id': self.line.id}),
+                 dict(deal, **{'id': 2, 'rate': 1.5, 'customer_ids': [other.id], 'line_id': self.line.id}),
+                 dict(deal, **{'id': 3, 'rate': 0.7, 'customer_ids': [self.cust2.id], 'line_id': far.id}),
+                 dict(deal, **{'id': 4, 'rate': 0.4, 'customer_ids': [], 'line_id': far.id})]
+        with patch.object(agent_deals, 'read_deals', return_value=deals), patch.object(agent_deals, 'read_people', return_value=[]):
+            a = self._rate()
+            b = self._rate(customer_id=other.id)
+            c = self._rate(customer_id=self.cust2.id)
+            d = self._rate(customer_id=far_cust.id)
+        self.assertEqual((a.line_id, b.line_id, c.line_id, d.line_id), (self.line, self.line, self.env['workset.line'], far))
+        self.assertEqual((a.agent_client_share, b.agent_client_share), (2.5, 1.5), 'кожній ставці — домовленість її замовника, не сума по лінії')
+        self.assertEqual(c.agent_client_share, 0.7, 'замовник у домовленості іншої лінії — підходить за замовником')
+        self.assertEqual(d.agent_client_share, 0.4, 'домовленість без замовників — за лінією; чужий замовник тієї лінії — ні')
+
     def test_m2_17_people_agent(self):
         people = [{'id': 5, 'partner_id': self.person.id, 'rate': 1.5, 'state': 'active', 'kind': 'hour', 'date_from': OLD, 'date_to': '',
                    'deal_from': '', 'deal_to': ''}]
@@ -819,7 +843,7 @@ class TestWorksetRates(TransactionCase):
             self._version(wages, LATER, 15)
             new = self._pair(LATER, ct)
             self.assertEqual((new.wage, new.price, new.our_share, new.share_level), (15, 31, 16, 'low'), 'тариф: ціна та сама, частка падає нижче мінімуму')
-            self.assertIn('тариф — ціна та сама, частка 17 → 16', self._bodies(new))
+            self.assertIn('тариф — платять нам те саме, частка 17 → 16', self._bodies(new))
             self.assertIn('Нижче мінімуму', self._bodies(new))
             res = self.R.with_context(rates_today=LATER).rates_check()
         self.assertEqual(res['sections']['low'], 1, 'розділ «Нижче мінімуму»')
@@ -841,7 +865,7 @@ class TestWorksetRates(TransactionCase):
             self._version(wages, LATER, 13)
             new = self._pair(LATER, cf)
         self.assertEqual((new.price_mode, new.price, new.our_share), ('fixed_month', 13, 5), 'фікс: Ц = нова Р, W = фікс ÷ годин')
-        self.assertIn('Фікс за місяць — ціна = на руки (12 → 13)', self._bodies(new))
+        self.assertIn('Фікс за місяць — платять нам = зарплата працівника (12 → 13)', self._bodies(new))
 
     def test_m2_09_a6_temporary_version(self):
         self._isolate()
@@ -1155,7 +1179,7 @@ class TestWorksetRates(TransactionCase):
             self.assertTrue(first.active)
             self.assertEqual((first.wage, first.contract_version_id.id), (15, False), 'число не вгадуємо')
             self.assertTrue(first.to_check)
-            self.assertIn('перевірте «На руки»', first.check_reason)
+            self.assertIn('перевірте «Зарплата працівника»', first.check_reason)
 
     def test_m2b_temporary_row_not_in_nested_form(self):
         # ревю № 2, п. 3: рядок — лише в sheet самої форми версії, не у вкладеній формі поля x2many (інша модель)
@@ -1309,7 +1333,7 @@ class TestWorksetRates(TransactionCase):
             mark_temporary_by_sql(v)
             res = self.R.rates_daily()
             self.assertEqual((res['contract']['restored'], res['contract']['check'], res['contract']['archived']), (1, 0, 0))
-            self.assertIn('повернуто «На руки» 1, «Перевірити» 0', res['message'])
+            self.assertIn('повернуто «Зарплата працівника» 1, «Перевірити» 0', res['message'])
             self.assertEqual((first.wage, first.active), (14, True))
             # прежнього числа немає — «Перевірити», і це теж не архів
             v.write({'workset_temporary': False})
@@ -1537,7 +1561,7 @@ class TestWorksetRates(TransactionCase):
         pair = (r | none).ids
         self.assertEqual(self.R.search([('has_raise', '=', True), ('id', 'in', pair)]), r, 'фільтр «Є тимчасова зміна»')
         self.assertEqual(self.R.search([('has_raise', '=', False), ('id', 'in', pair)]), none)
-        self.assertIn('чиста 5', r.card_line)
+        self.assertIn('після бонусів 5', r.card_line)
         act = r.action_new_raise()
         self.assertEqual((act['res_model'], act['context']['default_person_id'], act['context']['default_customer_id']),
                          ('workset.rate.raise', self.person.id, self.cust.id))
@@ -1547,6 +1571,271 @@ class TestWorksetRates(TransactionCase):
         new = self.line_rule.action_new_from_date()
         self.assertEqual((new['context']['default_line_id'], new['context']['default_share_we_found'], new['context']['default_date_from']),
                          (self.line.id, 5, DAY))
+
+    # ——— рівень B (розділ 6б): «Огляд ставок» і «Стрічка» ———
+    def test_b_overview_tiles_series_lines(self):
+        self._isolate()
+        self._quiet_bonuses()
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_MIN_SHARE, '4.5')
+        a, b = self._no_agents()
+        with a, b:
+            us = self._rate()                                                               # W 5
+            ln = self._rate(person_id=self._person('Тест П огляд').id, found_by='line')     # W 4 — нижче 4,5
+            old = self._rate(date_from='2026-01-21', wage=12)                               # минула ставка пари us: діяла 1 лютого й 1 березня
+            fut = self._rate(person_id=self._person('Тест П огляд майбутня').id, date_from=DAY3)
+            nol = self._rate(person_id=self._person('Тест П огляд без лінії').id, customer_id=self.cust2.id)
+        self.assertEqual((old.state, fut.state, nol.line_id.id), ('past', 'future', False))
+        (us | ln | nol).write({'work': 'work', 'work_group': 'g1_work'})
+        dom = [('line_id', '=', self.line.id)]
+        res = self.R.rates_overview(dom, 12)
+        s = self.R.rates_summary(dom + [('state', '=', 'current')])
+        for k in ('working', 'avg_wage', 'avg_price', 'avg_share', 'avg_net', 'below_min', 'raises', 'contract_diff'):
+            self.assertEqual(res['tiles'][k], s[k], 'плитка %s = полоса підсумків' % k)
+        # прямий підрахунок: працюють us і ln, частки 5 і 4, на руки 14
+        self.assertEqual((res['tiles']['working'], res['tiles']['below_min'], res['tiles']['no_line']), (2, 1, 0))
+        self.assertAlmostEqual(res['tiles']['avg_share'], 4.5)
+        self.assertAlmostEqual(res['tiles']['avg_wage'], 14)
+        # ряди: точок стільки, скільки місяців; 1 березня діяла лише минула ставка пари (us і ln — з 2 березня), 1 січня — жодної
+        series = res['series']
+        self.assertEqual((len(series['days']), len(series['total'])), (12, 12))
+        self.assertEqual(series['days'][-1], '2026-03-01')
+        self.assertEqual((series['total'][-1]['count'], series['total'][-1]['avg_wage']), (1, 12))
+        self.assertEqual(series['total'][-3]['count'], 0)
+        self.assertEqual(len(self.R.rates_overview(dom, 6)['series']['total']), 6)
+        self.assertEqual(len(self.R.rates_overview(dom, 7)['series']['total']), 12, 'період не 6 / 12 / 24 — 12')
+        card = [c for c in res['lines'] if c['id'] == self.line.id][0]
+        self.assertEqual((card['working'], card['below_min'], card['agent']), (2, 1, 'no'))
+        self.assertEqual(len(card['spark_values']), calc.SPARK_MONTHS)
+        self.assertEqual([x['key'] for x in res['alerts']], ['raise_soon', 'future', 'no_line', 'to_check'])
+        self.assertEqual([x for x in res['alerts'] if x['key'] == 'future'][0]['ids'], fut.ids, 'майбутня ставка лінії — у тривозі «на 7 днів»')
+        self.assertEqual(sum(x['count'] for x in res['buckets']), 2)
+        self.assertEqual(res['found'], {'us': 1, 'line': 1, 'none': 0})
+        # домен звужує: інша лінія — нулі; «Без лінії» — ставка замовника поза лініями
+        other = self.env['workset.line'].create({'name': 'Тест лінія огляд'})
+        empty = self.R.rates_overview([('line_id', '=', other.id)], 12)
+        self.assertEqual((empty['tiles']['working'], empty['lines']), (0, []))
+        res_all = self.R.rates_overview([('id', 'in', (us | ln | nol | fut).ids)], 12, only_working=False)
+        self.assertEqual(res_all['tiles']['no_line'], 1)
+        self.assertEqual([x for x in res_all['alerts'] if x['key'] == 'no_line'][0]['ids'], nol.ids)
+        # «тільки працюють»: увімкнено — середні по тих, хто працює (= полоса); вимкнено — по всіх діючих, «Працюють» — як було
+        ln.write({'work': 'z_idle', 'work_group': 'g2_idle'})
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_GOOD_SHARE, '5')
+        on = self.R.rates_overview(dom, 12)['tiles']
+        off = self.R.rates_overview(dom, 12, only_working=False)['tiles']
+        self.assertEqual((on['working'], on['avg_share'], on['below_min'], on['share_tone']), (1, 5, 0, 'good'))
+        self.assertEqual((off['working'], off['total'], off['avg_share'], off['below_min'], off['share_tone']), (1, 2, 4.5, 1, ''))
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_MIN_SHARE, '4.6')
+        self.assertEqual(self.R.rates_overview(dom, 12, only_working=False)['tiles']['share_tone'], 'low', 'середня нижче мінімуму — червона')
+        # «Договір ≠ база» — той самий підрахунок calc.summary, що полоса: увімкнено — серед тих, хто працює, вимкнено — по всіх діючих
+        (us | ln).sudo().with_context(workset_rates_internal=True).write({'contract_ok': False})
+        on = self.R.rates_overview(dom, 12)['tiles']
+        off = self.R.rates_overview(dom, 12, only_working=False)['tiles']
+        self.assertEqual((on['contract_diff'], off['contract_diff']), (1, 2))
+        self.assertEqual(on['contract_diff'], self.R.rates_summary(dom + [('state', '=', 'current'), ('work_group', '=', 'g1_work')])['contract_diff'])
+
+    def _open_count(self, spec):
+        """Скільки рядків покаже список з опису «Огляду» (calc.ov_list) так, як його відкриє клієнт: прихований домен дії + фільтри пошуку
+        виду «Ставок» (search_default_*; фільтри однієї групи між роздільниками — «або», групи — «і») + вибір панелі зліва
+        (searchpanel_default_*). Опис JS виконує як є (openList), тож розбіжність числа й списку тут і ловиться."""
+        act = self.env.ref(spec['action'])
+        self.assertEqual(act.res_model, 'workset.rate', spec['action'])
+        arch = etree.fromstring(self.R.get_views([(act.search_view_id.id, 'search')])['views']['search']['arch'])
+        filters, group = {}, 0
+        for el in arch:
+            if el.tag == 'separator':
+                group += 1
+            elif el.tag == 'filter' and el.get('domain'):
+                filters[el.get('name')] = (group, el.get('domain'))
+        panel = {f.get('name') for sp in arch.iter('searchpanel') for f in sp}
+        recs = self.R.search(spec['domain'])
+        groups = {}
+        for key, value in spec['context'].items():
+            if key.startswith('search_default_') and value:
+                g, dom = filters[key[len('search_default_'):]]
+                groups[g] = groups.get(g, self.R.browse()) | self.R.search(ast.literal_eval(dom))
+            elif key.startswith('searchpanel_default_'):
+                field = key[len('searchpanel_default_'):]
+                self.assertIn(field, panel, 'у панелі зліва є %s' % field)
+                recs &= self.R.search([(field, '=', value)])
+        for found in groups.values():
+            recs &= found
+        return len(recs)
+
+    def test_b_overview_clicks_match_lists(self):
+        # клік по числу «Огляду» відкриває список за описом сервера (open): число на елементі = рядки списку так, як його відкриє клієнт, — в
+        # обох положеннях «Тільки працюють» і з фільтром сторінки. Картка лінії: увімкнено — ті, хто працює, вимкнено — усі діючі лінії (раніше
+        # картка показувала «Працюють», а список відкривав усі ставки лінії — цей тест таке ловить)
+        self._isolate()
+        self._quiet_bonuses()
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_MIN_SHARE, '4.5')
+        deals = [{'id': 1, 'rate': 2.5, 'state': 'active', 'kind': 'hour', 'customer_ids': [self.cust.id], 'line_id': 0, 'date_from': '', 'date_to': '',
+                  'agent': 'Тест посередник А'}]
+        with patch.object(agent_deals, 'read_deals', return_value=deals), patch.object(agent_deals, 'read_people', return_value=[]):
+            us = self._rate()
+            ln = self._rate(person_id=self._person('Тест П клік').id, found_by='line')
+            idle = self._rate(person_id=self._person('Тест П клік не працює').id)
+            nobody = self._rate(person_id=self._person('Тест П клік хто знайшов').id, found_by=False)
+            nol = self._rate(person_id=self._person('Тест П клік без лінії').id, customer_id=self.cust2.id)
+        self.env['workset.rate.raise'].create({'person_id': self.person.id, 'customer_id': self.cust.id, 'kind': 'hour', 'amount': 1.5, 'date_from': DAY,
+                                               'date_to': NEXT, 'payer': 'line', 'source': 'other', 'source_note': 'тест'})
+        (us | ln | nobody | nol).write({'work': 'work', 'work_group': 'g1_work'})
+        idle.write({'work': 'z_idle', 'work_group': 'g2_idle', 'to_check': True, 'check_reason': 'тест'})
+        ln.write({'to_check': True, 'check_reason': 'тест'})
+        # «Договір ≠ база»: з модулем зарплат ставка без картки теж «≠» — тут лише одна, явно
+        (ln | idle | nobody | nol).sudo().with_context(workset_rates_internal=True).write({'contract_ok': True})
+        us.sudo().with_context(workset_rates_internal=True).write({'contract_ok': False})
+        for only in (True, False):
+            for base in ([], [('line_id', 'in', [self.line.id])], [('customer_id', '=', self.cust.id)]):
+                res = self.R.rates_overview(base, 12, only_working=only)
+                tiles, opens = res['tiles'], res['open']
+                msg = 'тільки працюють: %s, фільтр: %s' % (only, base)
+                for key in ('working', 'all', 'below_min', 'raises', 'contract_diff', 'no_line', 'to_check'):
+                    self.assertEqual(self._open_count(opens['tiles'][key]), tiles[key], '%s — %s' % (msg, key))
+                self.assertEqual(self._open_count(opens['tiles']['avg']), tiles['working'] if only else tiles['total'], msg + ' — середні')
+                for b in res['buckets']:
+                    self.assertEqual(self._open_count(b['open']), b['count'], '%s — стовпець %s' % (msg, b['label']))
+                for kind in ('us', 'line', 'none'):
+                    self.assertEqual(self._open_count(opens['found'][kind]), res['found'][kind], '%s — хто знайшов %s' % (msg, kind))
+                for card in res['lines']:
+                    self.assertEqual(self._open_count(card['open']), card['count'], '%s — картка %s' % (msg, card['name']))
+                    self.assertEqual(card['count'], card['working'] if only else card['total'], msg + ' — число картки')
+        # дані справді розрізняють обидва положення: «Ставок» — усі діючі; картка лінії — 3 працюють із 4 діючих; тривоги не порожні
+        on = self.R.rates_overview([], 12)
+        off = self.R.rates_overview([], 12, only_working=False)
+        card_on = [c for c in on['lines'] if c['id'] == self.line.id][0]
+        card_off = [c for c in off['lines'] if c['id'] == self.line.id][0]
+        self.assertEqual((card_on['count'], card_off['count']), (3, 4))
+        self.assertEqual((on['tiles']['all'], on['tiles']['working'], off['tiles']['all']), (5, 4, 5))
+        self.assertEqual((on['tiles']['to_check'], off['tiles']['to_check'], on['tiles']['raises'], on['tiles']['contract_diff']), (1, 2, 1, 1))
+        self.assertEqual((on['found']['none'], on['tiles']['no_line']), (1, 1))
+        # картка лінії: ім'я й сума посередника з тих самих даних, що вже віднімаються від частки
+        self.assertEqual(card_on['agent'], 'yes')
+        self.assertEqual(card_on['agents'], [{'name': 'Тест посередник А', 'min': 2.5, 'max': 2.5}])
+        for key in ('found_empty', 'agent_from'):
+            self.assertTrue(on['labels'][key], key)
+
+    def test_b_agent_deal_button(self):
+        # «Домовленість» біля «Посередник»: моделі посередників немає (як на проді) — форма читається, кнопки не видно, дія — повідомлення;
+        # домовленість є (адаптер підмінено) — кнопка видна, дія — картка (одна) або список (кілька)
+        firms = (self.co_a | self.co_b | self.co_uah | self.co_out | self.env.company).ids
+        editor = new_test_user(self.env, login='ws_b_deal_editor', groups='base.group_user,workset_rates.group_editor',
+                               company_id=self.env.company.id, company_ids=[(6, 0, firms)])
+        form = self.R.with_user(editor).get_views([(self.env.ref('workset_rates.view_rate_form').id, 'form')])['views']['form']['arch']
+        self.assertIn('name="action_open_agent_deal"', form)
+        self.assertIn('name="agent_deal_ok"', form)
+        a, b = self._no_agents()
+        with a, b:
+            r = self._rate()
+        if agent_deals.DEAL not in self.env:
+            self.assertIsNone(agent_deals.deal_ids(self.env, self.cust.id, self.line.id), 'моделі немає — None, без помилки')
+            self.assertFalse(r.agent_deal_ok)
+            self.assertEqual(r.action_open_agent_deal()['tag'], 'display_notification')
+            self.assertEqual(self._web_read_form(editor, r, 'view_rate_form')[0]['agent_deal_ok'], False, 'форма читається без моделі посередників')
+        with patch.object(agent_deals, 'deal_ids', return_value=[5]):
+            r.invalidate_recordset(['agent_deal_ok'])
+            self.assertTrue(r.agent_deal_ok)
+            act = r.action_open_agent_deal()
+            self.assertEqual((act['res_model'], act['res_id'], act['views']), (agent_deals.DEAL, 5, [[False, 'form']]))
+        with patch.object(agent_deals, 'deal_ids', return_value=[5, 6]) as ids:
+            act = r.action_open_agent_deal()
+            self.assertEqual((act['domain'], act['view_mode']), ([('id', 'in', [5, 6])], 'list,form'))
+            self.assertEqual(ids.call_args[0][1:], (self.cust.id, self.line.id), 'замовник (комерційний) і лінія ставки')
+        with patch.object(agent_deals, 'deal_ids', return_value=[]):
+            r.invalidate_recordset(['agent_deal_ok'])
+            self.assertFalse(r.agent_deal_ok)
+            self.assertEqual(r.action_open_agent_deal()['params']['type'], 'warning')
+
+    def test_b_overview_empty(self):
+        self._isolate()
+        res = self.R.rates_overview([], 24)
+        t = res['tiles']
+        self.assertEqual(res['months'], 24)
+        self.assertEqual((t['working'], t['total'], t['avg_wage'], t['avg_share'], t['avg_net'], t['below_min'], t['contract_diff'], t['no_line'],
+                          t['to_check']), (0, 0, 0, 0, 0, 0, 0, 0, 0))
+        self.assertEqual((res['lines'], res['buckets'], res['found'], res['check']), ([], [], {'us': 0, 'line': 0, 'none': 0}, False))
+        self.assertEqual(len(res['series']['total']), 24)
+        self.assertTrue(all(p['count'] == 0 and p['avg_share'] == 0 for p in res['series']['total']))
+        self.assertEqual([x['count'] for x in res['alerts'] if x['model'] == 'workset.rate'], [0, 0, 0])
+
+    def test_b_overview_rights(self):
+        hr_user = new_test_user(self.env, login='ws_b_hr', groups='base.group_user,hr.group_hr_user')
+        plain = new_test_user(self.env, login='ws_b_plain', groups='base.group_user')
+        self._rate()
+        res = self.R.with_user(hr_user).with_context(allowed_company_ids=[hr_user.company_id.id]).rates_overview([], 6)
+        self.assertEqual(res['months'], 6, 'кадри (читають ставки) бачать «Огляд»')
+        with self.assertRaises(AccessError):
+            self.R.with_user(plain).with_context(allowed_company_ids=[plain.company_id.id]).rates_overview([], 6)
+
+    def test_b_gantt_views_stop_and_move(self):
+        firms = (self.co_a | self.co_b | self.co_uah | self.co_out | self.env.company).ids
+        editor = new_test_user(self.env, login='ws_b_editor', groups='base.group_user,workset_rates.group_editor',
+                               company_id=self.env.company.id, company_ids=[(6, 0, firms)])
+        admin = self.env.ref('base.user_admin')
+        views = [(self.env.ref('workset_rates.view_rate_gantt').id, 'gantt'), (self.env.ref('workset_rates.view_rate_search').id, 'search')]
+        for user in (admin, editor):
+            res = self.R.with_user(user).get_views(views)
+            self.assertIn('gantt', res['views'], user.login)
+            self.assertIn('gantt_stop', res['views']['gantt']['arch'])
+        # кольори смуг залежать від рівня частки: мінімум і бонуси — свої, як у сусідніх тестах (частка 5 — не нижче мінімуму)
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_MIN_SHARE, '3')
+        self._quiet_bonuses()
+        a, b = self._no_agents()
+        with a, b:
+            past = self._rate(date_from='2026-01-21', wage=12)
+            cur = self._rate()
+            fut = self._rate(date_from=LATER, wage=15)
+            alone = self._rate(person_id=self._person('Тест П стрічка').id)
+        self.assertEqual([r.state for r in (past, cur, fut, alone)], ['past', 'current', 'future', 'current'])
+        self.assertEqual(calc.iso(past.gantt_stop), '2026-03-01', 'минула — «Ставка до»')
+        self.assertEqual(calc.iso(cur.gantt_stop), '2026-03-31', 'чинна з наступною — «Ставка до»')
+        self.assertEqual(calc.iso(fut.gantt_stop), calc.add_days(LATER, 30), 'майбутня без «до» — «Ставка з» + 30')
+        self.assertEqual(calc.iso(alone.gantt_stop), calc.add_days(DAY, 30), 'чинна без «до» — сьогодні + 30')
+        ids = (past | cur | fut | alone).ids
+        self.assertEqual(self.R.search([('id', 'in', ids), ('gantt_stop', '>', '2026-03-31')]), fut | alone, 'пошук «Смуга до» — тими самими правилами')
+        self.assertEqual(self.R.search([('id', 'in', ids), ('gantt_stop', '<', DAY)]), past)
+        self.assertEqual((past.gantt_color, cur.gantt_color, fut.gantt_color), (0, 10, 4))
+        label = cur.with_context(workset_rates_gantt=1).display_name
+        self.assertTrue(label.startswith('Діє · ') and cur.formula in label, label)
+        self.assertEqual(cur.display_name, cur.name, 'поза «Стрічкою» — звичайна назва')
+
+        def as_(rec):
+            return rec.with_user(editor).with_context(allowed_company_ids=editor.company_ids.ids)
+
+        # «сьогодні» редактора — справжнє (підміна rates_today — лише адміністратору), тож дати переносу — далеко в майбутньому.
+        # Редактор пересуває майбутню в «Стрічці»: «Ставка з» змінилась, А1 перерахував пару («Ставка до» попередньої — день перед новою)
+        as_(fut).write({'date_from': '2099-04-10', 'gantt_stop': '2099-05-10'})
+        self.assertEqual(calc.iso(fut.date_from), '2099-04-10')
+        self.assertEqual(calc.iso(cur.date_to), '2099-04-09')
+        # gantt присилає й незмінні поля рядка (та сама лінія й працівник) — це не перенос у інший рядок ([id, назва] — node-тест gantt_moved)
+        as_(fut).write({'date_from': '2099-04-11', 'gantt_stop': '2099-05-11', 'line_id': fut.line_id.id, 'person_id': fut.person_id.id})
+        self.assertEqual(calc.iso(fut.date_from), '2099-04-11')
+        for rec, day in ((cur, '2026-03-05'), (past, '2026-01-25')):
+            with self.assertRaisesRegex(UserError, 'не пересуваються'), self.env.cr.savepoint():
+                as_(rec).write({'date_from': day, 'gantt_stop': '2099-01-01'})
+        with self.assertRaisesRegex(UserError, 'після сьогодні'), self.env.cr.savepoint():
+            as_(fut).write({'date_from': '2026-01-10', 'gantt_stop': '2026-02-10'})
+        with self.assertRaisesRegex(UserError, 'лише пересунути'), self.env.cr.savepoint():
+            as_(fut).write({'date_from': '2099-04-12', 'gantt_stop': '2099-05-12', 'person_id': alone.person_id.id})
+        # у контексті «Стрічки» без «Смуга до»: растяжка за лівий край (лише «Ставка з») у чинної й перенос униз (лише працівник) — ні;
+        # інше поле (наприклад, «На руки» з картки, відкритої зі «Стрічки») — так
+        gantt = lambda rec: as_(rec).with_context(workset_rates_gantt=1)  # noqa: E731
+        with self.assertRaisesRegex(UserError, 'не пересуваються'), self.env.cr.savepoint():
+            gantt(cur).write({'date_from': '2026-03-01'})
+        with self.assertRaisesRegex(UserError, 'лише пересунути'), self.env.cr.savepoint():
+            gantt(fut).write({'person_id': alone.person_id.id})
+        gantt(fut).write({'note': 'з картки «Стрічки»'})
+        self.assertEqual(fut.note, 'з картки «Стрічки»')
+        # форма ставки поза «Стрічкою» (без «Смуга до» й контексту) — як до рівня B: редактор виправляє «Ставка з» діючої
+        # («завела з сьогодні, треба з 1-го»)
+        as_(cur).write({'date_from': '2026-03-01'})
+        self.assertEqual(calc.iso(cur.date_from), '2026-03-01')
+        self.assertEqual(calc.iso(past.date_to), '2026-02-28', 'А1: «Ставка до» минулої — день перед виправленою датою')
+        # системний адміністратор у «Стрічці» переносить і чинну
+        cur.write({'date_from': NEXT, 'gantt_stop': '2026-05-01'})
+        self.assertEqual(calc.iso(cur.date_from), NEXT)
+        self.assertEqual(calc.iso(past.date_to), DAY)
+        self.assertEqual(self.R.search([('id', 'in', ids), ('gantt_stop', '!=', False)]), past | cur | fut | alone, '«встановлено» — без помилки')
+        self.assertFalse(self.R.search([('id', 'in', ids), ('gantt_stop', '=', False)]))
 
     def test_m2c1b_internal_context_only_superuser(self):
         """Контекст workset_rates_internal (службові поля ланцюжка без автоматики) — лише суперкористувачу: редактор через RPC з ним

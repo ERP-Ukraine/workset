@@ -76,7 +76,8 @@ class WorksetRate(models.Model):
                                 help='Лінія — людину знайшла лінія; Ми — знайшли ми. Від цього залежить частка WorkSET за правилом лінії.')
     currency_id = fields.Many2one('res.currency', string='Валюта', default=lambda self: self.env.ref('base.EUR', raise_if_not_found=False))
     # гроші — хранимі з усередненням: у рядку кожної групи списку — середнє, у підвалі — середнє по списку
-    wage = fields.Monetary(string='На руки', currency_field='currency_id', required=True, tracking=5, aggregator='avg')
+    wage = fields.Monetary(string='Зарплата працівника', currency_field='currency_id', required=True, tracking=5, aggregator='avg',
+                           help='Скільки працівник отримує на руки за годину.')
     # М1 до посередників з домовленостей: довідкове число й його джерело (перенос М2 переводить у «Своя» з причиною); у частку не входить
     agent_share = fields.Monetary(string='Частка посередника', currency_field='currency_id', aggregator='avg',
                                   help='Довідково: частка посередника, введена до М2. У частку WorkSET не входить — її рахує «Посередник» з домовленостей.')
@@ -86,18 +87,18 @@ class WorksetRate(models.Model):
     rule_id = fields.Many2one(RULE, string='Загальна ставка', readonly=True, index=True, ondelete='set null',
                               help='Правило, що діє на «Ставка з»: тариф замовника, а немає — правило лінії')
     anchor = fields.Selection(related='rule_id.anchor', store=True, string='Якір',
-                              help='Надбавка: росте на руки — росте ціна. Тариф: ціна та сама — зменшується наша частка.')
+                              help='Надбавка: росте зарплата працівника — росте «Платять нам». Тариф: «Платять нам» те саме — зменшується наша частка.')
     price_mode = fields.Selection(PRICE_MODES, string='Тип ціни', default='hour', required=True, tracking=11,
-                                  help='З загальної ставки; у «Своєї» можна змінити. Фікс за місяць: замовник платить на руки за години як є і фіксовану суму '
-                                       'за оформлення людини на місяць.')
+                                  help='З загальної ставки; у «Своєї» можна змінити. Фікс за місяць: замовник платить зарплату працівника за години як є '
+                                       'і фіксовану суму за оформлення людини на місяць.')
     is_own = fields.Boolean(string='Своя', tracking=12, help='Ставиться сама, коли числа змінено вручну. Загальна ставка таку ставку не змінює.')
     own_reason = fields.Char(string='Чому своя', tracking=13)
-    price = fields.Monetary(string='Ціна нам', currency_field='currency_id', tracking=7, aggregator='avg',
-                            help='Що платить нам замовник або лінія за годину. Сама з загальної ставки: надбавка — на руки + частка за «Хто знайшов»; тариф — '
-                                 'ціна тарифу; фікс за місяць — на руки. Змінили вручну й число ≠ правилу — ставка стає «Своєю».')
-    rule_price = fields.Monetary(string='За правилом', currency_field='currency_id', compute='_compute_rule', help='«Ціна нам», яку дала б загальна ставка')
+    price = fields.Monetary(string='Платять нам', currency_field='currency_id', tracking=7, aggregator='avg',
+                            help='Що платить нам замовник або лінія за годину. Сама з загальної ставки: надбавка — зарплата працівника + частка за «Хто '
+                                 'знайшов»; тариф — ціна тарифу; фікс за місяць — зарплата працівника. Змінили вручну й число ≠ правилу — ставка стає «Своєю».')
+    rule_price = fields.Monetary(string='За правилом', currency_field='currency_id', compute='_compute_rule', help='«Платять нам», яке дала б загальна ставка')
     fixed_month = fields.Monetary(string='Фікс за місяць', currency_field='currency_id', tracking=14, aggregator='avg',
-                                  help='Замовник платить на руки за години як є і фіксовану суму за оформлення людини на місяць.')
+                                  help='Замовник платить зарплату працівника за години як є і фіксовану суму за оформлення людини на місяць.')
     client_price = fields.Monetary(string='Ціна клієнта', currency_field='currency_id', tracking=15, aggregator='avg',
                                    help='Скільки платить кінцевий клієнт посереднику (лінії), якщо відомо. У нашу частку не входить.')
     client_price_source = fields.Char(string='Джерело ціни')
@@ -105,7 +106,7 @@ class WorksetRate(models.Model):
     client_price_manual = fields.Boolean(string='Ціна клієнта вручну', readonly=True,
                                          help='Ціну клієнта ввели в цій ставці; інакше — із загальної ставки')
     line_share = fields.Monetary(string='Частка лінії', currency_field='currency_id', readonly=True, aggregator='avg',
-                                 help='Ціна клієнта − ціна нам, €/год. 0 — ціна клієнта невідома.')
+                                 help='Ціна клієнта − «Платять нам», €/год. 0 — ціна клієнта невідома.')
     agent_client_share = fields.Monetary(string='Посередник', currency_field='currency_id', readonly=True, aggregator='avg',
                                          help='Сума «€/год» діючих погодинних домовленостей з посередниками цього замовника або лінії (модуль посередників)')
     agent_client_note = fields.Char(string='Хто посередник', readonly=True)
@@ -115,43 +116,44 @@ class WorksetRate(models.Model):
     people_agent_payer_manual = fields.Boolean(string='Хто платить агенту вручну', readonly=True,
                                                help='Змінили в цій ставці й не так, як у загальній ставці; інакше — із загальної ставки')
     our_share = fields.Monetary(string='Частка WorkSET', currency_field='currency_id', aggregator='avg', readonly=True,
-                                help='За годину, до ZUS і податків на зарплату: ціна нам − на руки − посередник (− агент людей, якщо платить WorkSET); '
+                                help='За годину, до ZUS і податків на зарплату: платять нам − зарплата працівника − посередник (− агент людей, якщо платить WorkSET); '
                                      'у «Фікс за місяць» — фікс ÷ годин місяця.')
     month_hours = fields.Float(string='Годин за місяць', readonly=True, help='Години пари в табелях за минулий повний місяць (усі фірми периметра)')
     office_bonus = fields.Monetary(string='Бонус офісу', currency_field='currency_id', readonly=True, aggregator='avg',
                                    help='€/год за правилами бонусів офісу: € за годину + € за працівника на місяць ÷ годин за місяць')
     bonus_norm = fields.Boolean(string='Бонус за нормою годин', readonly=True, help='Табелів за минулий місяць немає — місячні бонуси поділено на норму годин')
-    net_share = fields.Monetary(string='Чиста частка', currency_field='currency_id', readonly=True, aggregator='avg',
+    net_share = fields.Monetary(string='Після бонусів офісу', currency_field='currency_id', readonly=True, aggregator='avg',
                                 help='Частка WorkSET − бонус офісу, €/год. Не «після податків»: ZUS і податки на зарплату — у «Прибутковості».')
-    net_level = fields.Selection(SHARE_LEVELS, string='Рівень чистої', readonly=True, index=True)
+    net_level = fields.Selection(SHARE_LEVELS, string='Рівень після бонусів', readonly=True, index=True)
     found_missing = fields.Boolean(string='Хто знайшов не вказано', readonly=True,
                                    help='Надбавка, а «Хто знайшов» порожньо: ціна — за часткою «Знайшла лінія»')
-    wage_source = fields.Selection(WAGE_SOURCES, string='На руки з', default='manual')
+    wage_source = fields.Selection(WAGE_SOURCES, string='Зарплата з', default='manual')
     contract_version_id = fields.Many2one('hr.version', string='Версія договору', readonly=True, ondelete='set null',
-                                          help='Версія договору, з якої взято «На руки»')
+                                          help='Версія договору, з якої взято «Зарплата працівника»')
     # ставку внесли не з договору, а А6 переписав її «На руки» на ту саму дату: що було до того — щоб повернути, коли договір перестане бути базою
-    wage_before_contract = fields.Monetary(string='На руки до договору', currency_field='currency_id', readonly=True, aggregator='avg',
-                                           help='«На руки», яке стояло в ставці до того, як його переписав договір на ту саму дату')
-    wage_source_before = fields.Selection(WAGE_SOURCES, string='На руки з (до договору)', readonly=True)
+    wage_before_contract = fields.Monetary(string='Зарплата до договору', currency_field='currency_id', readonly=True, aggregator='avg',
+                                           help='«Зарплата працівника», яка стояла в ставці до того, як її переписав договір на ту саму дату')
+    wage_source_before = fields.Selection(WAGE_SOURCES, string='Зарплата з (до договору)', readonly=True)
     raise_ids = fields.Many2many(RAISE, 'workset_rate_raise_rel', 'rate_id', 'raise_id', string='Тимчасові зміни', compute='_compute_raises')
     raise_now = fields.Monetary(string='Надбавка зараз', currency_field='currency_id', compute='_compute_raises',
                                 help='Сума тимчасових змін «+€ за годину» пари, що діють сьогодні')
-    wage_now = fields.Monetary(string='На руки зараз', currency_field='currency_id', compute='_compute_raises',
-                               help='На руки + тимчасові зміни сьогодні. У карту проєктів і частку не входить.')
+    wage_now = fields.Monetary(string='Зарплата зараз', currency_field='currency_id', compute='_compute_raises',
+                               help='Зарплата працівника + тимчасові зміни сьогодні. У карту проєктів і частку не входить.')
     # ——— М2c: тексти екранів (нехранимі) ———
-    raise_note = fields.Char(string='На руки зараз до', compute='_compute_raises', help='«зараз 17 до 30.11» під «На руки», коли діє тимчасова зміна')
+    raise_note = fields.Char(string='Зарплата зараз до', compute='_compute_raises',
+                             help='«зараз 17 до 30.11» під «Зарплата працівника», коли діє тимчасова зміна')
     raise_badge = fields.Char(string='Надбавка до', compute='_compute_raises', help='Бейдж дошки «+2 до 30.11»')
     has_raise = fields.Boolean(string='Є тимчасова зміна', compute='_compute_raises', search='_search_has_raise',
                                help='У пари сьогодні діє тимчасова зміна (не скасована)')
     fixed_note = fields.Char(string='Фікс за годину', compute='_compute_texts', help='Фікс за місяць ÷ години минулого місяця (немає — норма)')
     missing_text = fields.Char(string='Бракує', compute='_compute_missing')
-    wage_note = fields.Char(string='На руки звідки', compute='_compute_wage_note')
+    wage_note = fields.Char(string='Зарплата звідки', compute='_compute_wage_note')
     card_line = fields.Char(string='Рядок дошки', compute='_compute_texts')
     rule_share = fields.Monetary(string='За правилом лінії', currency_field='currency_id', compute='_compute_rule')
     rule_ok = fields.Boolean(string='Відповідає правилу', readonly=True, default=True)
     rule_text = fields.Char(string='Правило лінії', compute='_compute_rule')
     date_from = fields.Date(string='Ставка з', required=True, index=True, tracking=8, default=lambda self: self._today(),
-                            help='Перший день, з якого діє ця ставка (на руки, ціна) — в усіх проєктах замовника в усіх фірмах. Попередня ставка цієї пари '
+                            help='Перший день, з якого діє ця ставка (зарплата працівника, платять нам) — в усіх проєктах замовника в усіх фірмах. Попередня ставка цієї пари '
                                  'закінчується напередодні. «Вартість години» в проєктах змінюється при збереженні (майбутня ставка — уночі в день «Ставка з»); '
                                  'уже внесені табелі не перераховуються.')
     date_to = fields.Date(string='Ставка до', readonly=True,
@@ -202,7 +204,10 @@ class WorksetRate(models.Model):
     issues = fields.Char(string='Перевірити: список', compute='_compute_issues')
     line_agent_id = fields.Many2one('res.partner', string='Агент лінії', related='line_id.agent_id')
     subtitle = fields.Char(string='Замовник · лінія', compute='_compute_texts')
-    formula = fields.Char(string='На руки + частка = ціна', compute='_compute_texts')
+    formula = fields.Char(string='Зарплата + частка = платять нам', compute='_compute_texts')
+    # кнопка «Домовленість» біля «Посередник» у формі: є модель посередників (адаптер agent_deals.py), користувач її читає і є домовленість
+    # із замовником ставки (лінія — та сама або без лінії). Нехраниме, без залежності від моделі посередників: на проді її немає
+    agent_deal_ok = fields.Boolean(string='Є домовленість посередника', compute='_compute_agent_deal_ok')
 
     # ——— службове: мова, «сьогодні», параметри ———
     def _lang(self):
@@ -275,6 +280,23 @@ class WorksetRate(models.Model):
         # «Посередники» форми М1 — те саме, що «Хто посередник» М2 (форму перебудовує круг екранів)
         for r in self:
             r.agent_note = r.agent_client_note or ''
+
+    @api.depends('customer_id', 'line_id')
+    def _compute_agent_deal_ok(self):
+        # моделі посередників немає (прод) або користувач її не читає — False без помилки (адаптер agent_deals.deal_ids → None)
+        for r in self:
+            r.agent_deal_ok = bool(agent_deals.deal_ids(self.env, cust_of(r.customer_id), r.line_id.id))
+
+    def action_open_agent_deal(self):
+        """«Домовленість» біля «Посередник»: домовленості посередника із замовником ставки (лінія — та сама або без лінії); одна — картка,
+        кілька — список. Моделі посередників немає або домовленості не знайшлося — повідомлення, без помилки."""
+        self.ensure_one()
+        lang = self._lang()
+        act = agent_deals.deal_action(self.env, cust_of(self.customer_id), self.line_id.id, calc.t('agent_deal', lang))
+        if act:
+            return act
+        return {'type': 'ir.actions.client', 'tag': 'display_notification',
+                'params': {'title': _('Ставки'), 'message': calc.t('agent_deal_none', lang), 'type': 'warning', 'sticky': False}}
 
     # ——— ланцюжок цін: дані одним набором на пакет ставок ———
     @api.model

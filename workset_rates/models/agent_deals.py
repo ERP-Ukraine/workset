@@ -2,7 +2,8 @@
 """Адаптер моделей посередників і агентів людей (ручні моделі модуля посередників) — ЄДИНИЙ файл модуля, що знає їхні імена.
 
 «Ставки» лише читають: посередник (агент по замовниках) — домовленості DEAL; агент людей — учасники MEMBER домовленостей PEOPLE_DEAL.
-Моделі немає (модуль посередників не встановлено) або бракує полів — None: частка 0 і підпис «посередники не підключені».
+Моделі немає (модуль посередників не встановлено) або бракує полів — None: частка 0 і підпис «посередники не підключені»; кнопки
+«Домовленість» у формі ставки не видно (deal_ids / deal_action).
 Лінія домовленості рахується лише тоді, коли її поле вже веде на workset.line (до перейменування воно веде на стару модель).
 Переїде модуль посередників у свій код — змінюється лише цей файл."""
 from . import calc
@@ -32,6 +33,34 @@ def read_deals(env):
                     'date_from': calc.iso(d.x_date_from), 'date_to': calc.iso(d.x_date_to),
                     'agent': (d.x_agent_id.name or '') if has_agent else ''})
     return out
+
+
+def deal_ids(env, cust_id, line_id):
+    """Домовленості посередника для кнопки «Домовленість» форми ставки — за тим самим правилом, що частка (calc.agent_share_for), але
+    будь-якого стану й дат: замовник ставки (комерційний) серед замовників домовленості; домовленість без замовників — коли її лінія — лінія
+    ставки. Від імені користувача (його права й правила доступу). → [id] або None — моделі немає, бракує полів або користувач її не читає."""
+    if DEAL not in env or not cust_id:
+        return None
+    Deal = env[DEAL]
+    if 'x_customer_ids' not in Deal._fields or not Deal.has_access('read'):
+        return None
+    dom = [('x_customer_ids', 'in', [cust_id])]
+    if line_id and 'x_line_id' in Deal._fields and Deal._fields['x_line_id'].comodel_name == 'workset.line':
+        dom = ['|'] + dom + ['&', ('x_customer_ids', '=', False), ('x_line_id', '=', line_id)]
+    return Deal.search(dom).ids
+
+
+def deal_action(env, cust_id, line_id, title):
+    """Дія кнопки «Домовленість»: одна домовленість — її картка, кілька — список; немає (або моделі немає) — None."""
+    ids = deal_ids(env, cust_id, line_id)
+    if not ids:
+        return None
+    act = {'type': 'ir.actions.act_window', 'name': title, 'res_model': DEAL, 'target': 'current'}
+    if len(ids) == 1:
+        act.update({'res_id': ids[0], 'view_mode': 'form', 'views': [[False, 'form']]})
+    else:
+        act.update({'domain': [('id', 'in', ids)], 'view_mode': 'list,form', 'views': [[False, 'list'], [False, 'form']]})
+    return act
 
 
 def read_people(env):

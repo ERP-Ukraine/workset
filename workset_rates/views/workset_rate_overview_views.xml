@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Рівень B (розділ 6б): «Стрічка» (масштаб за замовчуванням «Рік»; рядки без лінії — в кінець, get_gantt_data у workset_rate_overview.py;
+         pill_label не ставимо: web_gantt 17+ дописує ним дати чи час до підпису смуги, а підпис — лише display_name) — смуги ставок у часі
+         (web_gantt) і сторінка «Огляд ставок» (client action OWL).
+         Смуга: «Ставка з» → «Смуга до» (gantt_stop: «Ставка до»; без неї діюча — сьогодні + 30 днів, майбутня — «Ставка з» + 30); колір — статус
+         з відтінком низької частки (gantt_color); підпис «Діє · формула» — display_name у контексті дії. Перетягнути можна лише майбутню,
+         лише редактору й лише на дату після сьогодні, у тому самому рядку (перевірка в write запису з «Смуга до»); нових ставок
+         і планування зі «Стрічки» немає -->
+    <record id="view_rate_gantt" model="ir.ui.view">
+        <field name="name">workset.rate.gantt</field>
+        <field name="model">workset.rate</field>
+        <field name="arch" type="xml">
+            <gantt string="Стрічка" date_start="date_from" date_stop="gantt_stop" default_group_by="line_id,person_id" default_scale="year"
+                   scales="week,month,year" color="gantt_color" create="0" delete="0" plan="0"
+                   decoration-danger="state != 'past' and (share_level == 'low' or net_level == 'low')">
+                <field name="state"/>
+                <field name="share_level"/>
+                <field name="net_level"/>
+                <field name="subtitle"/>
+                <field name="formula"/>
+                <field name="wage"/>
+                <field name="price"/>
+                <field name="our_share"/>
+                <field name="net_share"/>
+                <templates>
+                    <div t-name="gantt-popover">
+                        <div class="fw-semibold" t-esc="formula"/>
+                        <div class="text-muted" t-esc="subtitle"/>
+                        <div>Частка WorkSET: <t t-esc="our_share"/> €/год</div>
+                        <div>Після бонусів офісу: <t t-esc="net_share"/> €/год</div>
+                    </div>
+                </templates>
+            </gantt>
+        </field>
+    </record>
+
+    <record id="action_rates_gantt" model="ir.actions.act_window">
+        <field name="name">Стрічка</field>
+        <field name="res_model">workset.rate</field>
+        <field name="view_mode">gantt,form</field>
+        <field name="search_view_id" ref="view_rate_search"/>
+        <field name="context">{'workset_rates_gantt': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Ставок ще немає</p>
+            <p>Смуги з’являться, коли в ставок будуть дати: перетягнути можна лише майбутню ставку.</p>
+        </field>
+    </record>
+
+    <!-- «Огляд ставок»: один виклик workset.rate.rates_overview; фільтр сторінки зберігається в браузері користувача -->
+    <record id="action_overview" model="ir.actions.client">
+        <field name="name">Огляд ставок</field>
+        <field name="tag">workset_rates.overview</field>
+    </record>
+</odoo>
