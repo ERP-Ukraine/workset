@@ -1,8 +1,10 @@
 /** «Прибутковість ліній» (М3, круг 2): три екрани за макетами A, B, C — client actions workset_profit.overview («Огляд»),
  *  workset_profit.line_card (картка лінії) і workset_profit.matrix («Лінії × місяці»).
  *  Кожен екран — ОДИН виклик сервера на workset.profit.month (profit_overview / profit_line_card / profit_matrix): числа, кольори тривог,
- *  ряди графіків, геометрію водоспаду й описи списків для кліку рахує сервер (models/calc.py), тут — лише показ і переходи. Графіки —
- *  Chart.js із бандла web (web.chartjs_lib), кольори — змінні Bootstrap теми (світла й темна), своїх кольорів немає. Переходи: плитка
+ *  ряди графіків, вісь без викидів, порядок плиток, геометрію водоспаду й описи списків для кліку рахує сервер (models/calc.py), тут —
+ *  лише показ і переходи. Графіки — Chart.js із бандла web (web.chartjs_lib); кольори графіків — явні (PALETTE, круг 3а: CSS-змінних
+ *  Bootstrap Odoo 19 не задає, Chart.js малював своєю палітрою): сірі ряди, бренд — той самий тон, що смуга «чисто» (клас scss), мінус —
+ *  червоний; світла чи темна тема — за яскравістю фону. Переходи: плитка
  *  «Огляду», смуга «Куди йде частка», «Відкрити рядки» з клітинки таблиці й кнопка рядка списку «Рядки розрахунку» — картка лінії
  *  (лінія й місяць — у params дії; після перезавантаження сторінки — останні з localStorage користувача). */
 import { registry } from "@web/core/registry";
@@ -65,9 +67,59 @@ export function cleanCard(saved) {
     return out;
 }
 
-/** Колір теми з CSS-змінної (немає — запасний). */
-function themeColor(el, name, fallback) {
-    return (el && getComputedStyle(el).getPropertyValue(name).trim()) || fallback;
+/** Ціле число з пробілами тисяч: 9721.72 → «9 722» (години на екрані — цілі). */
+export function whole(value) {
+    return euros(value);
+}
+
+/** Кольори графіків (круг 3а): ряди — нейтральний сірий, що читається на обох темах; бренд — запасний тон смуги «чисто» ($primary
+ *  світлої теми; справжній береться з класу смуги — brandOf); мінус — червоний Bootstrap. Текст і сітка — під фон теми. */
+export const PALETTE = {
+    light: { text: "#4a5058", grid: "#e2e4e8", zero: "#8a8f98", line: "#9aa0ab", brand: "#6b3e66", danger: "#dc3545" },
+    dark: { text: "#c3c7ce", grid: "#3a3f48", zero: "#8a8f98", line: "#9aa0ab", brand: "#6b3e66", danger: "#dc3545" },
+};
+
+/** «rgb(1, 2, 3)» / «rgba(…)» → [r, g, b]; прозоре чи не колір — null. */
+export function rgbOf(css) {
+    const m = String(css || "").match(/rgba?\(([^)]+)\)/);
+    if (!m) {
+        return null;
+    }
+    const p = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+    if (p.length < 3 || p.slice(0, 3).some((x) => Number.isNaN(x)) || (p.length > 3 && p[3] === 0)) {
+        return null;
+    }
+    return p.slice(0, 3);
+}
+
+/** Темний фон: відносна яскравість < 0,5. */
+export function isDark(rgb) {
+    return Boolean(rgb) && (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255 < 0.5;
+}
+
+/** Фон під елементом: перший непрозорий від el угору (немає — білий). */
+function backdrop(el) {
+    for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+        const c = rgbOf(getComputedStyle(n).backgroundColor);
+        if (c) {
+            return c;
+        }
+    }
+    return [255, 255, 255];
+}
+
+/** Тон бренду — фон класу смуги «чисто» (scss: $primary свого бандла), щоб лінія й стовпці були того ж кольору, що смуги «Куди йде
+ *  частка»; клас не дав кольору — запасний. */
+function brandOf(root, fallback) {
+    if (!root) {
+        return fallback;
+    }
+    const probe = document.createElement("span");
+    probe.className = "o_workset_profit_part_net d-none";
+    root.appendChild(probe);
+    const rgb = rgbOf(getComputedStyle(probe).backgroundColor);
+    probe.remove();
+    return rgb ? `rgb(${rgb.join(", ")})` : fallback;
 }
 
 /** Спільне трьох екранів: формат чисел, відкрити список рядків за описом сервера, відкрити картку лінії. */
@@ -87,6 +139,7 @@ class ProfitScreen extends Component {
         this.perHour = perHour;
         this.hasPh = hasPh;
         this.plain = plain;
+        this.whole = whole;
         this.cap = cap;
         this.chartRef = useRef("chart");
         onWillStart(async () => {
@@ -170,19 +223,31 @@ class ProfitScreen extends Component {
 
     renderChart() {}
 
-    /** Основа графіків: кольори тексту й сітки — з теми, без анімації, легенди немає. */
+    /** Основа графіків: явні кольори (PALETTE за яскравістю фону, бренд — з класу смуги «чисто»), лінія нуля виразніша за сітку, без
+     *  анімації; підказка — найближча точка без точного влучання (тонкі лінії без крапок). */
     chartBase() {
         const el = this.chartRef.el;
-        const text = themeColor(el, "--bs-body-color", undefined);
-        const grid = themeColor(el, "--bs-border-color", undefined);
+        const pal = PALETTE[isDark(backdrop(el)) ? "dark" : "light"];
+        const c = { ...pal, brand: brandOf(el.closest(".o_workset_profit"), pal.brand), font: getComputedStyle(el).fontFamily };
+        c.axis = { ticks: { color: c.text }, grid: { color: c.grid } };
+        c.yAxis = { ticks: { color: c.text }, grid: { color: (ctx) => (ctx.tick && ctx.tick.value === 0 ? c.zero : c.grid) } };
+        c.options = { responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: "nearest", intersect: false } };
+        return c;
+    }
+
+    /** Легенда з готових пунктів [{text, color, width}] (клік нічого не ховає): ряди з однаковим кольором — одним пунктом. */
+    legend(c, items) {
         return {
-            text,
-            primary: themeColor(el, "--bs-primary", text),
-            muted: themeColor(el, "--bs-gray-400", grid),
-            gray: themeColor(el, "--bs-gray-500", grid),
-            font: getComputedStyle(el).fontFamily,
-            axis: { ticks: { color: text }, grid: { color: grid } },
-            options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } } },
+            display: true,
+            position: "bottom",
+            onClick: () => {},
+            labels: {
+                color: c.text,
+                boxWidth: 14,
+                boxHeight: 3,
+                generateLabels: () =>
+                    items.map((x) => ({ text: x.text, fillStyle: x.color, strokeStyle: x.color, lineWidth: x.width || 0, fontColor: c.text, hidden: false })),
+            },
         };
     }
 }
@@ -231,6 +296,28 @@ export class ProfitOverview extends ProfitScreen {
         this.openCard(line.id, this.data.month.value, line.name);
     }
 
+    /** Чип «Власники»: кожна стаття окремо — «BJ −1 275 · IP −5 385» (R05 власника: «по кожному»). */
+    ownerParts(alert) {
+        return (alert.parts || []).map((p) => `${p.code} ${euros(p.amount)}`).join(" · ");
+    }
+
+    /** «Куди йде частка»: пункти легенди — лише частини, що є хоч в одній лінії. */
+    get splitKeys() {
+        const keys = new Set();
+        for (const line of (this.data && this.data.lines) || []) {
+            for (const p of line.split) {
+                keys.add(p.key);
+            }
+        }
+        return keys;
+    }
+
+    /** Частка «чисто» в частці лінії, ціле число %: смуги без «чисто» (чисто ≤ 0) — 0. */
+    netPct(line) {
+        const p = line.split.find((x) => x.key === "net");
+        return p ? Math.round(p.pct) : 0;
+    }
+
     get hasSeries() {
         const s = this.data && this.data.series;
         return Boolean(s && s.total.some((v) => v !== null));
@@ -243,26 +330,75 @@ export class ProfitOverview extends ProfitScreen {
             return;
         }
         const c = this.chartBase();
-        // кожна лінія — тонко сірим, усі лінії разом — жирно кольором бренду (макет A)
-        const datasets = d.series.lines.map((l) => ({
+        const s = d.series;
+        const ax = s.axis;
+        // викид (calc.chart_axis) — біля краю осі, справжнє число — у підказці й підписі
+        const clamp = (v) => (v === null || v === undefined ? null : Math.min(ax.max, Math.max(ax.min, v)));
+        // кожна лінія — тонко сірим, усі лінії разом — жирно кольором бренду, зверху (макет A); без згладжування
+        const datasets = s.lines.map((l) => ({
             label: l.name,
-            data: l.values,
-            borderColor: c.muted,
+            data: l.values.map(clamp),
+            raw: l.values,
+            borderColor: c.line,
+            backgroundColor: c.line,
             borderWidth: 1,
             pointRadius: 0,
-            tension: 0.3,
+            pointHitRadius: 6,
+            tension: 0,
+            order: 1,
         }));
-        datasets.push({ label: d.series.total_label, data: d.series.total, borderColor: c.primary, borderWidth: 3, pointRadius: 2, tension: 0.3 });
+        datasets.push({
+            label: s.total_label,
+            data: s.total.map(clamp),
+            raw: s.total,
+            borderColor: c.brand,
+            backgroundColor: c.brand,
+            borderWidth: 3,
+            pointRadius: 2,
+            pointHitRadius: 6,
+            tension: 0,
+            order: 0,
+        });
+        const outliers = {
+            id: "wsProfitOutliers",
+            afterDatasetsDraw: (chart) => {
+                const ctx = chart.ctx;
+                const area = chart.chartArea;
+                ctx.save();
+                ctx.font = `11px ${c.font}`;
+                for (const o of ax.out) {
+                    const pt = chart.getDatasetMeta(o.s).data[o.i];
+                    if (!pt) {
+                        continue;
+                    }
+                    const up = o.value > ax.max;
+                    ctx.fillStyle = o.value < 0 ? c.danger : c.text;
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, 3, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.textAlign = pt.x > area.right - 140 ? "right" : "left";
+                    ctx.fillText(o.text, pt.x + (ctx.textAlign === "left" ? 6 : -6), up ? pt.y + 14 : pt.y - 6);
+                }
+                ctx.restore();
+            },
+        };
         this.charts.push(
             new Chart(this.chartRef.el, {
                 type: "line",
-                // підписи осі — сервер (calc.month_axis): з роком, коли ряд зачіпає більше одного року
-                data: { labels: d.series.labels, datasets },
+                // підписи осі — сервер (calc.month_axis): з роком, коли ряд зачіпає більше одного року; лише закриті місяці
+                data: { labels: s.labels, datasets },
                 options: {
                     ...c.options,
-                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label || ""}: ${perHour(ctx.parsed.y)}` } } },
-                    scales: { x: c.axis, y: c.axis },
+                    plugins: {
+                        legend: this.legend(c, [
+                            { text: s.total_label, color: c.brand, width: 3 },
+                            { text: s.each_label, color: c.line, width: 1 },
+                        ]),
+                        tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label || ""}: ${perHour(ctx.dataset.raw[ctx.dataIndex])}` } },
+                    },
+                    scales: { x: c.axis, y: { ...c.yAxis, min: ax.min, max: ax.max } },
                 },
+                plugins: [outliers],
             })
         );
     }
@@ -324,16 +460,36 @@ export class ProfitLineCard extends ProfitScreen {
         return `bottom: ${b.bottom}%; height: ${Math.max(b.height, 0.6)}%;`;
     }
 
-    /** Сума над стовпцем; витрата — під ним (як у макеті B). */
+    /** Підпис суми в одному місці в усіх стовпців: плюс — над верхом, мінус — під низом (і «Чисто» нижче нуля теж). */
     valueStyle(b) {
-        return b.dir === "down" ? `top: ${100 - b.bottom}%;` : `bottom: ${b.bottom + b.height}%;`;
+        return b.amount < 0 ? `top: ${100 - b.bottom}%;` : `bottom: ${b.bottom + b.height}%;`;
     }
 
+    /** Пунктир від підсумку після кроку до наступного стовпця (останній — без нього). */
+    linkStyle(b) {
+        return `bottom: ${b.end}%;`;
+    }
+
+    /** Сума кроку: повернення (плюс між часткою й «чисто») — зі знаком «+». */
+    stepAmount(b) {
+        return b.dir === "up" ? `+${euros(b.amount)}` : euros(b.amount);
+    }
+
+    /** Частка й повернення — один колір; витрата — темніше; «Чисто» — бренд, нижче нуля — червоне. */
     barClass(b) {
         if (b.key === "net") {
             return b.amount < 0 ? "bg-danger" : "o_workset_profit_fall_net";
         }
-        return `o_workset_profit_fall_${b.dir}`;
+        return b.dir === "down" ? "o_workset_profit_fall_down" : "o_workset_profit_fall_total";
+    }
+
+    /** «Рядки за місяць»: у «чисто» (і табелі) — основний список; буфер житла, гроші лінії, фонд — окремою групою нижче. */
+    get mainRows() {
+        return this.data.rows.filter((r) => r.chain || r.timesheets);
+    }
+
+    get asideRows() {
+        return this.data.rows.filter((r) => !r.chain && !r.timesheets);
     }
 
     renderChart() {
@@ -343,7 +499,8 @@ export class ProfitLineCard extends ProfitScreen {
             return;
         }
         const c = this.chartBase();
-        // «Чисто по місяцях»: стовпці — чисто €/год, тонка лінія — частка; число над стовпцем (макет B)
+        // «Чисто по місяцях» (лише місяці з даними лінії): стовпці — чисто €/год кольором бренду, мінус — червоним; тонка сіра лінія —
+        // частка; число — поза стовпцем (над плюсом, під мінусом), місце під нього — запас осі (grace)
         const values = {
             id: "wsProfitValues",
             afterDatasetsDraw: (chart) => {
@@ -351,32 +508,59 @@ export class ProfitLineCard extends ProfitScreen {
                 const ctx = chart.ctx;
                 ctx.save();
                 ctx.font = `600 11px ${c.font}`;
-                ctx.fillStyle = c.text;
                 ctx.textAlign = "center";
                 meta.data.forEach((bar, i) => {
                     const v = chart.data.datasets[0].data[i];
                     if (v !== null && v !== undefined) {
-                        ctx.fillText(plain(Math.round(v * 10) / 10), bar.x, v >= 0 ? bar.y - 4 : bar.y + 12);
+                        ctx.fillStyle = v < 0 ? c.danger : c.text;
+                        ctx.textBaseline = v < 0 ? "top" : "bottom";
+                        ctx.fillText(plain(Math.round(v * 10) / 10), bar.x, v < 0 ? bar.y + 3 : bar.y - 3);
                     }
                 });
                 ctx.restore();
             },
         };
+        const net = d.series.net;
         this.charts.push(
             new Chart(this.chartRef.el, {
                 type: "bar",
                 data: {
                     labels: d.series.labels,
                     datasets: [
-                        { label: d.series.net_label, data: d.series.net, backgroundColor: c.primary, borderRadius: 3, order: 2 },
-                        { type: "line", label: d.series.share_label, data: d.series.share, borderColor: c.gray, borderWidth: 1, pointRadius: 0, tension: 0.3, order: 1 },
+                        {
+                            label: d.series.net_label,
+                            data: net,
+                            backgroundColor: net.map((v) => (v !== null && v < 0 ? c.danger : c.brand)),
+                            borderRadius: 3,
+                            maxBarThickness: 40,
+                            order: 2,
+                        },
+                        {
+                            type: "line",
+                            label: d.series.share_label,
+                            data: d.series.share,
+                            borderColor: c.line,
+                            backgroundColor: c.line,
+                            borderWidth: 1,
+                            pointRadius: 0,
+                            pointHitRadius: 6,
+                            tension: 0,
+                            order: 1,
+                        },
                     ],
                 },
                 options: {
                     ...c.options,
-                    layout: { padding: { top: 16 } },
-                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label || ""}: ${perHour(ctx.parsed.y)}` } } },
-                    scales: { x: c.axis, y: { ...c.axis, beginAtZero: true } },
+                    interaction: { mode: "index", intersect: false },
+                    layout: { padding: { top: 8, bottom: 4 } },
+                    plugins: {
+                        legend: this.legend(c, [
+                            { text: d.series.net_label, color: c.brand },
+                            { text: d.series.share_label, color: c.line, width: 1 },
+                        ]),
+                        tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label || ""}: ${perHour(ctx.parsed.y)}` } },
+                    },
+                    scales: { x: c.axis, y: { ...c.yAxis, beginAtZero: true, grace: "12%" } },
                 },
                 plugins: [values],
             })
@@ -436,16 +620,26 @@ export class ProfitMatrix extends ProfitScreen {
         this.view.unit = unit;
     }
 
+    /** Заливка — лише червоне (чисто < 0) і жовте (падіння); клітинка без годин зі ставкою ('neg_text') — без заливки, червоним текстом. */
     cellClass(cell) {
-        return cell.tone === "neg" ? "text-bg-danger" : cell.tone === "drop" ? "text-bg-warning" : "";
+        return cell.tone === "neg" ? "text-bg-danger" : cell.tone === "drop" ? "text-bg-warning" : cell.tone === "neg_text" ? "text-danger" : "";
     }
 
-    /** Значення клітинки в обраній одиниці: «€ год» — чисто на годину, «€ за місяць» — чисто місяця. */
+    /** Значення клітинки в обраній одиниці (одиниця — у шапці таблиці): «€ год» — чисто на годину, «€ за місяць» — чисто місяця. Годин зі
+     *  ставкою немає: «—», а чисто місяця нижче нуля — сума за місяць з одиницею «€/міс», дрібно червоним. */
     cellValue(cell) {
         if (this.view.unit === "hour") {
-            return cell.net_ph === null || cell.net_ph === undefined ? "—" : perHour(cell.net_ph);
+            if (hasPh(cell.net_ph)) {
+                return perHour(cell.net_ph);
+            }
+            return cell.tone === "neg_text" ? `${euros(cell.net)} ${this.data.labels.month}` : "—";
         }
         return euros(cell.net);
+    }
+
+    /** Дрібний шрифт — лише сума за місяць у режимі «€ год» (клітинка без годин зі ставкою). */
+    cellSmall(cell) {
+        return this.view.unit === "hour" && cell.tone === "neg_text";
     }
 
     /** Крок ланцюжка з одиницею; годин зі ставкою немає — лише «—». */
@@ -463,7 +657,7 @@ export class ProfitMatrix extends ProfitScreen {
         const month = this.data.months.find((m) => m.value === cell.month);
         this.popover.open(ev.currentTarget, {
             // назва місяця з роком: з 2027 у таблиці можуть бути два січні
-            title: `${line.name}, ${month ? month.label : ""}`,
+            title: `${line.name}, ${month ? month.title : ""}`,
             steps: cell.chain,
             format: (s) => this.stepValue(s),
             onOpen: () => this.openCard(line.id, cell.month, line.name),
