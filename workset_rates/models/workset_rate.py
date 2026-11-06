@@ -867,12 +867,22 @@ class WorksetRate(models.Model):
                 'project_id': m.project_id.id, 'project': m.project_id.display_name or '', 'company': m.project_id.company_id.name or '',
                 'employee': m.employee_id.name or '', 'currency': m.cost_currency_id.name or ''}
 
-    def _apply_rate(self, rate, maps):
-        # «Вартість години» = «на руки» разом із прапорцем ручної правки: без прапорця _compute_cost повернув би hourly_cost картки
-        todo = maps.browse(calc.lines_to_write([self._map_info(m) for m in maps], rate.wage))
+    def _apply_rate(self, rate, maps, pin_only=False):
+        # «Вартість години» = «на руки» разом із прапорцем ручної правки: без прапорця _compute_cost повернув би hourly_cost картки.
+        # pin_only (щоденний синхрон без зміни статусів) — лише рядки без прапорця (calc.lines_to_pin), ручні правки не чіпаємо
+        infos = [self._map_info(m) for m in maps]
+        todo = maps.browse(calc.lines_to_pin(infos) if pin_only else calc.lines_to_write(infos, rate.wage))
         if todo and not self._dry():
-            todo.write({'cost': rate.wage, 'is_cost_changed': True})
+            self._write_rate_rows(todo, rate.wage)
         return todo
+
+    def _write_rate_rows(self, rows, wage):
+        # Odoo 19: is_cost_changed — readonly-обчислюване (cost ≠ hourly_cost картки); write захищає від перерахунку лише обчислювані
+        # з readonly=False, тож у спільному write прапорець перераховується з cost і при cost = картці знімається (копія 20, 06.11).
+        # Тому: cost → flush → окремо прапорець (від нього нічого не залежить, cost далі не переписується)
+        rows.write({'cost': wage})
+        rows.flush_recordset(['cost', 'is_cost_changed'])
+        rows.write({'is_cost_changed': True})
 
     def _revert_lines(self, maps, wages):
         # пара втратила чинну ставку: рядки з її «на руки» — назад на картку (cost = hourly_cost, прапорець знято)
@@ -1040,8 +1050,12 @@ class WorksetRate(models.Model):
         maps, other = self._pair_maps(person_id, cust_id)
         done = maps.browse()
         back = maps.browse()
+        pinned = False
         if cur and (force or changed):
             done = self._apply_rate(cur, maps)
+        elif cur:
+            done = self._apply_rate(cur, maps, pin_only=True)  # рядки без прапорця (пішли за карткою) — назад на «на руки» з прапорцем
+            pinned = bool(done)
         elif not cur and wages:
             back = self._revert_lines(maps, wages)
         for r in rates:
@@ -1051,7 +1065,7 @@ class WorksetRate(models.Model):
         worked = self._refresh_work(person_id, cust_id, today, maps, other, exclude)
         self._refresh_others(person_id, exclude)
         if cur and done:
-            self._post_applied(cur, done, why)
+            self._post_applied(cur, done, 'pin' if pinned else why)
         if back and notify:
             self._post_reverted(notify, back, why)
         return {'current': cur.id if cur else 0, 'updated': len(done), 'reverted': len(back), 'changed': changed, 'maps': len(maps),
