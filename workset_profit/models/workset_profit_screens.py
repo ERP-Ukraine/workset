@@ -69,12 +69,15 @@ class WorksetProfitScreens(models.Model):
         """Екран A — один виклик: місяць (немає — останній закритий; лише від calc.MIN_MONTH до поточного), п'ять підсумків місяця по
         рядках ліній (calc.totals), тривоги з описом списку для кліку, плитки ліній (рядок лінії як є: чисто, €/год, частка, стрілка до
         минулого місяця, житло не з наших грошей, «Куди йде частка»), ряди «Чисто по місяцях» (усі лінії разом і кожна) від MIN_MONTH до
-        поточного місяця. Лише читання. → {'month', 'months', 'has', 'totals', 'alerts', 'lines', 'series'}."""
+        останнього закритого місяця з віссю без викидів (calc.chart_axis); плитки — за «чисто € год» від збиткових (calc.tile_order). Лише
+        читання. → {'month', 'months', 'has', 'totals', 'alerts', 'lines', 'series'}."""
         self._check_screen()
         lang = self._lang()
         today = calc.iso(self._today())
         month = calc.screen_month(month, today)
         all_months = calc.month_list(calc.MIN_MONTH, self._cur_month(today))
+        # графік — лише закриті місяці (поточний неповний — не «падіння»), круг 3а
+        chart_months = calc.month_list(calc.MIN_MONTH, calc.last_closed(today))
         order = self._line_order()
         rows = self._screen_rows(all_months)
         line_rows = [r for r in rows if r['row_kind'] == 'line']
@@ -100,19 +103,21 @@ class WorksetProfitScreens(models.Model):
         for r in line_rows:
             names.setdefault(r['line'], r['line_id'][1])
         series = {
-            'months': [calc.month_info(m, lang) for m in all_months], 'labels': calc.month_axis(all_months, lang),
-            'total_label': calc.t('l_all', lang),
-            'total': [calc.totals(by_month[m])['net_ph'] if m in by_month else None for m in all_months],
+            'months': [calc.month_info(m, lang) for m in chart_months], 'labels': calc.month_axis(chart_months, lang),
+            'total_label': calc.t('l_all', lang), 'each_label': calc.t('l_each', lang),
+            'total': [calc.totals(by_month[m])['net_ph'] if m in by_month else None for m in chart_months],
             'lines': [{'id': lid, 'name': names[lid],
                        'values': [next((x['net_per_hour'] for x in by_month.get(m, []) if x['line'] == lid and x['hours_rate']), None)
-                                  for m in all_months]}
+                                  for m in chart_months]}
                       for lid in sorted(names, key=lambda i: (order.get(i, 10 ** 6), i))],
         }
+        # вісь без викидів: ряди ліній, потім «усі лінії» — номер ряду в 'out' = номер набору даних графіка
+        series['axis'] = calc.chart_axis(series['lines'] + [{'name': series['total_label'], 'values': series['total']}], series['labels'])
         return {
             'month': calc.month_info(month, lang),
             'months': [calc.month_info(m, lang) for m in sorted({r['month'] for r in line_rows} | {month}, reverse=True)],
             'has': bool(now), 'totals': calc.totals(now), 'alerts': self._overview_alerts(month, mine, line_rows, lang),
-            'lines': lines, 'series': series,
+            'lines': calc.tile_order(lines), 'series': series,
         }
 
     def _housing_from(self, line_id, day, hr):
@@ -127,8 +132,9 @@ class WorksetProfitScreens(models.Model):
     def _overview_alerts(self, month, mine, line_rows, lang):
         """Чипи «Огляду» за місяць, у порядку на сторінці; кожен — з описом списку рядків (число на чипі = рядки списку):
         «Не розподілено» (€, чисто рядків «Не розподілено»), «Години без ставки», «Години без лінії», «Житло не в своєму місяці»
-        (calc.housing_shift), «Власник <стаття>» (€ кожного), «Звірка» (зі «Звірки місяця»). Нуля немає — чипа немає."""
-        label = calc.month_label(month, lang)
+        (calc.housing_shift), «Звірка» (зі «Звірки місяця»), нейтральний «Власники» (сума й кожна стаття окремо — parts; круг 3а: не
+        тривога, кольору немає). Нуля немає — чипа немає."""
+        label = calc.month_info(month, lang)['title']
         out = []
         # «Не розподілено» на 0 € (буфер житла, гроші лінії без лінії — не в «чисто») — не тривога: чипа немає
         un = [r for r in mine if r['row_kind'] == 'unallocated']
@@ -151,14 +157,15 @@ class WorksetProfitScreens(models.Model):
             out.append({'key': 'housing_shift', 'count': len(shift), 'tone': 'warning',
                         'open': self._open(calc.t('t_shift', lang) % label,
                                            [('month', '=', month), ('row_kind', '=', 'line'), ('line_id', 'in', shift)])})
-        for r in sorted([r for r in mine if r['row_kind'] == 'owner' and calc.cents(r['net'])],
-                        key=lambda r: r['analytic_id'][1] if r['analytic_id'] else ''):
-            code = r['analytic_id'][1] if r['analytic_id'] else '—'
-            out.append({'key': 'owner', 'code': code, 'amount': r['net'], 'tone': '',
-                        'open': self._open(calc.t('t_owner', lang) % (code, label), [('id', '=', r['id'])])})
         check = self._checks([month]).get(month)
         if check:
             out.append({'key': 'check', 'state': check['state'], 'text': check['text'], 'tone': '' if check['state'] == 'ok' else 'danger'})
+        owners = sorted([r for r in mine if r['row_kind'] == 'owner' and calc.cents(r['net'])],
+                        key=lambda r: r['analytic_id'][1] if r['analytic_id'] else '')
+        if owners:
+            out.append({'key': 'owners', 'amount': calc.eur(sum(calc.cents(r['net']) for r in owners)), 'tone': '',
+                        'parts': [{'code': r['analytic_id'][1] if r['analytic_id'] else '—', 'amount': r['net']} for r in owners],
+                        'open': self._open(calc.t('t_owners', lang) % label, [('id', 'in', [r['id'] for r in owners])])})
         return out
 
     # ——— B «Картка лінії» ———
@@ -191,11 +198,12 @@ class WorksetProfitScreens(models.Model):
         rows = [r for r in self._screen_rows(all_months, ['line']) if r['line'] == line.id]
         by_month = {r['month']: r for r in rows}
         out['line'] = {'id': line.id, 'name': line.sudo().display_name}
-        out['series'] = {'months': [calc.month_info(m, lang) for m in all_months], 'labels': calc.month_axis(all_months, lang),
+        # графік — лише місяці, де в лінії є години зі ставкою (€ год є), без порожніх місяців до старту лінії (круг 3а)
+        data_months = [m for m in all_months if m in by_month and by_month[m]['hours_rate']]
+        out['series'] = {'months': [calc.month_info(m, lang) for m in data_months], 'labels': calc.month_axis(data_months, lang),
                          'net_label': calc.t('l_net', lang), 'share_label': calc.t('l_share', lang),
-                         'net': [by_month[m]['net_per_hour'] if m in by_month and by_month[m]['hours_rate'] else None for m in all_months],
-                         'share': [calc.per_hour(by_month[m]['share'], by_month[m]['hours_rate']) if m in by_month and by_month[m]['hours_rate']
-                                   else None for m in all_months]}
+                         'net': [by_month[m]['net_per_hour'] for m in data_months],
+                         'share': [calc.per_hour(by_month[m]['share'], by_month[m]['hours_rate']) for m in data_months]}
         row = by_month.get(month)
         if not row:
             return out
@@ -203,8 +211,15 @@ class WorksetProfitScreens(models.Model):
         for s in steps:
             s['label'] = calc.t('s_' + s['key'], lang)
         day = min(calc.month_last(month), today)
+        pays = self._who_pays(line, day, lang)
+        # години без ставки лінії — жовтим чипом у підсумках; клік — рядки місяця лінії з такими годинами (як чип «Огляду», лише ця лінія)
+        no_rate = False
+        if row['hours_no_rate']:
+            no_rate = {'hours': row['hours_no_rate'],
+                       'open': self._open(calc.t('t_no_rate_line', lang) % (line.sudo().display_name, calc.month_info(month, lang)['title']),
+                                          [('month', '=', month), ('line_id', '=', line.id), ('hours_no_rate', '>', 0)])}
         out.update({'has': True, 'row_id': row['id'], 'totals': calc.totals([row]), 'waterfall': calc.waterfall(steps),
-                    'pays': self._who_pays(line, day, lang),
+                    'pays': pays, 'pays_fold': calc.pays_fold(pays, lang), 'no_rate': no_rate,
                     'aside': [{'key': f, 'label': calc.t('a_' + f, lang), 'amount': row[f]} for f in calc.ASIDE if calc.cents(row[f])],
                     'recomputed': self._stamp(row.get('write_date'))})
         out.update(self._card_rows(line, month, row, lang))
@@ -221,7 +236,7 @@ class WorksetProfitScreens(models.Model):
     def _who_pays(self, line, day, lang):
         """«Хто платить» лінії на day: житло — правило житла лінії «Ставок» (_housing_at), авто, паливо, інструмент, перевезення — правила
         «Хто платить» (правила лінії; правила замовників лінії з іншим платником — винятками); паливо — ще картки DKV лінії на day.
-        → [{'key', 'label', 'payer', 'except': [{'name', 'payer'}], 'cards': [назва]}]."""
+        → [{'key', 'label', 'payer', 'payer_key', 'except': [{'name', 'payer', 'payer_key'}], 'cards': [назва]}]."""
         Housing = self.env['workset.line.housing'].sudo()
         Cost = self.env['workset.line.cost.rule']
         line = line.sudo()
@@ -231,23 +246,26 @@ class WorksetProfitScreens(models.Model):
         hr = self._housing_rules()
         base = self._housing_pick(hr, line.id, 0, day)
         base_payer = hr['payer'].get(base, '') if base else ''
+        # payer_key — ключ calc.PAYER_KEYS (житло «Ставок» — через calc.housing_payer): по ньому calc.pays_fold згортає однакові рядки
         item = {'key': 'housing', 'label': calc.t('s_housing', lang), 'payer': h_labels.get(base_payer) or c_labels.get('we', ''),
-                'except': [], 'cards': []}
+                'payer_key': calc.housing_payer(base_payer), 'except': [], 'cards': []}
         for cust in custs:
             rid = self._housing_pick(hr, line.id, calc.cust_of(cust), day)
             payer = hr['payer'].get(rid, '') if rid else ''
             if rid and rid != base and payer != base_payer:
-                item['except'].append({'name': cust.display_name, 'payer': h_labels.get(payer) or c_labels.get('we', '')})
+                item['except'].append({'name': cust.display_name, 'payer': h_labels.get(payer) or c_labels.get('we', ''),
+                                       'payer_key': calc.housing_payer(payer)})
         out = [item]
         rules = Cost._rules()
         periods = self.env['workset.dkv.card.period']._periods()
         for kind in calc.COST_KINDS:
             payer = (calc.cost_rule_pick(rules, line.id, 0, kind, day) or {}).get('payer') or 'we'
-            item = {'key': kind, 'label': calc.t('s_' + kind, lang), 'payer': c_labels.get(payer, ''), 'except': [], 'cards': []}
+            item = {'key': kind, 'label': calc.t('s_' + kind, lang), 'payer': c_labels.get(payer, ''), 'payer_key': payer, 'except': [],
+                    'cards': []}
             for cust in custs:
                 rule = calc.cost_rule_pick(rules, line.id, calc.cust_of(cust), kind, day)
                 if rule and rule.get('customer_id') and rule['payer'] != payer:
-                    item['except'].append({'name': cust.display_name, 'payer': c_labels.get(rule['payer'], '')})
+                    item['except'].append({'name': cust.display_name, 'payer': c_labels.get(rule['payer'], ''), 'payer_key': rule['payer']})
             if kind == 'fuel':
                 cards = sorted({p['card_id'] for p in periods})
                 mine = [c for c in cards if (calc.card_period(periods, c, day) or {}).get('target') == 'line'
@@ -286,7 +304,7 @@ class WorksetProfitScreens(models.Model):
         Analytic = self.env['account.analytic.account'].sudo().with_context(active_test=False)
         Account = self.env['account.account'].sudo().with_context(active_test=False)
         Card = self.env['workset.dkv.card'].sudo().with_context(active_test=False)
-        label = calc.month_label(month, lang)
+        label = calc.month_info(month, lang)['title']
         out = []
         for k, g in groups.items():
             field = k[-1]
@@ -371,7 +389,8 @@ class WorksetProfitScreens(models.Model):
                 for s in steps:
                     s['label'] = calc.t('s_' + s['key'], lang)
                 cells.append({'month': m, 'has': True, 'net': r['net'], 'net_ph': net_ph,
-                              'tone': calc.cell_tone(r['net'], net_ph or 0, prev_ph if net_ph is not None else None, threshold),
+                              # годин зі ставкою немає — без заливки (calc.cell_tone: 'neg_text' — дрібно червоним € за місяць)
+                              'tone': calc.cell_tone(r['net'], net_ph, prev_ph, threshold),
                               'chain': steps})
             tot = calc.totals([mine[m] for m in months if m in mine])
             lines.append({'id': lid, 'name': names[lid], 'cells': cells,

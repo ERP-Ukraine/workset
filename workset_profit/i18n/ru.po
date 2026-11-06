@@ -926,6 +926,11 @@ msgid "Огляд"
 msgstr "Обзор"
 
 #. module: workset_profit
+#: model:ir.ui.menu,name:workset_profit.menu_refs
+msgid "Довідники"
+msgstr "Справочники"
+
+#. module: workset_profit
 #. odoo-javascript
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "Прибутковість ліній"
@@ -994,6 +999,12 @@ msgstr "Жильё не в своём месяце"
 #. module: workset_profit
 #. odoo-javascript
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Власники"
+msgstr "Собственники"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "Звірка зійшлася"
 msgstr "Сверка сошлась"
 
@@ -1044,12 +1055,6 @@ msgstr "нет данных за"
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "Чисто по місяцях,"
 msgstr "Чисто по месяцам,"
-
-#. module: workset_profit
-#. odoo-javascript
-#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
-msgid "Усі лінії разом — жирно, кожна лінія — тонко."
-msgstr "Все линии вместе — жирно, каждая линия — тонко."
 
 #. module: workset_profit
 #. odoo-javascript
@@ -1108,6 +1113,12 @@ msgstr "Часы"
 #. module: workset_profit
 #. odoo-javascript
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "год без ставки"
+msgstr "ч без ставки"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "Витрати на лінію"
 msgstr "Расходы на линию"
 
@@ -1120,14 +1131,20 @@ msgstr "От доли до чистого,"
 #. module: workset_profit
 #. odoo-javascript
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
-msgid "Не в нашому чисто"
-msgstr "Не в нашем чистом"
+msgid "повернення"
+msgstr "возврат"
 
 #. module: workset_profit
 #. odoo-javascript
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
-msgid "Стовпці — чисто, тонка лінія — частка WorkSET."
-msgstr "Столбцы — чисто, тонкая линия — доля WorkSET."
+msgid "Картки DKV:"
+msgstr "Карты DKV:"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Не в нашому чисто"
+msgstr "Не в нашем чистом"
 
 #. module: workset_profit
 #. odoo-javascript
@@ -1174,8 +1191,8 @@ msgstr "Единица"
 #. module: workset_profit
 #. odoo-javascript
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
-msgid "€/міс"
-msgstr "€/мес"
+msgid "Компанія, € за місяць"
+msgstr "Компания, € за месяц"
 
 #. module: workset_profit
 #. odoo-javascript

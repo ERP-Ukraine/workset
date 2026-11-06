@@ -505,14 +505,21 @@ class TestWorksetProfit(TransactionCase):
         self.assertEqual((tot['net'], tot['hours'], tot['hours_rate']), (sum(rows.mapped('net')), sum(rows.mapped('hours_total')),
                                                                           sum(rows.mapped('hours_rate'))))
         self.assertAlmostEqual(tot['share'] + tot['costs'], tot['net'], msg='частка + витрати = чисто')
-        alerts = {a['key']: a for a in data['alerts'] if a['key'] != 'owner'}
+        alerts = {a['key']: a for a in data['alerts']}
         un = self._rows(row_kind='unallocated')
         self.assertAlmostEqual(alerts['unallocated']['amount'], sum(un.mapped('net')))
         self.assertEqual(self.Month.search_count(alerts['unallocated']['open']['domain']), len(un), 'число на чипі — рядки списку')
         self.assertEqual(alerts['no_rate']['hours'], 12, 'години без ставки: A 4, B 8')
         self.assertEqual(alerts['check']['state'], 'ok', 'звірка з «Звірки місяця», яку записав перерахунок')
-        owners = [a for a in data['alerts'] if a['key'] == 'owner']
-        self.assertEqual([(a['code'], a['amount']) for a in owners], [('Owner X', -10)])
+        # круг 3а: власники — один нейтральний чип (сума й кожна стаття), клік — рядки власників місяця
+        owners = alerts['owners']
+        self.assertEqual(([(p['code'], p['amount']) for p in owners['parts']], owners['amount'], owners['tone']), ([('Owner X', -10)], -10, ''))
+        self.assertEqual(self.Month.search(owners['open']['domain']).mapped('row_kind'), ['owner'])
+        self.assertNotIn('owner', alerts, 'чипа на кожну статтю власника більше немає')
+        nets = [t['net_ph'] for t in data['lines']]
+        self.assertEqual(nets, sorted(nets), 'плитки — від збиткових (за чисто € год)')
+        self.assertNotIn('2030-04-01', [m['value'] for m in data['series']['months']], 'графік — без поточного (неповного) місяця')
+        self.assertEqual(set(data['series']['axis']), {'min', 'max', 'out'})
         split = tiles[self.line_a.id]['split']
         self.assertAlmostEqual(sum(p['pct'] for p in split), 100, places=6)
         self.assertEqual([p['key'] for p in split], ['net', 'housing', 'tool', 'transport'])
@@ -548,6 +555,14 @@ class TestWorksetProfit(TransactionCase):
         pays = {p['key']: p for p in card['pays']}
         self.assertEqual(set(pays), {'housing', 'auto', 'fuel', 'tool', 'transport'})
         self.assertEqual(pays['fuel']['cards'], [self.card_a.name], 'паливо — і картки DKV лінії')
+        # круг 3а: «Хто платить» згорнуто — рядок більшості й лише винятки; години без ставки лінії — чип зі списком
+        lang = self.Month._lang()
+        fold = card['pays_fold']
+        self.assertEqual(fold['head'], calc.t('p_all_we', lang), 'житло (буфер — ми), авто, інструмент, перевезення — ми: одним рядком')
+        self.assertEqual([r['label'] for r in fold['rows']], [calc.t('s_fuel', lang)], 'нижче — лише паливо (фонд працівників)')
+        self.assertEqual(fold['cards'], [self.card_a.name])
+        self.assertEqual(card['no_rate']['hours'], 4, 'години без ставки лінії A')
+        self.assertEqual(self.Month.search(card['no_rate']['open']['domain']), row, 'клік — рядок лінії з годинами без ставки')
         self.assertEqual({x['key'] for x in card['aside']}, {'fund_in', 'fund_paid', 'fund_left', 'housing_buffer'})
         self.assertEqual((card['prev']['value'], card['next']['value']), ('2030-02-01', APR))
         self.assertFalse(card['stale'], 'одразу після перерахунку рядки = ланцюжку: попередження немає')
@@ -605,7 +620,7 @@ class TestWorksetProfit(TransactionCase):
         self.assertEqual(tile['net'], -20)
         self.assertIsNone(over['totals']['net_ph'], 'підсумок місяця без годин зі ставкою — теж «—»')
         self.assertNotIn('unallocated', [a['key'] for a in over['alerts']], '«Не розподілено» на 0 € — без чипа')
-        self.assertNotIn('owner', [a['key'] for a in over['alerts']], '«Власник» на 0 € — без чипа')
+        self.assertNotIn('owners', [a['key'] for a in over['alerts']], '«Власники» на 0 € — без чипа')
         self.assertTrue(card['has'])
         self.assertIsNone(card['totals']['net_ph'])
         self.assertIsNone(card['totals']['share_ph'])
@@ -618,6 +633,11 @@ class TestWorksetProfit(TransactionCase):
         with self._deals():
             may = Screen.profit_overview('2030-05-01')
         self.assertEqual([t['net_ph'] for t in may['lines'] if t['id'] == self.line_b.id], [5])
+        # круг 3а: клітинка C без годин зі ставкою не заливається — чисто місяця нижче нуля лише червоним текстом ('neg_text')
+        with self._deals():
+            data = Screen.profit_matrix('2030-05-01', '2030-06-30')
+        cells = [x for x in data['lines'] if x['id'] == self.line_b.id][0]['cells']
+        self.assertEqual([(c['net_ph'], c['tone']) for c in cells], [(5, ''), (None, 'neg_text')], 'без годин зі ставкою — без заливки, не «neg»')
 
     def test_check_one_per_month(self):
         # «Звірка місяця»: плановий перерахунок і «Звірити» за той самий місяць — один запис (оновити, якщо є); другий запис база не пустить
@@ -703,7 +723,7 @@ class TestWorksetProfit(TransactionCase):
         tile = [t for t in over['lines'] if t['id'] == self.line_a.id]
         self.assertEqual([(t['name'], t['net'], t['net_ph']) for t in tile], [('Line A', 30, 3)], 'перегляд бачить плитку лінії (line_id)')
         alerts = {a['key']: a for a in over['alerts']}
-        self.assertIn(('Owner X', -5), [(a['code'], a['amount']) for a in over['alerts'] if a['key'] == 'owner'],
+        self.assertIn(('Owner X', -5), [(p['code'], p['amount']) for a in over['alerts'] if a['key'] == 'owners' for p in a['parts']],
                       'стаття власника — з analytic_id правами перегляду')
         self.assertTrue(alerts['unallocated']['amount'] <= -2)
         self.assertTrue(card['has'], 'картка лінії під переглядом — з даними')

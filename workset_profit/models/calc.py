@@ -11,6 +11,7 @@
   «ігнор»); ['dkv', …] — рахунки DKV, замість яких рахуються їхні транзакції.
 """
 import datetime
+import math
 import re
 import unicodedata
 from fractions import Fraction
@@ -56,6 +57,12 @@ HOUSING_SHIFT_DEFAULT = 2.0
 CHAIN = ('share', 'car_rent', 'housing', 'housing_customer', 'auto', 'fuel', 'tool', 'transport')  # ланцюжок лінії до «чисто»
 SPLIT = ('net', 'housing', 'auto', 'fuel', 'tool', 'transport')   # «Куди йде частка»: частини смуги лінії
 ASIDE = ('partner_paid', 'fund_in', 'fund_paid', 'fund_left', 'housing_buffer')  # «Не в нашому чисто» картки лінії
+# вісь «Чисто по місяцях» «Огляду» (круг 3а): від min(AXIS_LOW, AXIS_PCT-й перцентиль) до max(AXIS_HIGH, (100 − AXIS_PCT)-й), кратно AXIS_STEP;
+# що поза віссю — викид: крапка біля краю з підписом «лінія місяць число» (один збитковий місяць не стискає решту в нитку)
+AXIS_LOW = -10
+AXIS_HIGH = 25
+AXIS_PCT = 5
+AXIS_STEP = 5
 
 # Підказка виду за назвою статті: (будь-що з, усе з, вид). Лише підказка: рахує розмітка (правило workset.profit.analytic.map)
 HINTS = (
@@ -130,10 +137,17 @@ TX = {
     'r_rows': ['Рядки: %s · %s', 'Строки: %s · %s'],
     't_unalloc': ['Не розподілено · %s', 'Не распределено · %s'], 't_no_rate': ['Години без ставки · %s', 'Часы без ставки · %s'],
     't_noline': ['Години без лінії · %s', 'Часы без линии · %s'], 't_shift': ['Житло не в своєму місяці · %s', 'Жильё не в своём месяце · %s'],
-    't_owner': ['Власник %s · %s', 'Собственник %s · %s'], 't_month': ['Рядки розрахунку · %s', 'Строки расчёта · %s'],
+    't_month': ['Рядки розрахунку · %s', 'Строки расчёта · %s'],
     'v_none_short': ['звірки ще не було', 'сверки ещё не было'],
     'l_all': ['Усі лінії', 'Все линии'], 'l_net': ['Чисто, €/год', 'Чисто, €/ч'], 'l_share': ['Частка, €/год', 'Доля, €/ч'],
     'l_hour': ['€/год', '€/ч'], 'l_month': ['€/міс', '€/мес'],
+    # круг 3а: легенда «Огляду», чип «Власники», згорнутий «Хто платить»
+    'l_each': ['Кожна лінія', 'Каждая линия'], 't_owners': ['Власники · %s', 'Собственники · %s'],
+    't_no_rate_line': ['Години без ставки · %s · %s', 'Часы без ставки · %s · %s'],
+    'p_all_we': ['Усе платимо ми (у «чисто»)', 'Всё платим мы (в «чисто»)'],
+    'p_all_partner': ['Усе — партнер (гроші лінії)', 'Всё — партнёр (деньги линии)'],
+    'p_all_worker_fund': ['Усе — з фонду працівників', 'Всё — из фонда работников'],
+    'p_all_customer': ['Усе — замовник', 'Всё — заказчик'],
     'months': [('січень', 'лютий', 'березень', 'квітень', 'травень', 'червень', 'липень', 'серпень', 'вересень', 'жовтень', 'листопад',
                 'грудень'),
                ('январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь')],
@@ -1069,7 +1083,8 @@ def chain_steps(row):
 def waterfall(steps):
     """Геометрія водоспаду картки лінії з кроків chain_steps: перший стовпець (частка) і «чисто» — від нуля, між ними — від поточного
     підсумку до наступного. Шкала — від min(0, підсумків) до max(0, підсумків). → {'bars': [крок + {'lo', 'hi', 'dir' ('total' / 'down' /
-    'up'), 'bottom', 'height'}], 'zero'}: bottom, height і zero (де нуль) — % висоти поля."""
+    'up'), 'bottom', 'height', 'end'}], 'zero'}: bottom, height і zero (де нуль) — % висоти поля; end — рівень підсумку після кроку (%),
+    звідти пунктир до наступного стовпця (круг 3а)."""
     run = 0
     raw = []
     for i, s in enumerate(steps or []):
@@ -1082,13 +1097,14 @@ def waterfall(steps):
             lo, hi = min(run, run + c), max(run, run + c)
             d = 'down' if c < 0 else 'up'
             run += c
-        raw.append((s, lo, hi, d))
+        raw.append((s, lo, hi, d, run))
     vals = [0] + [x[1] for x in raw] + [x[2] for x in raw]
     bottom, span = min(vals), max(vals) - min(vals)
 
     def pct(v):
         return round(v * 100.0 / span, 2) if span else 0.0
-    bars = [dict(s, lo=eur(lo), hi=eur(hi), dir=d, bottom=pct(lo - bottom), height=pct(hi - lo)) for s, lo, hi, d in raw]
+    bars = [dict(s, lo=eur(lo), hi=eur(hi), dir=d, bottom=pct(lo - bottom), height=pct(hi - lo), end=pct(r - bottom))
+            for s, lo, hi, d, r in raw]
     return {'bars': bars, 'zero': pct(-bottom)}
 
 
@@ -1107,7 +1123,10 @@ def share_split(row):
 
 def cell_tone(net, net_ph, prev_ph, threshold=DROP_DEFAULT):
     """Колір клітинки «Лінії × місяці»: 'neg' — чисто нижче нуля; 'drop' — чисто €/год упало до минулого місяця більше, ніж на threshold
-    (рівно — ні; минулого місяця немає, prev_ph None — ні); інакше ''. Червоне важливіше за жовте."""
+    (рівно — ні; минулого місяця немає, prev_ph None — ні); інакше ''. Червоне важливіше за жовте. Годин зі ставкою немає (net_ph None —
+    клітинка «—»): заливки ніколи немає; чисто місяця нижче нуля — 'neg_text' (дрібно червоним сума за місяць), інакше '' (круг 3а)."""
+    if net_ph is None:
+        return 'neg_text' if cents(net) < 0 else ''
     if cents(net) < 0:
         return 'neg'
     if prev_ph is not None and cents(prev_ph) - cents(net_ph) > cents(threshold):
@@ -1151,3 +1170,76 @@ def housing_shift(rows, month, ratio=HOUSING_SHIFT_DEFAULT):
         if h / hours > ratio * median:
             out.append(line)
     return out
+
+
+# ——— екрани (круг 3а): вісь графіка, порядок плиток, «Хто платить» ———
+def percentile(values, p):
+    """Перцентиль p (0–100) чисел values (None пропускаються) з лінійною інтерполяцією між сусідніми; чисел немає — None."""
+    v = sorted(float(x) for x in (values or []) if x is not None)
+    if not v:
+        return None
+    k = (len(v) - 1) * float(p) / 100.0
+    f = int(math.floor(k))
+    c = min(f + 1, len(v) - 1)
+    return v[f] + (v[c] - v[f]) * (k - f)
+
+
+def axis_range(values, low=AXIS_LOW, high=AXIS_HIGH, pct=AXIS_PCT, step=AXIS_STEP):
+    """Вісь Y «Чисто по місяцях» без викидів: від min(low, pct-й перцентиль) до max(high, (100 − pct)-й), межі — кратні step назовні.
+    → {'min', 'max', 'out': [індекси values поза віссю]} (None — не число, не викид)."""
+    vals = [x for x in (values or []) if x is not None]
+    lo, hi = float(low), float(high)
+    if vals:
+        lo = min(lo, percentile(vals, pct))
+        hi = max(hi, percentile(vals, 100 - pct))
+    lo = int(math.floor(lo / step) * step)
+    hi = int(math.ceil(hi / step) * step)
+    return {'min': lo, 'max': hi, 'out': [i for i, x in enumerate(values or []) if x is not None and (x < lo or x > hi)]}
+
+
+def chart_axis(series, labels, **kw):
+    """Вісь графіка «Огляду» на всі ряди разом (series — [{'name', 'values'}], ряд за рядом; labels — підписи місяців осі): axis_range
+    + викиди з підписом «назва місяць число» (місяць — з малої, число — ціле). → {'min', 'max', 'out': [{'s' (номер ряду),
+    'i' (номер місяця), 'value', 'text'}]}."""
+    flat = []
+    for s, ser in enumerate(series or []):
+        for i, v in enumerate(ser.get('values') or []):
+            flat.append((s, i, v))
+    rng = axis_range([v for _s, _i, v in flat], **kw)
+    out = []
+    for k in rng['out']:
+        s, i, v = flat[k]
+        month = str(labels[i]) if i < len(labels or []) else ''
+        out.append({'s': s, 'i': i, 'value': v,
+                    'text': ' '.join(x for x in (series[s].get('name') or '', month[0:1].lower() + month[1:], num_text(round(v))) if x)})
+    return {'min': rng['min'], 'max': rng['max'], 'out': out}
+
+
+def tile_order(tiles):
+    """Плитки «Огляду» — за «чисто € год» за зростанням (збиткові першими); «—» (net_ph None) — у кінці; рівні — як були."""
+    return [t for _k, t in sorted(enumerate(tiles or []), key=lambda x: (x[1].get('net_ph') is None, x[1].get('net_ph') or 0, x[0]))]
+
+
+def _low(text):
+    s = str(text or '')
+    return s[0:1].lower() + s[1:]
+
+
+def pays_fold(items, lang='uk'):
+    """«Хто платить» картки лінії згорнуто: платник більшості видів — одним рядком («Усе платимо ми (у «чисто»)»), нижче — лише винятки:
+    вид з іншим платником і замовники лінії зі своїм правилом. items — [{'label', 'payer_key' (ключ PAYER_KEYS), 'payer' (підпис), 'except':
+    [{'name', 'payer_key', 'payer'}], 'cards'}]. Рівно — перший ключ PAYER_KEYS (ми). → {'head', 'rows': [{'label', 'payer'}] (платник з
+    малої), 'cards': [картки DKV палива]}; видів немає — head ''."""
+    items = items or []
+    keys = [i.get('payer_key') or 'we' for i in items]
+    if not keys:
+        return {'head': '', 'rows': [], 'cards': []}
+    common = max(PAYER_KEYS, key=lambda k: (keys.count(k), -PAYER_KEYS.index(k)))
+    rows, cards = [], []
+    for it, k in zip(items, keys):
+        if k != common:
+            rows.append({'label': it.get('label') or '', 'payer': _low(it.get('payer'))})
+        for ex in it.get('except') or []:
+            rows.append({'label': '%s · %s' % (it.get('label') or '', ex.get('name') or ''), 'payer': _low(ex.get('payer'))})
+        cards += [c for c in it.get('cards') or [] if c not in cards]
+    return {'head': t('p_all_' + common, lang), 'rows': rows, 'cards': cards}

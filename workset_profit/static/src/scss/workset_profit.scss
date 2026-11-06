@@ -57,6 +57,9 @@
     .o_workset_profit_chip {
         min-width: 0;
     }
+    .o_workset_profit_min0 {
+        min-width: 0;
+    }
     .o_workset_profit_count {
         background-color: $gray-200;
         color: $body-color;
@@ -80,8 +83,14 @@
         gap: map-get($spacers, 1);
         min-width: 0;
     }
+    // ряд бейджів — фіксованої висоти (два рядки бейджів), щоб крупне число стояло на одній лінії в усіх плитках, і в різних рядах сітки
     .o_workset_profit_tile_badges {
-        min-height: 1.5rem;
+        height: 3.4rem;
+        align-content: flex-start;
+        overflow: hidden;
+    }
+    .o_workset_profit_share_badge {
+        font-size: 0.85rem;
     }
     .o_workset_profit_big {
         font-size: 2.25rem;
@@ -103,9 +112,10 @@
         height: 16rem;
     }
     // «Куди йде частка»: назва лінії й смуга з частин (ширина — % від сервера); чисто — колір бренду, витрати — відтінки сірого теми
+    // назва · смуга · «чисто N %»
     .o_workset_profit_split_row {
         display: grid;
-        grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
+        grid-template-columns: minmax(0, 9rem) minmax(0, 1fr) 5rem;
         align-items: center;
         gap: map-get($spacers, 2);
         width: 100%;
@@ -151,22 +161,35 @@
     .o_workset_profit_part_transport {
         background-color: $gray-300;
     }
-    // водоспад картки лінії: колонки однакової ширини, стовпець — у полі фіксованої висоти за геометрією сервера (bottom / height у %)
+    // водоспад картки лінії: колонки однакової ширини впритул (лінія нуля й пунктир — суцільні через усі колонки), стовпець — у полі
+    // фіксованої висоти за геометрією сервера (bottom / height / end у %); на телефоні — гортається вбік
     .o_workset_profit_fall {
         display: grid;
-        grid-auto-columns: minmax(0, 1fr);
+        grid-auto-columns: minmax(4.5rem, 1fr);
         grid-auto-flow: column;
-        gap: map-get($spacers, 2);
         overflow-x: auto;
     }
     .o_workset_profit_fall_col {
-        min-width: 4.5rem;
+        min-width: 0;
     }
     .o_workset_profit_fall_area {
         position: relative;
         height: 13rem;
-        margin: 1.5rem 0;
-        border-bottom: 1px solid $border-color;
+        margin: 2.5rem 0;
+    }
+    // лінія нуля — виразніша за сітку
+    .o_workset_profit_fall_zero {
+        position: absolute;
+        left: 0;
+        right: 0;
+        border-top: 1px solid $gray-600;
+    }
+    // пунктир від підсумку після кроку (правий край стовпця) до лівого краю наступного стовпця
+    .o_workset_profit_fall_link {
+        position: absolute;
+        left: 90%;
+        width: 20%;
+        border-top: 1px dashed $gray-500;
     }
     .o_workset_profit_fall_bar {
         position: absolute;
@@ -179,16 +202,15 @@
         left: 0;
         right: 0;
         text-align: center;
-        line-height: 1.4;
+        line-height: 1.3;
+        padding: 2px 0;
     }
+    // частка й повернення — один колір, витрата — темніше, «чисто» — бренд (нижче нуля — bg-danger)
     .o_workset_profit_fall_total {
         background-color: $gray-500;
     }
     .o_workset_profit_fall_down {
         background-color: $gray-700;
-    }
-    .o_workset_profit_fall_up {
-        background-color: $gray-400;
     }
     .o_workset_profit_fall_net {
         background-color: $primary;
@@ -211,12 +233,26 @@
         z-index: 1;
         background-color: $body-bg;
     }
-    .o_workset_profit_cell_unit {
-        font-size: 0.75em;
-        opacity: 0.75;
+    // цифри ліній — крупніше (одиниця — одна, у шапці)
+    .o_workset_profit_lines td {
+        font-size: 1.0625rem;
     }
+    // рядки компанії: світліше за лінії, але не text-muted (на темному фоні не читався) — колір тексту теми з прозорістю лише в клітинках
+    // (закріплена назва лишається непрозорою, щоб під нею не просвічувала таблиця при гортанні)
     .o_workset_profit_company {
         border-top: 2px solid $border-color;
+
+        th,
+        td {
+            color: $body-color;
+        }
+        td {
+            opacity: 0.85;
+        }
+    }
+    .o_workset_profit_sticky_text {
+        position: sticky;
+        left: map-get($spacers, 1);
     }
     @include media-breakpoint-up(lg) {
         .o_workset_profit_band {
@@ -238,7 +274,13 @@
             grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
         }
     }
-    // телефон: плитки й чипи — в один стовпець
+    // чип «Власники» (сума й кожна стаття) — на дві колонки, від планшета
+    @include media-breakpoint-up(md) {
+        .o_workset_profit_chip_wide {
+            grid-column: span 2;
+        }
+    }
+    // телефон: плитки й чипи — в один стовпець; підсумки — 2 × 2 (вище); «Куди йде частка» — вужча назва
     @include media-breakpoint-down(sm) {
         .o_workset_profit_tiles,
         .o_workset_profit_chips {
@@ -246,6 +288,9 @@
         }
         .o_workset_profit_big {
             font-size: 1.75rem;
+        }
+        .o_workset_profit_split_row {
+            grid-template-columns: minmax(0, 6rem) minmax(0, 1fr) 4.5rem;
         }
     }
 }
