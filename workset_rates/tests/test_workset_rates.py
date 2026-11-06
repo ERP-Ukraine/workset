@@ -1882,10 +1882,29 @@ class TestWorksetRates(TransactionCase):
         ids = (past | cur | fut | alone).ids
         self.assertEqual(self.R.search([('id', 'in', ids), ('gantt_stop', '>', '2026-03-31')]), fut | alone, 'пошук «Смуга до» — тими самими правилами')
         self.assertEqual(self.R.search([('id', 'in', ids), ('gantt_stop', '<', DAY)]), past)
-        self.assertEqual((past.gantt_color, cur.gantt_color, fut.gantt_color), (0, 10, 4))
+        # колір смуги — колір лінії (місце лінії, як у карток «Огляду»): діюча й майбутня тієї самої лінії — один колір, минула — без кольору
+        place = self.R._gantt_line_places()[self.line.id]
+        self.assertEqual((past.gantt_color, cur.gantt_color, fut.gantt_color), (0, calc.gantt_color('current', place), calc.gantt_color('current', place)))
+        self.assertTrue(cur.gantt_color, 'лінія є — колір є')
+        # підпис смуги: «Замовник · зарплата → платять нам», без «Діє · формула»
         label = cur.with_context(workset_rates_gantt=1).display_name
-        self.assertTrue(label.startswith('Діє · ') and cur.formula in label, label)
+        self.assertEqual(label, calc.gantt_label(cur.customer_id.name, cur.wage, cur.price, 0, False, calc.lang_of(self.env.lang)))
+        self.assertTrue(label.startswith(calc.short_name(cur.customer_id.name) + ' · ') and ' → ' in label and 'Діє' not in label, label)
         self.assertEqual(cur.display_name, cur.name, 'поза «Стрічкою» — звичайна назва')
+        # вікно над смугою: період, гроші, частки — готові рядки
+        self.assertTrue(cur.gantt_period.startswith('Ставка з ') and cur.gantt_money and cur.gantt_shares, cur.gantt_period)
+        self.assertEqual(cur.gantt_person, cur.person_id.name)
+        self.assertFalse(cur.gantt_alert, 'частка не нижче мінімуму — без «⚠»')
+        # дія «Стрічки»: за замовчуванням — фільтр «Працюють і майбутні»; вид gantt читається з ним
+        act = self.env.ref('workset_rates.action_rates_gantt')
+        ctx = ast.literal_eval(act.context)
+        self.assertEqual((ctx.get('workset_rates_gantt'), ctx.get('search_default_work_future')), (1, 1))
+        search = etree.fromstring(self.R.get_views([(self.env.ref('workset_rates.view_rate_search').id, 'search')])['views']['search']['arch'])
+        flt = search.xpath("//filter[@name='work_future']")
+        self.assertTrue(flt, 'фільтр «Працюють і майбутні» є в пошуку')
+        live = self.R.search([('id', 'in', ids)] + ast.literal_eval(flt[0].get('domain')))
+        self.assertIn(fut, live, 'майбутня — у «Стрічці» за замовчуванням')
+        self.assertNotIn(past, live, 'минула — ні (історія — після зняття фільтра)')
 
         def as_(rec):
             return rec.with_user(editor).with_context(allowed_company_ids=editor.company_ids.ids)
