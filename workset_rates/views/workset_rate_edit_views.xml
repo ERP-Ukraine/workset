@@ -8,6 +8,9 @@
         <field name="model">workset.rate.edit</field>
         <field name="arch" type="xml">
             <form string="Правка ставки">
+                <!-- ставка — поле форми: в Odoo 19 onchange бере значення за замовчуванням (default_rate_id з дії) лише для полів виду;
+                     без неї «Зараз», «ставка з», працівник і замовник порожні (копія 20, 06.11) -->
+                <field name="rate_id" invisible="1"/>
                 <field name="currency_id" invisible="1"/>
                 <field name="what" invisible="1"/>
                 <field name="deal_ok" invisible="1"/>
@@ -61,6 +64,8 @@
         <field name="model">workset.rate.talk</field>
         <field name="arch" type="xml">
             <form string="Переговорити">
+                <!-- ставка — поле форми (див. «Правка ставки»): без неї порожні «Задача» (precompute) і вибір «Кому» (reader_ids) -->
+                <field name="rate_id" invisible="1"/>
                 <field name="reader_ids" invisible="1" widget="many2many_tags"/>
                 <div class="d-flex align-items-baseline gap-2 flex-wrap mb-2">
                     <field name="person_id" readonly="1" class="fw-semibold fs-5 w-auto"/>
