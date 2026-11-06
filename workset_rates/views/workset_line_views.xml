@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Список ліній без правки на місці: «правила немає» — порожня комірка; правлять і створюють у картці лінії -->
+    <record id="view_line_list" model="ir.ui.view">
+        <field name="name">workset.line.list</field>
+        <field name="model">workset.line</field>
+        <field name="arch" type="xml">
+            <list string="Лінії">
+                <field name="sequence" widget="handle"/>
+                <field name="name" string="Лінія"/>
+                <field name="code"/>
+                <field name="share_line_found" string="Знайшла" help="Частка WorkSET, €/год, якщо людину знайшла лінія" invisible="not share_line_found"/>
+                <field name="share_we_found" string="Ми" help="Частка WorkSET, €/год, якщо людину знайшли ми" invisible="not share_we_found"/>
+                <field name="customer_ids" widget="many2many_tags"/>
+                <field name="plan_ids" widget="many2many_tags" optional="hide"/>
+                <field name="rate_count" string="Діючі"/>
+                <field name="work_count" string="Працюють"/>
+                <field name="avg_wage" string="Сер. зарплата працівника"/>
+                <field name="avg_price" string="Сер. платять нам"/>
+                <field name="avg_share" string="Сер. частка"/>
+                <field name="min_share" string="Мінімум" optional="hide"/>
+                <field name="good_share" string="Добра" optional="hide"/>
+                <field name="agent_id" string="Агент" optional="hide"/>
+                <field name="rule_note" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_line_form" model="ir.ui.view">
+        <field name="name">workset.line.form</field>
+        <field name="model">workset.line</field>
+        <field name="arch" type="xml">
+            <form string="Лінія">
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_rates" type="object" class="oe_stat_button" icon="fa-eur" invisible="not id">
+                            <field name="rate_count" widget="statinfo" string="Діючих ставок"/>
+                        </button>
+                    </div>
+                    <widget name="web_ribbon" title="В архіві" bg_color="text-bg-danger" invisible="active"/>
+                    <field name="active" invisible="1"/>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Назва лінії (код)"/></h1>
+                    </div>
+                    <div class="row g-3 my-2" name="figures">
+                        <div class="col-6 col-lg-3">
+                            <div class="text-muted text-uppercase small">Знайшла лінія</div>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
+                                <field name="share_line_found" nolabel="1" class="fs-1 fw-semibold o_input_5ch w-auto text-end"/>
+                                <div class="fs-6 fw-normal text-muted">€/год</div>
+                            </div>
+                            <div class="text-muted small" invisible="share_line_found">правила немає</div>
+                        </div>
+                        <div class="col-6 col-lg-3">
+                            <div class="text-muted text-uppercase small">Знайшли ми</div>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
+                                <field name="share_we_found" nolabel="1" class="fs-1 fw-semibold o_input_5ch w-auto text-end"/>
+                                <div class="fs-6 fw-normal text-muted">€/год</div>
+                            </div>
+                            <div class="text-muted small" invisible="share_we_found">правила немає</div>
+                        </div>
+                    </div>
+                    <div class="row g-3 my-2" name="figures_work" invisible="not id">
+                        <div class="col-6 col-lg-3">
+                            <div class="text-muted text-uppercase small">Працюють зараз</div>
+                            <div class="fs-1 fw-semibold lh-1"><field name="work_count" nolabel="1" readonly="1" class="fs-1 fw-semibold o_input_5ch w-auto"/></div>
+                        </div>
+                        <div class="col-6 col-lg-3">
+                            <div class="text-muted text-uppercase small">Сер. зарплата працівника</div>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
+                                <field name="avg_wage" nolabel="1" readonly="1" class="fs-1 fw-semibold o_input_5ch w-auto text-end"/>
+                                <div class="fs-6 fw-normal text-muted">€/год</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg-3">
+                            <div class="text-muted text-uppercase small">Сер. платять нам</div>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
+                                <field name="avg_price" nolabel="1" readonly="1" class="fs-1 fw-semibold o_input_5ch w-auto text-end"/>
+                                <div class="fs-6 fw-normal text-muted">€/год</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg-3">
+                            <div class="text-muted text-uppercase small">Сер. частка</div>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
+                                <field name="avg_share" nolabel="1" readonly="1" class="fs-1 fw-semibold o_input_5ch w-auto text-end"/>
+                                <div class="fs-6 fw-normal text-muted">€/год</div>
+                            </div>
+                        </div>
+                    </div>
+                    <group>
+                        <group name="who" string="Хто">
+                            <field name="customer_ids" string="Замовники" widget="many2many_tags" options="{'no_create': True}" domain="['|', ('is_company', '=', True), ('customer_rank', '&gt;', 0)]"/>
+                            <field name="agent_id" string="Агент лінії" options="{'no_create': True}"/>
+                            <label for="agent_share" string="Частка агента"/>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap">
+                                <field name="agent_share" nolabel="1" class="o_input_7ch w-auto"/>
+                                <div class="text-muted">€/год</div>
+                            </div>
+                        </group>
+                        <group name="odoo" string="В Odoo">
+                            <field name="code" string="Код"/>
+                            <field name="plan_ids" string="Вузли аналітики" widget="many2many_tags" options="{'no_create': True}"/>
+                        </group>
+                        <group name="checks" string="Перевірки">
+                            <label for="min_share" string="Мінімум частки"/>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap">
+                                <field name="min_share" nolabel="1" class="o_input_7ch w-auto"/>
+                                <div class="text-muted">€/год</div>
+                            </div>
+                            <label for="good_share" string="Добра частка"/>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap">
+                                <field name="good_share" nolabel="1" class="o_input_7ch w-auto"/>
+                                <div class="text-muted">€/год</div>
+                            </div>
+                        </group>
+                    </group>
+                    <div class="mb-3">
+                        <label for="rule_note" string="Правило"/>
+                        <field name="rule_note" placeholder="Правило словами: зарплата працівника + частка WorkSET, якщо людину знайшла лінія; інша частка, якщо знайшли ми"/>
+                    </div>
+                    <!-- М2c (розділ 3.13): житло лінії — правка на місці; правлять «Ставки: правила ліній» (іншим Odoo ховає правку за правами моделі) -->
+                    <notebook>
+                        <page name="housing" string="Житло" invisible="not id">
+                            <div class="text-muted mb-2">Як лінія рахує житло людей: правило всієї лінії та правила замовників (об'єктів) з датами — одне на дату.</div>
+                            <field name="housing_ids" nolabel="1">
+                                <list editable="bottom" default_order="customer_id, date_from desc">
+                                    <field name="currency_id" column_invisible="1"/>
+                                    <field name="customer_id" options="{'no_create': True}" placeholder="уся лінія"/>
+                                    <field name="kind"/>
+                                    <field name="amount" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}"/>
+                                    <field name="amount_unit"/>
+                                    <field name="hours_per_person" optional="show" invisible="kind != 'hour_deduction'"/>
+                                    <field name="payer"/>
+                                    <field name="date_from" options="{'numeric': True}"/>
+                                    <field name="date_to" options="{'numeric': True}"/>
+                                    <field name="source"/>
+                                    <field name="source_note"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_line_search" model="ir.ui.view">
+        <field name="name">workset.line.search</field>
+        <field name="model">workset.line</field>
+        <field name="arch" type="xml">
+            <search string="Лінії">
+                <field name="name"/>
+                <field name="code"/>
+                <field name="customer_ids"/>
+                <filter name="archived" string="В архіві" domain="[('active', '=', False)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_lines" model="ir.actions.act_window">
+        <field name="name">Лінії</field>
+        <field name="res_model">workset.line</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Ліній ще немає</p>
+            <p>Додайте лінію: назва, частка WorkSET за правилом і замовники.</p>
+        </field>
+    </record>
+</odoo>

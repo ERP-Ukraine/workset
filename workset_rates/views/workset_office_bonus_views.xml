@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- «Бонуси офісу» (розділ 6, відповідь власника 10.3): список з правкою на місці; правлять — «Ставки: правила ліній», бачать — ще
+         «Бонуси офісу — перегляд» (права моделі й меню). На ставці інші бачать лише підсумок «Бонус офісу» -->
+    <record id="view_bonus_list" model="ir.ui.view">
+        <field name="name">workset.office.bonus.list</field>
+        <field name="model">workset.office.bonus</field>
+        <field name="arch" type="xml">
+            <list string="Бонуси офісу" editable="bottom" decoration-muted="not active">
+                <field name="currency_id" column_invisible="1"/>
+                <field name="active" column_invisible="1"/>
+                <field name="has_card" column_invisible="1"/>
+                <!-- «Хто отримує» — ім'я (з картки, прочитане sudo, або вписане, коли картки немає) — бачать усі; картку працівника обирають
+                     «правила ліній» (поле hr.employee): є картка — ім'я з неї, тож вписати його можна лише без картки (has_card — без
+                     поля hr.employee у виді «перегляду») -->
+                <field name="employee_label" readonly="has_card"/>
+                <field name="employee_id" options="{'no_create': True}" optional="show" groups="workset_rates.group_rule_editor,base.group_system"/>
+                <field name="kind"/>
+                <field name="amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                <field name="customer_ids" widget="many2many_tags" options="{'no_create': True}" placeholder="усі"/>
+                <field name="line_ids" widget="many2many_tags" options="{'no_create': True}" placeholder="усі"/>
+                <field name="person_ids" widget="many2many_tags" options="{'no_create': True}" optional="show" invisible="kind != 'own_worker_month'"/>
+                <field name="paid_only"/>
+                <field name="date_from" options="{'numeric': True}"/>
+                <field name="date_to" options="{'numeric': True}"/>
+                <field name="source"/>
+                <field name="note" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_bonus_search" model="ir.ui.view">
+        <field name="name">workset.office.bonus.search</field>
+        <field name="model">workset.office.bonus</field>
+        <field name="arch" type="xml">
+            <search string="Бонуси офісу">
+                <field name="employee_label"/>
+                <field name="customer_ids"/>
+                <field name="line_ids"/>
+                <filter name="no_card" string="Без картки працівника" domain="[('employee_id', '=', False)]"/>
+                <filter name="archived" string="В архіві" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="groupby_employee" string="Хто отримує" context="{'group_by': 'employee_label'}"/>
+                    <filter name="groupby_kind" string="Вид" context="{'group_by': 'kind'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_bonuses" model="ir.actions.act_window">
+        <field name="name">Бонуси офісу</field>
+        <field name="res_model">workset.office.bonus</field>
+        <field name="view_mode">list</field>
+        <field name="search_view_id" ref="view_bonus_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Бонусів офісу ще немає</p>
+            <p>Рядок — хто з офісу отримує, скільки (€ за годину, € за працівника чи за своїх людей на місяць), у яких замовників і ліній.</p>
+        </field>
+    </record>
+</odoo>

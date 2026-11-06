@@ -1,0 +1,215 @@
+// Плитки підсумків «Ставок» (рівень A, 6б): штатні кольори теми (світла й темна), без власних заливок. Лише змінні й міксини Bootstrap
+// (є в web.assets_backend): невідома змінна зламала б увесь бандл бекенду.
+//
+// Обгортка списку / дошки — стовпець: зверху ряд плиток (висота за вмістом), під ним штатний рендерер займає решту й гортається сам.
+// У .o_content з лівою панеллю (рядок flex) обгортка — один елемент поруч із панеллю (копія 20, 06.11: без неї плитки стояли колонкою
+// між панеллю й таблицею, розтягнуті на всю висоту)
+.o_workset_rates_stack {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow: auto;
+
+    > .o_workset_rates_tiles {
+        flex: 0 0 auto;
+    }
+
+    > .o_renderer {
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+}
+
+// Ряд плиток: переноситься, без розтягування по висоті; плитка 140–180 px за вмістом
+.o_workset_rates_tiles {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    align-content: flex-start;
+
+    .o_workset_rates_tile {
+        flex: 0 0 auto;
+        align-self: flex-start;
+        min-width: 140px;
+        max-width: 180px;
+        overflow: hidden;
+    }
+}
+
+@include media-breakpoint-down(md) {
+    .o_workset_rates_tiles {
+        padding-top: map-get($spacers, 1) !important;
+        padding-bottom: map-get($spacers, 1) !important;
+    }
+    // телефон — по дві плитки в ряд
+    .o_workset_rates_tiles .o_workset_rates_tile {
+        flex: 0 0 calc(50% - #{map-get($spacers, 1)});
+        min-width: 0;
+        max-width: calc(50% - #{map-get($spacers, 1)});
+    }
+}
+
+// «Огляд ставок» (рівень B, макет C 06.11): смуга п'яти головних чисел, «пігулки» тривог, картки ліній і панелі графіків — сітки на всю
+// ширину без порожніх полів (auto-fit: стільки колонок, скільки влазить, решта розтягується). Кольори — лише класи й змінні Bootstrap
+// теми (світла й темна тема Odoo), без своїх. Класи — у своєму просторі .o_workset_rates_ov_*: плитки полоси підсумків сюди не дістають
+.o_workset_rates_ov {
+    // кліком відкривається список: вказівник і видимий відгук при наведенні (без нових кольорів — рамка в колір теми)
+    .o_workset_rates_ov_pill,
+    .o_workset_rates_ov_line {
+        cursor: pointer;
+        transition: box-shadow 0.15s ease, border-color 0.15s ease;
+
+        &:hover,
+        &:focus-visible {
+            border-color: var(--bs-primary);
+            box-shadow: 0 0 0 1px var(--bs-primary);
+        }
+    }
+    // смуга: одна картка-сітка; вузько — «Працюють зараз» рядком зверху, чотири середні 2 × 2; широко — п'ять колонок. Роздільники —
+    // лівою межею колонки (не торкаються країв картки: відступ зверху й знизу)
+    .o_workset_rates_ov_band {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        row-gap: map-get($spacers, 3);
+        padding: map-get($spacers, 3) 0;
+    }
+    .o_workset_rates_ov_band_cell {
+        min-width: 0;
+        padding: 0 map-get($spacers, 2);
+        border: 0;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+
+        &:first-child {
+            grid-column: 1 / -1;
+        }
+        &:nth-child(odd):not(:first-child) {
+            border-left: 1px solid var(--bs-border-color);
+        }
+        &:hover .o_workset_rates_ov_num,
+        &:focus-visible .o_workset_rates_ov_num {
+            text-decoration: underline;
+            text-decoration-thickness: 2px;
+            text-underline-offset: 0.3rem;
+        }
+    }
+    .o_workset_rates_ov_num {
+        font-variant-numeric: tabular-nums;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    // «€/год» — дрібно поруч із числом
+    .o_workset_rates_ov_unit {
+        font-size: 0.5em;
+        margin-left: 0.3em;
+    }
+    // «пігулки»: стільки в ряд, скільки влазить; лічильник — сіра капсула (змінні теми), крапка тривоги — клас bg-danger / bg-warning
+    .o_workset_rates_ov_pills {
+        display: grid;
+        gap: map-get($spacers, 2);
+        grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    }
+    .o_workset_rates_ov_pill {
+        min-width: 0;
+    }
+    .o_workset_rates_ov_count {
+        background-color: var(--bs-secondary-bg, var(--bs-gray-200));
+        color: var(--bs-body-color);
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+        min-width: 2rem;
+    }
+    .o_workset_rates_ov_dot {
+        display: inline-block;
+        width: 0.6rem;
+        height: 0.6rem;
+    }
+    .o_workset_rates_ov_lines {
+        display: grid;
+        gap: map-get($spacers, 2);
+        grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    }
+    // картка лінії: рядки з фіксованою висотою — усі картки в ряду однакові, що б не стояло в бейджах
+    .o_workset_rates_ov_line {
+        display: flex;
+        flex-direction: column;
+        gap: map-get($spacers, 2);
+    }
+    .o_workset_rates_ov_line_head {
+        min-height: 2rem;
+    }
+    .o_workset_rates_ov_line_badges {
+        min-height: 1.5rem;
+        min-width: 0;
+        align-items: center;
+
+        .badge {
+            min-width: 0;
+        }
+    }
+    // три колонки з вертикальними роздільниками: людей — вужча, дві суми — ширші; підпис зверху, число крупно по центру
+    .o_workset_rates_ov_line_nums {
+        display: grid;
+        grid-template-columns: minmax(0, 0.6fr) minmax(0, 1fr) minmax(0, 1fr);
+        width: 100%;
+        margin-top: auto;
+    }
+    .o_workset_rates_ov_line_col {
+        min-width: 0;
+        padding: 0 map-get($spacers, 2);
+        text-align: center;
+
+        + .o_workset_rates_ov_line_col {
+            border-left: 1px solid var(--bs-border-color);
+        }
+    }
+    // 1.5rem і три крапки: сума з «€/год» не вилазить за колонку навіть у найвужчій картці (20rem)
+    .o_workset_rates_ov_line_num {
+        font-size: 1.5rem;
+        font-weight: 600;
+        line-height: 1.2;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    // панелі: «Розподіл» і «Хто знайшов» поруч, нижче — «по місяцях» і тривоги (широко — дві колонки, вузько — одна)
+    .o_workset_rates_ov_panels {
+        display: grid;
+        gap: map-get($spacers, 3);
+        grid-template-columns: 1fr;
+    }
+    .o_workset_rates_ov_chart {
+        position: relative;
+        height: 16rem;
+    }
+    // «Розподіл» і «Хто знайшов»: однакова висота; круг вдвічі більший за площею, ніж був (діаметр ×1,4), легенда знизу
+    .o_workset_rates_ov_chart_tall {
+        height: 24rem;
+    }
+    @include media-breakpoint-up(lg) {
+        .o_workset_rates_ov_band {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+        }
+        // п'ять в ряд: роздільник перед кожною колонкою, крім першої (непарні вже мають його з вузької сітки)
+        .o_workset_rates_ov_band_cell {
+            &:first-child {
+                grid-column: auto;
+            }
+            &:not(:first-child) {
+                border-left: 1px solid var(--bs-border-color);
+            }
+        }
+        .o_workset_rates_ov_panels {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+    @include media-breakpoint-down(sm) {
+        .o_workset_rates_ov_lines {
+            grid-template-columns: 1fr;
+        }
+    }
+}

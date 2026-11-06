@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Привілей «Ставки» в розділі кадрів форми користувача; склад групи редакторів пише інструмент штабу (ключ editors) -->
+    <record id="res_groups_privilege_rates" model="res.groups.privilege">
+        <field name="name">Ставки</field>
+        <field name="sequence">90</field>
+        <field name="category_id" ref="base.module_category_human_resources"/>
+    </record>
+
+    <record id="group_editor" model="res.groups">
+        <field name="name">Редактор</field>
+        <field name="sequence">10</field>
+        <field name="privilege_id" ref="res_groups_privilege_rates"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        <field name="comment">Створює й править ставки та лінії; бачить кнопки «Нова ставка з дати» і «Застосувати зараз»</field>
+    </record>
+
+    <!-- Рівні привілею — ланцюжком (кожен включає попередній): редактор → + бачить бонуси офісу → правила ліній; склад пише інструмент штабу -->
+    <record id="group_bonus_viewer" model="res.groups">
+        <field name="name">Бонуси офісу — перегляд</field>
+        <field name="sequence">20</field>
+        <field name="privilege_id" ref="res_groups_privilege_rates"/>
+        <field name="implied_ids" eval="[(4, ref('group_editor'))]"/>
+        <field name="comment">Усе, що редактор, і бачить правила «Бонуси офісу» (без правки)</field>
+    </record>
+
+    <record id="group_rule_editor" model="res.groups">
+        <field name="name">Правила ліній</field>
+        <field name="sequence">30</field>
+        <field name="privilege_id" ref="res_groups_privilege_rates"/>
+        <field name="implied_ids" eval="[(4, ref('group_bonus_viewer'))]"/>
+        <field name="comment">Змінює правила частки лінії (частки «знайшла лінія / ми», мінімуми, якір, фікс за оформлення) і бонуси офісу</field>
+    </record>
+</odoo>

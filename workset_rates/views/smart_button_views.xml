@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Смарт-кнопки — лише додавання в button_box (xpath за name): на контакті й проєкті — лише коли ставки є, на картці працівника —
+         завжди (першу ставку заводять звідти, працівник підставлений) -->
+    <record id="view_partner_form_rates" model="ir.ui.view">
+        <field name="name">res.partner.form.workset.rates</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="priority">2000</field>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_workset_rates" type="object" class="oe_stat_button" icon="fa-eur" invisible="not workset_rate_count"
+                        groups="workset_rates.group_editor,hr.group_hr_user,account.group_account_user,project.group_project_manager,base.group_system">
+                    <field name="workset_rate_count" widget="statinfo" string="Діючих ставок"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_employee_form_rates" model="ir.ui.view">
+        <field name="name">hr.employee.form.workset.rates</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="priority">2000</field>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_workset_rates" type="object" class="oe_stat_button" icon="fa-eur" groups="hr.group_hr_user">
+                    <field name="workset_rate_count" widget="statinfo" string="Діючих ставок"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_project_form_rates" model="ir.ui.view">
+        <field name="name">project.project.form.workset.rates</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="priority">2000</field>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_workset_rates" type="object" class="oe_stat_button" icon="fa-eur" invisible="not workset_rate_count"
+                        groups="workset_rates.group_editor,hr.group_hr_user,account.group_account_user,project.group_project_manager,base.group_system">
+                    <field name="workset_rate_count" widget="statinfo" string="Ставок замовника"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>
