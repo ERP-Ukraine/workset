@@ -75,6 +75,33 @@ $o-ws-ov-chip: rgba($body-color, 0.1);   // тло сірої капсули л�
             box-shadow: 0 0 0 1px $o-brand-primary;
         }
     }
+    // «Сьогодні вирішити» (блок Е): чип — тонка рамка, число крупно жирним, підпис звичайним; гроші — рамка й число кольору небезпеки
+    // ($danger, як decoration-danger), без заливки; решта — нейтральна рамка. Наведення — обвідка кольору бренду, рамка своя
+    .o_workset_rates_ov_decide_chip {
+        border: 1px solid $o-ws-ov-line;
+        color: $body-color;
+        padding: map-get($spacers, 1) map-get($spacers, 2);
+        cursor: pointer;
+        transition: box-shadow 0.15s ease;
+
+        &:hover,
+        &:focus-visible {
+            box-shadow: 0 0 0 1px $o-brand-primary;
+        }
+    }
+    .o_workset_rates_ov_decide_n {
+        font-size: 1.5rem;
+        font-weight: 700;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+    }
+    .o_workset_rates_ov_decide_money {
+        border-color: $danger;
+
+        .o_workset_rates_ov_decide_n {
+            color: $danger;
+        }
+    }
     // смуга: п'ять відсіків — кожне число в своїй картці з рамкою, між відсіками проміжок (слово власника 06.11: тонка лінія в одній
     // картці цифр не розділяла). Вузько — «Працюють зараз» рядком зверху, чотири середні 2 × 2; широко — п'ять колонок
     .o_workset_rates_ov_band {
@@ -252,5 +279,28 @@ $o-ws-ov-chip: rgba($body-color, 0.1);   // тло сірої капсули л�
         .o_workset_rates_ov_chart_tall {
             height: 16rem;
         }
+    }
+}
+
+// «Стрічка» (вид gantt): підпис смуги видно в кожної смуги, а не лише в тих, що починаються у видимому вікні (копія 20, 06.11: у смуг,
+// що почались лівіше межі, підпис ішов за край разом із початком смуги — видно 2 з ~45). Підпис «прилипає» до лівого краю прокручуваної
+// області (position: sticky) і їде вздовж смуги, поки смуга видна. Умови sticky: (1) предок між підписом і областю прокрутки не створює
+// своєї області прокрутки — тому в пігулки overflow: clip замість hidden (обрізає так само, але області прокрутки не створює); (2) підпис
+// вужчий за смугу — ширина за вмістом (inline-block / елемент flex), інакше йому нікуди їхати. Відступ зліва — ширина стовпця заголовків
+// рядків (він «липкий» поверх смуг): CSS-змінна, яку web_gantt ставить на рендерер (--Gantt__RowHeader-width — ім'я за пам'яттю про
+// web_gantt 17–18, на диску вихідного коду немає); змінної немає — 0. Класи o_gantt_pill / o_gantt_pill_title і структура — перевіряються
+// на копії. Обмежено видом gantt (.o_gantt_view): атрибута class для кореня арки gantt у Odoo 19 не підтверджено (невідомий атрибут —
+// помилка перевірки арки при оновленні), тож правило діє в усіх gantt бази — лише підпис, кольорів і розмірів не змінює
+.o_gantt_view {
+    .o_gantt_pill {
+        overflow: clip;
+    }
+    .o_gantt_pill_title {
+        position: sticky;
+        left: var(--Gantt__RowHeader-width, 0px);
+        display: inline-block;
+        flex: 0 1 auto;
+        min-width: 0;
+        max-width: 100%;
     }
 }
