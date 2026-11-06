@@ -1588,8 +1588,11 @@ class TestWorksetRates(TransactionCase):
         view = self.env.ref('workset_rates.view_bonus_list').id
 
         def list_fields(user):
-            m = self.env['workset.office.bonus'].with_user(user).get_views([(view, 'list')])['models']['workset.office.bonus']
-            return [f for f in m.get('fields', m) if f in bonus._fields]
+            # поля, які клієнт читає, — з розмітки виду цього користувача: в Odoo 19 «models» відповіді get_views кешується на вид без
+            # груп користувача (ir.ui.view._get_view_cache_key) і містить усі поля розмітки, а вузли з groups прибирає лише
+            # _postprocess_access_rights у розмітці (збірка Odoo.sh e638a73ce: employee_id був у «models» переглядача)
+            arch = self.env['workset.office.bonus'].with_user(user).get_views([(view, 'list')])['views']['list']['arch']
+            return [n.get('name') for n in etree.fromstring(arch).iter('field') if n.get('name') in bonus._fields]
         names = list_fields(viewer)
         self.assertIn('employee_label', names)
         self.assertNotIn('employee_id', names, 'поле картки (hr.employee) — лише «правила ліній»')
