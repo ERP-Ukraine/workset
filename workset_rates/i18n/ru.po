@@ -434,6 +434,11 @@ msgid "Замовник"
 msgstr "Заказчик"
 
 #. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_line_housing__payer__worker_fund
+msgid "З фонду працівників"
+msgstr "Из фонда работников"
+
+#. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_line_housing__date_from
 #: model:ir.model.fields,field_description:workset_rates.field_workset_office_bonus__date_from
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate_raise__date_from

@@ -16,7 +16,10 @@ HOUSING = 'workset.line.housing'
 KINDS = [('hour_deduction', 'Вирахування: години житла × €'), ('payment_buffer', 'Буфер житла з оплати замовника'),
          ('invoice_buffer', 'Буфер житла з пари рахунків'), ('customer_deducts', 'Вираховує замовник'), ('none', 'Житло не наше')]
 UNITS = [('hour', '€ за годину житла'), ('month', "€ за місяць (об'єкт)"), ('day_person', '€ за добу за особу'), ('pct', '% з оплати')]
-PAYERS = [('we_buffer', 'Платимо ми з буфера лінії'), ('partner', 'Платить партнер'), ('customer', 'Замовник')]
+# worker_fund — житло з «фонду працівників» (SoMa: таблиця власника 06.11 12:05 — житло, паливо, інструмент, спецодяг із фонду; читає М3
+# workset_profit через _housing_at; у частці WorkSET не бере участі — фонд уже відраховано в ланцюжку ставки)
+PAYERS = [('we_buffer', 'Платимо ми з буфера лінії'), ('partner', 'Платить партнер'), ('customer', 'Замовник'),
+          ('worker_fund', 'З фонду працівників')]
 
 
 class WorksetLineHousing(models.Model):
