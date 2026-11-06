@@ -2192,6 +2192,28 @@ class TestWorksetRates(TransactionCase):
         self.assertEqual((t.rate_id, t.person_id, t.summary), (r, r.person_id, 'Переговорити: зарплата 14, платять 19, частка 5'))
         self.assertIn(self.env.ref('base.user_admin'), t.reader_ids, 'вибір «Кому» — ті, хто читає ставки, не порожній')
 
+    def test_c_map_row_same_card_cost_not_mismatch(self):
+        """Odoo 19: is_cost_changed = cost ≠ hourly_cost картки (перераховується з cost) — коли картка має ту саму вартість години,
+        прапорця немає, а рядок карти «за ставкою»: контроль не пише «рядків у проєктах не за ставкою» (копія 20, 06.11: 29 хибних)."""
+        self._quiet_bonuses()
+        a, b = self._no_agents()
+        with a, b:
+            r = self._rate()
+            (self.emp_a | self.emp_b).write({'hourly_cost': 14})
+            (self.m_a | self.m_b).write({'cost': 14})  # як на копії: вартість = картці → Odoo знімає прапорець ручної правки
+            self.R.with_context(rates_today=DAY).rates_daily()
+        r.invalidate_recordset(['map_mismatch', 'issues'])
+        self.assertEqual((r.map_count, r.map_mismatch), (2, 0), 'обидві фірми — за ставкою')
+        self.assertNotIn('не за ставкою', r.issues or '')
+        self.assertEqual((self.m_a.cost, self.m_b.cost), (14, 14))
+        # картка змінила вартість години — рядок без прапорця пішов би за нею: тепер це розбіжність, щоденний синхрон повертає «на руки»
+        with a, b:
+            self.emp_a.write({'hourly_cost': 12})
+            if not self.m_a.is_cost_changed:
+                self.assertEqual(self.m_a.cost, 12, 'рядок без прапорця — за карткою')
+            r.with_context(rates_today=DAY).action_apply_now()
+        self.assertEqual((self.m_a.cost, self.m_a.is_cost_changed), (14, True), '«на руки» з прапорцем (картка інша)')
+
     def test_c_norate_pairs_without_map_row(self):
         # людина з табелями в проєкті замовника, а рядка карти й ставки немає — раніше звірка її не бачила (лише рядки карти)
         self._isolate()

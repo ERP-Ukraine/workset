@@ -431,10 +431,20 @@ def pair_plan(rates, today):
     return {'states': out, 'current': cur}
 
 
+def map_row_ok(m, wage):
+    """Рядок карти «за ставкою»: «Вартість години» = «на руки» і прапорець ручної правки — або вартість години картки (card_cost) та сама.
+    Odoo 19 (sale_timesheet): is_cost_changed = cost ≠ hourly_cost картки, перераховується з cost — при рівних прапорець не тримається
+    (копія 20, 06.11: 29 ставок «рядків у проєктах не за ставкою» при вірній вартості). Без прапорця рядок іде за карткою: зміниться
+    вартість картки — cost ≠ «на руки», щоденний синхрон поверне «на руки» вже з прапорцем. card_cost немає — як раніше (лише прапорець)."""
+    if not same_money(m['cost'], wage):
+        return False
+    return bool(m['changed']) or (m.get('card_cost') is not None and same_money(m['card_cost'], wage))
+
+
 def lines_to_write(maps, wage):
-    """maps — [{'id', 'cost', 'changed'}] рядки карти пари → id рядків, де «Вартість години» ≠ «на руки» або немає прапорця ручної правки
-    (без прапорця sale_timesheet перерахував би cost з hourly_cost картки)."""
-    return [m['id'] for m in maps if not same_money(m['cost'], wage) or not m['changed']]
+    """maps — [{'id', 'cost', 'changed', 'card_cost'?}] рядки карти пари → id рядків не «за ставкою» (map_row_ok): «Вартість години» ≠
+    «на руки» або немає прапорця ручної правки при іншій вартості картки (без прапорця sale_timesheet перерахував би cost з hourly_cost)."""
+    return [m['id'] for m in maps if not map_row_ok(m, wage)]
 
 
 def lines_to_revert(maps, wages):
@@ -491,7 +501,7 @@ def control_vals(wage, price, card, maps, has_contract=True, excused=False):
     mism = 0
     order_ok = True
     for m in maps:
-        if not same_money(m['cost'], wage) or not m['changed']:
+        if not map_row_ok(m, wage):
             mism += 1
         if m.get('order_price') is not None and not same_money(m['order_price'], price):
             order_ok = False
@@ -601,9 +611,9 @@ def control_html(cards, maps, other, wage, price, lang):
                      money(c['wage']) + ' €' if c['wage'] else t('no_wage', lang), mark(same_money(c['wage'], wage)) + (t('chosen', lang) if c['chosen'] else '')])
     mrows = []
     for m in maps:
-        ok = same_money(m['cost'], wage) and m['changed']
+        ok = map_row_ok(m, wage)
         op = m.get('order_price')
-        mrows.append([{'text': m['project'], 'href': link('project.project', m['project_id'])}, m['company'], m['employee'], money(m['cost']) + ' €' + ('' if m['changed'] else t('no_flag', lang)),
+        mrows.append([{'text': m['project'], 'href': link('project.project', m['project_id'])}, m['company'], m['employee'], money(m['cost']) + ' €' + ('' if (m['changed'] or ok) else t('no_flag', lang)),
                       (money(op) + ' € ' + mark(same_money(op, price))) if op is not None else t('no_order', lang), mark(ok)])
     for m in other:
         mrows.append([{'text': m['project'], 'href': link('project.project', m['project_id'])}, m['company'], m['employee'], '%s %s' % (money(m['cost']), m.get('currency') or ''),

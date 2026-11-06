@@ -862,7 +862,8 @@ class WorksetRate(models.Model):
         return self._split_currency(rows)
 
     def _map_info(self, m):
-        return {'id': m.id, 'cost': m.cost, 'changed': m.is_cost_changed, 'order_price': m.sale_line_id.price_unit if m.sale_line_id else None,
+        return {'id': m.id, 'cost': m.cost, 'changed': m.is_cost_changed, 'card_cost': m.employee_id.hourly_cost or 0.0,
+                'order_price': m.sale_line_id.price_unit if m.sale_line_id else None,
                 'project_id': m.project_id.id, 'project': m.project_id.display_name or '', 'company': m.project_id.company_id.name or '',
                 'employee': m.employee_id.name or '', 'currency': m.cost_currency_id.name or ''}
 
