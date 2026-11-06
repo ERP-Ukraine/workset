@@ -9,6 +9,7 @@ import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { loadBundle } from "@web/core/assets";
 import { browser } from "@web/core/browser/browser";
+import { _t } from "@web/core/l10n/translation";
 import { user } from "@web/core/user";
 import { formatFloat } from "@web/views/fields/formatters";
 import { usePopover } from "@web/core/popover/popover_hook";
@@ -26,9 +27,17 @@ export function euros(value) {
     return formatFloat(Math.round(value || 0), { digits: [16, 0] }).replace(/^-/, "−");
 }
 
-/** € на годину: 9.78 → «9,78». */
+/** € на годину: 9.78 → «9,78»; годин зі ставкою немає (null) — «—», не «0,00». */
 export function perHour(value) {
-    return formatFloat(value || 0, { digits: [16, 2] }).replace(/^-/, "−");
+    if (value === null || value === undefined) {
+        return "—";
+    }
+    return formatFloat(value, { digits: [16, 2] }).replace(/^-/, "−");
+}
+
+/** Є число на годину (одиницю «€ год» показувати лише поруч із числом). */
+export function hasPh(value) {
+    return value !== null && value !== undefined;
 }
 
 /** Число без зайвих нулів: 0.4 → «0,4», 2113 → «2 113». */
@@ -71,11 +80,12 @@ class ProfitScreen extends Component {
         this.orm = useService("orm");
         this.action = useService("action");
         this.notification = useService("notification");
-        this.state = useState({ data: null });
+        this.state = useState({ data: null, failed: false });
         this.serial = 0;
         this.charts = [];
         this.euros = euros;
         this.perHour = perHour;
+        this.hasPh = hasPh;
         this.plain = plain;
         this.cap = cap;
         this.chartRef = useRef("chart");
@@ -98,12 +108,34 @@ class ProfitScreen extends Component {
         return this.state.data;
     }
 
-    /** Виклик сервера; відповідь, що запізнилась (користувач уже вибрав інше), відкидається. */
+    /** Виклик сервера; відповідь, що запізнилась (користувач уже вибрав інше), відкидається. Помилка при першому показі — як у Odoo
+     *  (вікно помилки, екран не відкривається); при зміні місяця чи лінії — стандартне повідомлення, на екрані лишаються попередні дані з
+     *  позначкою (state.failed) → null. */
     async fetch(method, args) {
         const serial = ++this.serial;
-        const data = await this.orm.call(MONTH, method, args);
-        return serial === this.serial ? data : null;
+        let data;
+        try {
+            data = await this.orm.call(MONTH, method, args);
+        } catch (error) {
+            if (!this.state.data) {
+                throw error;
+            }
+            if (serial === this.serial) {
+                this.keep(this.state.data);
+                this.state.failed = true;
+                this.notification.add(_t("Не вдалося оновити — на екрані попередні дані"), { type: "danger" });
+            }
+            return null;
+        }
+        if (serial !== this.serial) {
+            return null;
+        }
+        this.state.failed = false;
+        return data;
     }
+
+    /** Після помилки — вибір екрана (місяць, лінія, період) назад до показаних даних, щоб наступний запит ішов від них. */
+    keep() {}
 
     /** Список за описом сервера: модель, заголовок, домен — число на елементі пораховано по тих самих записах. */
     openList(spec) {
@@ -173,6 +205,10 @@ export class ProfitOverview extends ProfitScreen {
         }
     }
 
+    keep(data) {
+        this.month = data.month.value;
+    }
+
     setMonth(value) {
         this.month = value;
         this.load();
@@ -220,7 +256,8 @@ export class ProfitOverview extends ProfitScreen {
         this.charts.push(
             new Chart(this.chartRef.el, {
                 type: "line",
-                data: { labels: d.series.months.map((m) => m.short), datasets },
+                // підписи осі — сервер (calc.month_axis): з роком, коли ряд зачіпає більше одного року
+                data: { labels: d.series.labels, datasets },
                 options: {
                     ...c.options,
                     plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label || ""}: ${perHour(ctx.parsed.y)}` } } },
@@ -269,6 +306,11 @@ export class ProfitLineCard extends ProfitScreen {
             this.state.data = data;
             this.save();
         }
+    }
+
+    keep(data) {
+        this.month = data.month.value;
+        this.lineId = data.line ? data.line.id : false;
     }
 
     go(month) {
@@ -324,7 +366,7 @@ export class ProfitLineCard extends ProfitScreen {
             new Chart(this.chartRef.el, {
                 type: "bar",
                 data: {
-                    labels: d.series.months.map((m) => m.short),
+                    labels: d.series.labels,
                     datasets: [
                         { label: d.series.net_label, data: d.series.net, backgroundColor: c.primary, borderRadius: 3, order: 2 },
                         { type: "line", label: d.series.share_label, data: d.series.share, borderColor: c.gray, borderWidth: 1, pointRadius: 0, tension: 0.3, order: 1 },
@@ -375,6 +417,11 @@ export class ProfitMatrix extends ProfitScreen {
         }
     }
 
+    keep(data) {
+        this.from = data.period.from;
+        this.to = data.period.to;
+    }
+
     setFrom(value) {
         this.from = value;
         this.load();
@@ -401,8 +448,12 @@ export class ProfitMatrix extends ProfitScreen {
         return euros(cell.net);
     }
 
+    /** Крок ланцюжка з одиницею; годин зі ставкою немає — лише «—». */
     stepValue(step) {
-        return this.view.unit === "hour" ? perHour(step.ph) : euros(step.amount);
+        if (this.view.unit === "hour") {
+            return hasPh(step.ph) ? `${perHour(step.ph)} ${this.data.labels.hour}` : "—";
+        }
+        return `${euros(step.amount)} ${this.data.labels.month}`;
     }
 
     onCell(ev, line, cell) {
@@ -411,9 +462,9 @@ export class ProfitMatrix extends ProfitScreen {
         }
         const month = this.data.months.find((m) => m.value === cell.month);
         this.popover.open(ev.currentTarget, {
-            title: `${line.name}, ${month ? month.name : ""}`,
+            // назва місяця з роком: з 2027 у таблиці можуть бути два січні
+            title: `${line.name}, ${month ? month.label : ""}`,
             steps: cell.chain,
-            unit: this.view.unit === "hour" ? this.data.labels.hour : this.data.labels.month,
             format: (s) => this.stepValue(s),
             onOpen: () => this.openCard(line.id, cell.month, line.name),
         });

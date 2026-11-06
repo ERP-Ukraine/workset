@@ -420,9 +420,12 @@ class WorksetProfitMonth(models.Model):
         return entries, refs
 
     def _store_check(self, month, check):
-        """Підсумок звірки місяця — у «Звірку місяця» (екрани читають його, а не звіряють наново). Викликати на sudo."""
+        """Підсумок звірки місяця — у «Звірку місяця» (екрани читають його, а не звіряють наново): є запис місяця — оновити, немає —
+        створити. Замок місяця (той самий, що в перерахунку) — плановий перерахунок і кнопка «Звірити» одночасно не створять двох записів
+        (другий чекає першого й оновлює); унікальність month у моделі — страховка. Викликати на sudo."""
         Check = self.env['workset.profit.check'].sudo()
         first = calc.month_first(calc.iso(month))
+        self.env.cr.execute('SELECT pg_advisory_xact_lock(%s, %s)', (LOCK_NS, int(first[0:4] + first[5:7])))
         vals = {'ok': bool(check.get('ok')), 'text': check.get('text') or '', 'checked_at': fields.Datetime.now()}
         rec = Check.search([('month', '=', first)], limit=1)
         if rec:
@@ -532,8 +535,13 @@ class WorksetProfitMonth(models.Model):
                            'sticky': not ok}}
 
     def action_open_card(self):
-        """Кнопка рядка лінії в списку й картці рядка — картка лінії (екран B) за цей місяць."""
+        """Кнопка рядка лінії в списку й картці рядка — картка лінії (екран B) за цей місяць. Рядок до calc.MIN_MONTH (кнопку вид ховає) —
+        не січень 2026 мовчки, а повідомлення: картка — лише з 2026."""
         self.ensure_one()
+        if calc.iso(self.month) < calc.MIN_MONTH:
+            return {'type': 'ir.actions.client', 'tag': 'display_notification',
+                    'params': {'title': _('Прибутковість'), 'type': 'warning',
+                               'message': calc.t('card_before', self._lang()) % calc.month_label(self.month, self._lang())}}
         return {'type': 'ir.actions.client', 'tag': 'workset_profit.line_card', 'name': self.line_id.name or '',
                 'params': {'line_id': self.line_id.id, 'month': calc.iso(self.month)}}
 

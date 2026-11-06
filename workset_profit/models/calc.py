@@ -114,6 +114,7 @@ TX = {
     # ——— екрани (круг 2) ———
     'only_viewer': ['Екрани «Прибутковості» бачить лише група «Прибутковість: перегляд».',
                     'Экраны «Прибыльности» видит только группа «Прибыльность: просмотр».'],
+    'card_before': ['Картка лінії — лише з січня 2026; рядок %s відкрийте у списку.', 'Карточка линии — только с января 2026; строку %s откройте в списке.'],
     's_share': ['Частка WorkSET', 'Доля WorkSET'], 's_car_rent': ['Оренда авто', 'Аренда авто'], 's_housing': ['Житло', 'Жильё'],
     's_housing_customer': ['Житло (вирахував замовник)', 'Жильё (вычел заказчик)'], 's_auto': ['Авто', 'Авто'], 's_fuel': ['Паливо', 'Топливо'],
     's_tool': ['Інструмент', 'Инструмент'], 's_transport': ['Перевезення', 'Перевозка'], 's_net': ['Чисто', 'Чисто'],
@@ -975,6 +976,38 @@ def month_info(day, lang='uk'):
             'short': month_label(day, lang, True)}
 
 
+def month_axis(days, lang='uk', short=True):
+    """Підписи місяців на осі графіка й у шапці таблиці: «Вер» (short) або «Вересень»; період зачіпає більше одного календарного року —
+    з коротким роком: «Січ '27», «Грудень '26» (інакше з 2027 «Січ» повториться). days — ['РРРР-ММ-ДД', …] → [підпис]."""
+    days = [iso(d) for d in (days or [])]
+    many = len({d[0:4] for d in days}) > 1
+    out = []
+    for d in days:
+        s = month_label(d, lang, short)
+        s = s[0:1].upper() + s[1:] if short else s.split(' ')[0][0:1].upper() + s.split(' ')[0][1:]
+        out.append("%s '%s" % (s, d[2:4]) if many else s)
+    return out
+
+
+def parse_id(value):
+    """id запису з params / localStorage: ціле > 0 або рядок із цифр → int; інше (текст, bool, дробове, від'ємне, порожньо) — 0."""
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return value if value > 0 else 0
+    if isinstance(value, float):
+        return int(value) if value.is_integer() and value > 0 else 0
+    s = str(value or '').strip()
+    return int(s) if re.match(r'^\d{1,18}$', s) and int(s) > 0 else 0
+
+
+def housing_from(payers):
+    """Чип плитки «житло не з наших грошей»: платники правил житла лінії на день (лінії й її замовників, ключі «Ставок») → 'partner'
+    (є «Платить партнер» — з буфера лінії), 'worker_fund' (є фонд працівників), інакше ''."""
+    keys = {housing_payer(p) for p in (payers or []) if p}
+    return 'partner' if 'partner' in keys else ('worker_fund' if 'worker_fund' in keys else '')
+
+
 def parse_num(text, default):
     """Число з системного параметра («1,5», «2») → float; порожньо, хибне або від'ємне — default."""
     try:
@@ -999,14 +1032,14 @@ def num_text(x):
 
 
 def per_hour(amount, hours):
-    """Гроші на годину (на години зі ставкою): годин немає — 0."""
-    return round(float(amount or 0) / float(hours), 2) if hours else 0.0
+    """Гроші на годину (на години зі ставкою): годин немає — None (екран пише «—», а не «0,00 € год»)."""
+    return round(float(amount or 0) / float(hours), 2) if hours else None
 
 
 def totals(rows):
     """Підсумок рядків ліній місяця (або однієї лінії) → {'hours', 'hours_rate', 'hours_no_rate', 'share', 'costs', 'net', 'share_ph',
     'costs_ph', 'net_ph'}: витрати — усе між часткою й «чисто» (оренда авто плюсом; житло, житло замовника, авто, паливо, інструмент,
-    перевезення — мінусом), частка + витрати = чисто до цента; €/год — на години зі ставкою."""
+    перевезення — мінусом), частка + витрати = чисто до цента; €/год — на години зі ставкою (їх немає — None)."""
     rows = rows or []
     hours_rate = round(sum(float(r.get('hours_rate') or 0) for r in rows), 2)
     share = sum(cents(r.get('share')) for r in rows)
@@ -1019,7 +1052,8 @@ def totals(rows):
 
 def chain_steps(row):
     """Ланцюжок лінії за місяць: частка → оренда авто → житло → житло (вирахував замовник) → авто → паливо → інструмент → перевезення →
-    чисто. Нульові кроки (крім частки й «чисто») не показуються. Крок — {'key', 'amount' (€ за місяць), 'ph' (€/год на години зі ставкою)};
+    чисто. Нульові кроки (крім частки й «чисто») не показуються. Крок — {'key', 'amount' (€ за місяць), 'ph' (€/год на години зі ставкою;
+    їх немає — None)};
     «чисто» — збережене чисто рядка: кроки до нього дають його до цента (розбіжність — помилка розрахунку, її ловить тест)."""
     hr = float(row.get('hours_rate') or 0)
     out = []
@@ -1082,8 +1116,9 @@ def cell_tone(net, net_ph, prev_ph, threshold=DROP_DEFAULT):
 
 
 def trend(cur_ph, prev_ph):
-    """Стрілка плитки до минулого місяця: → {'dir': 'up' / 'down' / 'same', 'delta' (модуль різниці €/год)}; минулого немає — None."""
-    if prev_ph is None:
+    """Стрілка плитки до минулого місяця: → {'dir': 'up' / 'down' / 'same', 'delta' (модуль різниці €/год)}; минулого або цього
+    (годин зі ставкою немає — None) немає — None: стрілки від нуля немає."""
+    if prev_ph is None or cur_ph is None:
         return None
     d = cents(cur_ph) - cents(prev_ph)
     return {'dir': 'up' if d > 0 else ('down' if d < 0 else 'same'), 'delta': eur(abs(d))}

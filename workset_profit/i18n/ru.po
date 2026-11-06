@@ -768,6 +768,11 @@ msgid "Чисто нижче нуля"
 msgstr "Чисто ниже нуля"
 
 #. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
+msgid "З 2026 року"
+msgstr "С 2026 года"
+
+#. module: workset_profit
 #: model:ir.actions.act_window,name:workset_profit.action_months
 #: model:ir.ui.menu,name:workset_profit.menu_months
 msgid "Рядки розрахунку"
@@ -925,6 +930,12 @@ msgstr "Обзор"
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "Прибутковість ліній"
 msgstr "Прибыльность линий"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Не вдалося оновити — на екрані попередні дані"
+msgstr "Не удалось обновить — на экране прежние данные"
 
 #. module: workset_profit
 #. odoo-javascript
@@ -1123,6 +1134,18 @@ msgstr "Столбцы — чисто, тонкая линия — доля Work
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "Рядки за"
 msgstr "Строки за"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "перераховано"
+msgstr "пересчитано"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "рядки змінилися після перерахунку"
+msgstr "строки изменились после пересчёта"
 
 #. module: workset_profit
 #. odoo-javascript

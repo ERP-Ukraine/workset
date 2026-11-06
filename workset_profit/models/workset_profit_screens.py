@@ -9,7 +9,8 @@ profit_line_card, profit_matrix. Числа — збережений підсу�
 (_check_screen), не лише видимість меню; адміністратор поза групою — відмова. Місяці — лише з calc.MIN_MONTH (січень 2026) до поточного.
 Лише читання; sudo — для правил житла «Ставок», табелів і аналітики картки лінії (після перевірки групи); відкрити записи — за правами
 самого користувача."""
-from odoo import api, models
+from odoo import api, fields, models
+from odoo.addons.workset_rates.models import calc as rates_calc
 from odoo.exceptions import AccessError
 
 from . import calc
@@ -18,7 +19,7 @@ MONTH = 'workset.profit.month'
 GROUP_VIEWER = 'workset_profit.group_viewer'
 ROW_FIELDS = ['name', 'month', 'row_kind', 'line_id', 'analytic_id', 'tag', 'hours_total', 'hours_rate', 'hours_no_rate', 'share', 'car_rent',
               'fund_in', 'housing', 'housing_customer', 'auto', 'fuel', 'tool', 'transport', 'partner_paid', 'fund_paid', 'fund_left',
-              'housing_buffer', 'amount', 'net', 'net_per_hour']
+              'housing_buffer', 'amount', 'net', 'net_per_hour', 'write_date']
 IDS_MAX = 2000  # id в описі списку «Рядків за місяць» — не більше
 
 
@@ -59,6 +60,18 @@ class WorksetProfitScreens(models.Model):
     def _cur_month(self, today):
         return max(calc.month_first(today), calc.MIN_MONTH)
 
+    def _housing_rules(self):
+        """Правила житла «Ставок» — один раз на запит (раніше _housing_at читав усі правила на кожну пару «лінія × замовник»: в «Огляді»
+        30–40 читань): {'rules' (як Housing._rules() — для rates_calc.housing_pick, тієї ж функції, що в _housing_at), 'payer': {id: ключ}}."""
+        Housing = self.env['workset.line.housing'].sudo()
+        rules = Housing._rules()
+        payer = {h['id']: h['payer'] or '' for h in Housing.browse([r['id'] for r in rules]).read(['payer'])}
+        return {'rules': rules, 'payer': payer}
+
+    def _housing_pick(self, hr, line, cust, day):
+        """Правило житла пари «лінія × замовник» на day (як Housing._housing_at: правило замовника, а немає — лінії) → id або 0."""
+        return rates_calc.housing_pick(hr['rules'], line.id, calc.cust_of(cust), calc.iso(day)) if line else 0
+
     # ——— A «Огляд» ———
     @api.model
     def profit_overview(self, month=None):
@@ -79,13 +92,16 @@ class WorksetProfitScreens(models.Model):
         prev_m = calc.add_months(month, -1)
         prev = {r['line']: r for r in line_rows if r['month'] == prev_m and r['hours_rate']}
         day = min(calc.month_last(month), today)
+        hr = self._housing_rules()
         lines = []
         for r in now:
             p = prev.get(r['line'])
+            # годин зі ставкою немає (лише витрати) — «—» на плитці й без стрілки від нуля (як клітинка матриці C)
+            net_ph = r['net_per_hour'] if r['hours_rate'] else None
             lines.append({'id': r['line'], 'row_id': r['id'], 'name': r['line_id'][1], 'hours': r['hours_total'],
-                          'share_ph': calc.per_hour(r['share'], r['hours_rate']), 'net_ph': r['net_per_hour'], 'net': r['net'],
-                          'tone': 'neg' if calc.cents(r['net']) < 0 else '', 'trend': calc.trend(r['net_per_hour'], p['net_per_hour'] if p else None),
-                          'housing_from': self._housing_from(r['line'], day), 'split': calc.share_split(r)})
+                          'share_ph': calc.per_hour(r['share'], r['hours_rate']), 'net_ph': net_ph, 'net': r['net'],
+                          'tone': 'neg' if calc.cents(r['net']) < 0 else '', 'trend': calc.trend(net_ph, p['net_per_hour'] if p else None),
+                          'housing_from': self._housing_from(r['line'], day, hr), 'split': calc.share_split(r)})
         by_month = {}
         for r in line_rows:
             by_month.setdefault(r['month'], []).append(r)
@@ -93,9 +109,9 @@ class WorksetProfitScreens(models.Model):
         for r in line_rows:
             names.setdefault(r['line'], r['line_id'][1])
         series = {
-            'months': [calc.month_info(m, lang) for m in all_months], 'total_label': calc.t('l_all', lang),
-            'total': [(calc.totals(by_month[m])['net_ph'] if sum(x['hours_rate'] for x in by_month[m]) else None) if m in by_month else None
-                      for m in all_months],
+            'months': [calc.month_info(m, lang) for m in all_months], 'labels': calc.month_axis(all_months, lang),
+            'total_label': calc.t('l_all', lang),
+            'total': [calc.totals(by_month[m])['net_ph'] if m in by_month else None for m in all_months],
             'lines': [{'id': lid, 'name': names[lid],
                        'values': [next((x['net_per_hour'] for x in by_month.get(m, []) if x['line'] == lid and x['hours_rate']), None)
                                   for m in all_months]}
@@ -108,18 +124,14 @@ class WorksetProfitScreens(models.Model):
             'lines': lines, 'series': series,
         }
 
-    def _housing_from(self, line_id, day):
-        """Житло лінії не з наших грошей на day (правило лінії й правила її замовників, _housing_at «Ставок»): 'partner' — з буфера лінії,
-        'worker_fund' — з фонду працівників, інакше ''. Вид правила не важить: «Житло не наше» з «Хто платить» = партнер — теж буфер лінії."""
-        Housing = self.env['workset.line.housing'].sudo()
+    def _housing_from(self, line_id, day, hr):
+        """Житло лінії не з наших грошей на day (правило лінії й правила її замовників — як _housing_at «Ставок», з правил hr, прочитаних
+        раз на запит): 'partner' — з буфера лінії, 'worker_fund' — з фонду працівників, інакше '' (calc.housing_from). Вид правила не
+        важить: «Житло не наше» з «Хто платить» = партнер — теж буфер лінії."""
         Partner = self.env['res.partner'].sudo()
         line = self.env['workset.line'].sudo().browse(line_id)
-        payers = set()
-        for cust in [Partner] + list(line.customer_ids):
-            rule = Housing._housing_at(line, cust, day)
-            if rule:
-                payers.add(calc.housing_payer(rule.payer))
-        return 'partner' if 'partner' in payers else ('worker_fund' if 'worker_fund' in payers else '')
+        ids = [self._housing_pick(hr, line, cust, day) for cust in [Partner] + list(line.customer_ids)]
+        return calc.housing_from([hr['payer'].get(i) for i in ids if i])
 
     def _overview_alerts(self, month, mine, line_rows, lang):
         """Чипи «Огляду» за місяць, у порядку на сторінці; кожен — з описом списку рядків (число на чипі = рядки списку):
@@ -127,10 +139,11 @@ class WorksetProfitScreens(models.Model):
         (calc.housing_shift), «Власник <стаття>» (€ кожного), «Звірка» (зі «Звірки місяця»). Нуля немає — чипа немає."""
         label = calc.month_label(month, lang)
         out = []
+        # «Не розподілено» на 0 € (буфер житла, гроші лінії без лінії — не в «чисто») — не тривога: чипа немає
         un = [r for r in mine if r['row_kind'] == 'unallocated']
-        if un:
-            amount = calc.eur(sum(calc.cents(r['net']) for r in un))
-            out.append({'key': 'unallocated', 'amount': amount, 'tone': 'danger' if calc.cents(amount) else '',
+        un_c = sum(calc.cents(r['net']) for r in un)
+        if un_c:
+            out.append({'key': 'unallocated', 'amount': calc.eur(un_c), 'tone': 'danger',
                         'open': self._open(calc.t('t_unalloc', lang) % label, [('month', '=', month), ('row_kind', '=', 'unallocated')])})
         no_rate = round(sum(r['hours_no_rate'] for r in mine if r['row_kind'] in ('line', 'noline')), 2)
         if no_rate:
@@ -147,7 +160,8 @@ class WorksetProfitScreens(models.Model):
             out.append({'key': 'housing_shift', 'count': len(shift), 'tone': 'warning',
                         'open': self._open(calc.t('t_shift', lang) % label,
                                            [('month', '=', month), ('row_kind', '=', 'line'), ('line_id', 'in', shift)])})
-        for r in sorted([r for r in mine if r['row_kind'] == 'owner'], key=lambda r: r['analytic_id'][1] if r['analytic_id'] else ''):
+        for r in sorted([r for r in mine if r['row_kind'] == 'owner' and calc.cents(r['net'])],
+                        key=lambda r: r['analytic_id'][1] if r['analytic_id'] else ''):
             code = r['analytic_id'][1] if r['analytic_id'] else '—'
             out.append({'key': 'owner', 'code': code, 'amount': r['net'], 'tone': '',
                         'open': self._open(calc.t('t_owner', lang) % (code, label), [('id', '=', r['id'])])})
@@ -169,7 +183,9 @@ class WorksetProfitScreens(models.Model):
         month = calc.screen_month(month, today)
         cur = self._cur_month(today)
         Line = self.env['workset.line']
-        line = Line.browse(int(line_id)).exists() if line_id else Line
+        # line_id з params / localStorage — будь-що: не число — як «не знайдено» (перша лінія місяця), не помилка сервера
+        lid = calc.parse_id(line_id)
+        line = Line.browse(lid).exists() if lid else Line
         if not line:
             first = self._screen_rows([month], ['line'])
             order = self._line_order()
@@ -184,8 +200,8 @@ class WorksetProfitScreens(models.Model):
         rows = [r for r in self._screen_rows(all_months, ['line']) if r['line'] == line.id]
         by_month = {r['month']: r for r in rows}
         out['line'] = {'id': line.id, 'name': line.sudo().display_name}
-        out['series'] = {'months': [calc.month_info(m, lang) for m in all_months], 'net_label': calc.t('l_net', lang),
-                         'share_label': calc.t('l_share', lang),
+        out['series'] = {'months': [calc.month_info(m, lang) for m in all_months], 'labels': calc.month_axis(all_months, lang),
+                         'net_label': calc.t('l_net', lang), 'share_label': calc.t('l_share', lang),
                          'net': [by_month[m]['net_per_hour'] if m in by_month and by_month[m]['hours_rate'] else None for m in all_months],
                          'share': [calc.per_hour(by_month[m]['share'], by_month[m]['hours_rate']) if m in by_month and by_month[m]['hours_rate']
                                    else None for m in all_months]}
@@ -198,9 +214,18 @@ class WorksetProfitScreens(models.Model):
         day = min(calc.month_last(month), today)
         out.update({'has': True, 'row_id': row['id'], 'totals': calc.totals([row]), 'waterfall': calc.waterfall(steps),
                     'pays': self._who_pays(line, day, lang),
-                    'aside': [{'key': f, 'label': calc.t('a_' + f, lang), 'amount': row[f]} for f in calc.ASIDE if calc.cents(row[f])]})
+                    'aside': [{'key': f, 'label': calc.t('a_' + f, lang), 'amount': row[f]} for f in calc.ASIDE if calc.cents(row[f])],
+                    'recomputed': self._stamp(row.get('write_date'))})
         out.update(self._card_rows(line, month, row, lang))
         return out
+
+    def _stamp(self, dt):
+        """Коли перераховано рядок (write_date рядка підсумку: перерахунок пише рядки місяця заново) → «06.11.2026 23:04» у часовому поясі
+        користувача (немає — calc.TZ); немає — ''."""
+        if not dt:
+            return ''
+        me = self.with_context(tz=self.env.user.tz or calc.TZ)
+        return fields.Datetime.context_timestamp(me, fields.Datetime.to_datetime(dt)).strftime('%d.%m.%Y %H:%M')
 
     def _who_pays(self, line, day, lang):
         """«Хто платить» лінії на day: житло — правило житла лінії «Ставок» (_housing_at), авто, паливо, інструмент, перевезення — правила
@@ -213,14 +238,16 @@ class WorksetProfitScreens(models.Model):
         h_labels = dict(Housing._fields['payer']._description_selection(self.env))
         c_labels = dict(Cost._fields['payer']._description_selection(self.env))
         custs = list(line.customer_ids)
-        base = Housing._housing_at(line, Partner, day)
-        base_payer = base.payer if base else ''
+        hr = self._housing_rules()
+        base = self._housing_pick(hr, line, Partner, day)
+        base_payer = hr['payer'].get(base, '') if base else ''
         item = {'key': 'housing', 'label': calc.t('s_housing', lang), 'payer': h_labels.get(base_payer) or c_labels.get('we', ''),
                 'except': [], 'cards': []}
         for cust in custs:
-            rule = Housing._housing_at(line, cust, day)
-            if rule and rule != base and (rule.payer or '') != base_payer:
-                item['except'].append({'name': cust.display_name, 'payer': h_labels.get(rule.payer) or c_labels.get('we', '')})
+            rid = self._housing_pick(hr, line, cust, day)
+            payer = hr['payer'].get(rid, '') if rid else ''
+            if rid and rid != base and payer != base_payer:
+                item['except'].append({'name': cust.display_name, 'payer': h_labels.get(payer) or c_labels.get('we', '')})
         out = [item]
         rules = Cost._rules()
         periods = self.env['workset.dkv.card.period']._periods()
@@ -243,7 +270,8 @@ class WorksetProfitScreens(models.Model):
         """«Рядки за місяць» картки лінії: записи розкладу місяця, що лягли на лінію (_month_entries — як у перерахунку), за статтею й
         рахунком (аналітика), карткою (DKV) або «перевезення за прибуттями»; ще оренда авто й житло, яке вирахував замовник (зі ставок і
         правил), і табелі лінії одним рядком. Рядок — {'title', 'sub', 'amount', 'chain' (у «чисто»), 'open' (опис списку або False — без
-        кліку)}. Порядок: ланцюжок (найбільші витрати першими), «не в нашому чисто», табелі; показано CARD_ROWS — {'rows', 'rows_total'}."""
+        кліку)}. Порядок: ланцюжок (найбільші витрати першими), «не в нашому чисто», табелі; показано CARD_ROWS — {'rows', 'rows_total',
+        'stale' (частка + рядки ланцюжка ≠ збереженому «Чисто»: записи змінили після перерахунку)}."""
         me = self.sudo()
         first, last = month, calc.month_last(month)
         cust_lines, line_nodes = me._lines_index()
@@ -297,6 +325,9 @@ class WorksetProfitScreens(models.Model):
                         'chain': True, 'open': can and self._open(calc.t('r_hc_title', lang), [('line_id', '=', line.id), ('payer', '=', 'customer')],
                                                                   'workset.line.housing')})
         out.sort(key=lambda r: (0 if r['chain'] else 1, calc.cents(r['amount']) if r['chain'] else -abs(calc.cents(r['amount']))))
+        # ланцюжок — зі збереженого рядка, список — розклад наново: частка + рядки ланцюжка (усі, не лише показані) ≠ «Чисто» — аналітику,
+        # DKV або табелі змінили після перерахунку (до наступного «Перерахувати» картка попереджає)
+        stale = calc.cents(row['share']) + sum(calc.cents(r['amount']) for r in out if r['chain']) != calc.cents(row['net'])
         total = len(out) + 1
         shown = out[:calc.CARD_ROWS - 1]
         # табелі лінії: замовники, які належать цій лінії (перша лінія замовника), години й склеєні люди — ті самі, що в «Годин»
@@ -311,7 +342,7 @@ class WorksetProfitScreens(models.Model):
         shown.append({'title': calc.t('r_timesheets', lang) % (calc.num_text(hours), len({r['glue'] for r in mine})),
                       'sub': '', 'amount': None, 'chain': False, 'timesheets': True,
                       'open': can_aal and self._open(calc.t('r_rows', lang) % (line.sudo().display_name, label), dom, 'account.analytic.line')})
-        return {'rows': shown, 'rows_total': total}
+        return {'rows': shown, 'rows_total': total, 'stale': stale}
 
     # ——— C «Лінії × місяці» ———
     @api.model
@@ -366,7 +397,7 @@ class WorksetProfitScreens(models.Model):
                 owners.setdefault(r['analytic_id'][1] if r['analytic_id'] else '—', []).append(r)
         checks = self._checks(months)
         return {
-            'months': [calc.month_info(m, lang) for m in months],
+            'months': [calc.month_info(m, lang) for m in months], 'heads': calc.month_axis(months, lang, short=False),
             'period': {'from': months[0], 'to': months[-1], 'text': calc.months_text(len(months), lang)},
             'options': [calc.month_info(m, lang) for m in calc.month_list(calc.MIN_MONTH, self._cur_month(today))],
             'threshold': threshold, 'has': bool(lines), 'lines': lines,
