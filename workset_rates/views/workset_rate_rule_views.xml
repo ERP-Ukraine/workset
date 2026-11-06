@@ -25,9 +25,9 @@
                 <field name="car_rent" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" invisible="not car_rent"/>
                 <field name="date_from" string="З" options="{'numeric': True}" width="90px"/>
                 <field name="date_to" string="До" options="{'numeric': True}" optional="show" width="90px"/>
-                <field name="state" widget="badge" decoration-info="state == 'future'" decoration-muted="state == 'past'" invisible="state == 'current'"/>
-                <field name="inherit_count" string="Людей наслідує" optional="show" invisible="not inherit_count"/>
-                <field name="own_count" string="Своїх ставок" optional="show" invisible="not own_count"/>
+                <field name="state" widget="badge" decoration-info="state == 'future'" decoration-muted="state == 'past'" optional="hide" invisible="state == 'current'"/>
+                <field name="inherit_count" string="Людей наслідує" optional="show" invisible="not inherit_count" width="130px"/>
+                <field name="own_count" string="Своїх ставок" optional="show" invisible="not own_count" width="120px"/>
             </list>
         </field>
     </record>

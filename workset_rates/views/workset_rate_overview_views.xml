@@ -1,34 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Рівень B (розділ 6б): «Стрічка» (масштаб за замовчуванням «Рік»; рядки без лінії — в кінець, get_gantt_data у workset_rate_overview.py;
-         pill_label не ставимо: web_gantt 17+ дописує ним дати чи час до підпису смуги, а підпис — лише display_name) — смуги ставок у часі
-         (web_gantt) і сторінка «Огляд ставок» (client action OWL).
-         Смуга: «Ставка з» → «Смуга до» (gantt_stop: «Ставка до»; без неї діюча — сьогодні + 30 днів, майбутня — «Ставка з» + 30); колір — статус
-         з відтінком низької частки (gantt_color); підпис «Діє · формула» — display_name у контексті дії. Перетягнути можна лише майбутню,
-         лише редактору й лише на дату після сьогодні, у тому самому рядку (перевірка в write запису з «Смуга до»); нових ставок
-         і планування зі «Стрічки» немає -->
+    <!-- Рівень B (розділ 6б): «Стрічка» — смуги ставок у часі (web_gantt) і сторінка «Огляд ставок» (client action OWL).
+         «Стрічка» після правки 06.11 («стрічка: дорабатывать», «только важная информация»): за замовчуванням — фільтр «Працюють і
+         майбутні» (дія); масштаб «Рік» (колонки — місяці), на вибір «Місяць» і «Рік»; рядки без лінії — в кінець і з підписом «Без лінії»
+         (get_gantt_data у workset_rate_overview.py). pill_label не ставимо: web_gantt 17+ дописує ним дати чи час до підпису смуги, а
+         підпис — лише display_name.
+         Смуга: «Ставка з» → «Смуга до» (gantt_stop: «Ставка до»; без неї діюча — сьогодні + 30 днів, майбутня — «Ставка з» + 30); колір —
+         колір лінії (gantt_color: місце лінії в ряду карток «Огляду»; минула й без лінії — без кольору); низька частка — decoration-danger
+         і «⚠ низька частка» в підписі й у вікні; підпис «Замовник · зарплата → платять нам €» — display_name у контексті дії; вікно над смугою — готові
+         рядки gantt_* (calc.gantt_popover). Перетягнути можна лише майбутню, лише редактору й лише на дату після сьогодні, у тому самому
+         рядку (перевірка в write запису з «Смуга до»); нових ставок і планування зі «Стрічки» немає -->
     <record id="view_rate_gantt" model="ir.ui.view">
         <field name="name">workset.rate.gantt</field>
         <field name="model">workset.rate</field>
         <field name="arch" type="xml">
             <gantt string="Стрічка" date_start="date_from" date_stop="gantt_stop" default_group_by="line_id,person_id" default_scale="year"
-                   scales="week,month,year" color="gantt_color" create="0" delete="0" plan="0"
+                   scales="month,year" color="gantt_color" create="0" delete="0" plan="0"
                    decoration-danger="state != 'past' and (share_level == 'low' or net_level == 'low')">
                 <field name="state"/>
                 <field name="share_level"/>
                 <field name="net_level"/>
                 <field name="subtitle"/>
-                <field name="formula"/>
-                <field name="wage"/>
-                <field name="price"/>
-                <field name="our_share"/>
-                <field name="net_share"/>
+                <field name="gantt_person"/>
+                <field name="gantt_period"/>
+                <field name="gantt_money"/>
+                <field name="gantt_shares"/>
+                <field name="gantt_found"/>
+                <field name="gantt_agent"/>
+                <field name="gantt_alert"/>
                 <templates>
                     <div t-name="gantt-popover">
-                        <div class="fw-semibold" t-esc="formula"/>
+                        <div class="fw-semibold" t-esc="gantt_person"/>
                         <div class="text-muted" t-esc="subtitle"/>
-                        <div>Частка WorkSET: <t t-esc="our_share"/> €/год</div>
-                        <div>Після бонусів офісу: <t t-esc="net_share"/> €/год</div>
+                        <div t-esc="gantt_period"/>
+                        <div t-esc="gantt_money"/>
+                        <div t-esc="gantt_shares"/>
+                        <div t-esc="gantt_found"/>
+                        <div t-if="gantt_agent" t-esc="gantt_agent"/>
+                        <div t-if="gantt_alert" class="text-danger fw-semibold" t-esc="gantt_alert"/>
                     </div>
                 </templates>
             </gantt>
@@ -40,10 +49,10 @@
         <field name="res_model">workset.rate</field>
         <field name="view_mode">gantt,form</field>
         <field name="search_view_id" ref="view_rate_search"/>
-        <field name="context">{'workset_rates_gantt': 1}</field>
+        <field name="context">{'workset_rates_gantt': 1, 'search_default_work_future': 1}</field>
         <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">Ставок ще немає</p>
-            <p>Смуги з’являться, коли в ставок будуть дати: перетягнути можна лише майбутню ставку.</p>
+            <p class="o_view_nocontent_smiling_face">Смуга — ставка пари у часі; колір — лінія; підпис — замовник і гроші</p>
+            <p>Зараз показано тих, хто працює, і майбутні ставки; історію видно, якщо зняти фільтр «Працюють і майбутні».</p>
         </field>
     </record>
 

@@ -109,6 +109,9 @@
         <field name="res_model">workset.line.housing</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_housing_search"/>
+        <!-- контекст — явно порожній: у базах, оновлених зі старої версії, лишився старий контекст із групуванням за лінією; без поля
+             оновлення модуля його не стирає -->
+        <field name="context">{}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">Правил житла ще немає</p>
             <p>Як кожна лінія рахує житло людей: вирахування годинами, буфер з оплати чи рахунків, вираховує замовник або житло не наше.</p>
