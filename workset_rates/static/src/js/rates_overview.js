@@ -6,7 +6,10 @@
  *  «Хто знайшов» — штатний список за описом, який сервер прислав поруч із числом (open: дія, заголовок, домен, фільтри пошуку; openList
  *  лише виконує його) — число на елементі = число рядків списку; клік по тривозі — список або картка.
  *  Круг 06.11 (слово власника): картки ліній — один ряд від більшого числа до меншого, смуга зліва картки — колір лінії з сервера
- *  (line.color — той самий, що ряд лінії на графіку «По лініях»); усі числа — з роздільником тисяч (groupNumber). */
+ *  (line.color — той самий, що ряд лінії на графіку «По лініях»); усі числа — з роздільником тисяч (groupNumber).
+ *  Круг вигляду 06.11 (слово власника «лише важливе, без порожнього й обрізаного»): нульові «пігулки» сховані; картка лінії коротка, решта —
+ *  у підказці (lineTip), клік — фільтр сторінки за лінією; «Тривоги» трьома групами (alertGroups); графік місяців — три лінії зі значенням на
+ *  останній точці, «Розподіл» — число над стовпцем; кольори графіків — з обчисленого стилю сторінки (Odoo 19 не задає CSS-змінні Bootstrap). */
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { loadBundle } from "@web/core/assets";
@@ -16,7 +19,7 @@ import { getColor, hexToRGBA } from "@web/core/colors/colors";
 import { localization } from "@web/core/l10n/localization";
 import { user } from "@web/core/user";
 import { Layout } from "@web/search/layout";
-import { groupNumber } from "@workset_rates/js/rates_format";
+import { groupNumber, withAlpha } from "@workset_rates/js/rates_format";
 import { Dropdown } from "@web/core/dropdown/dropdown";
 import { DropdownItem } from "@web/core/dropdown/dropdown_item";
 import { CheckboxItem } from "@web/core/dropdown/checkbox_item";
@@ -65,7 +68,8 @@ export class RatesOverview extends Component {
         this.months = MONTHS;
         this.storeKey = STORE + user.userId;
         this.filter = useState(this.restore());
-        this.state = useState({ data: null, byLine: false });
+        // open — розгорнуті групи «Тривог» (немає ключа — за замовчуванням: «Неповні дані» згорнуто, решта розгорнуто)
+        this.state = useState({ data: null, byLine: false, open: {} });
         this.serial = 0;
         this.charts = [];
         this.historyRef = useRef("history");
@@ -185,7 +189,41 @@ export class RatesOverview extends Component {
 
     get hasAlerts() {
         const d = this.state.data;
-        return Boolean(d && (d.check || d.alerts.some((a) => a.count)));
+        return Boolean(d && (d.check || this.alertGroups.length));
+    }
+
+    /** Є хоч одна «пігулка» з числом > 0 (нульові сховані, ряду без них немає). */
+    get hasPills() {
+        const t = (this.state.data && this.state.data.tiles) || {};
+        return ["contract_diff", "below_min", "to_check", "no_line", "raises"].some((k) => t[k]);
+    }
+
+    /** «Тривоги» трьома групами: «Потрібна дія» — живі тривоги з числом > 0 (з рядками) і розділи звірки про гроші та людей без ставки;
+     *  «Договір ≠ база — подробиці»; «Неповні дані». Розділи й підписи груп — із сервера (check.groups), порожніх груп немає. */
+    get alertGroups() {
+        const d = this.state.data;
+        if (!d) {
+            return [];
+        }
+        const byKey = Object.fromEntries(((d.check && d.check.groups) || []).map((g) => [g.key, g]));
+        const live = d.alerts.filter((a) => a.count);
+        const action = byKey.action || { key: "action", title: d.labels.g_action, items: [] };
+        const out = live.length || action.items.length ? [{ ...action, live }] : [];
+        for (const key of ["contract", "data"]) {
+            if (byKey[key]) {
+                out.push({ ...byKey[key], live: [] });
+            }
+        }
+        return out;
+    }
+
+    isOpen(group) {
+        const open = this.state.open;
+        return group.key in open ? open[group.key] : group.key !== "data";
+    }
+
+    toggleGroup(group) {
+        this.state.open[group.key] = !this.isOpen(group);
     }
 
     /** Середні смуги пораховано по всіх діючих ставках (не лише по тих, хто працює) — коли «Тільки працюють» вимкнено. */
@@ -209,10 +247,6 @@ export class RatesOverview extends Component {
 
     monthLabel(day) {
         return luxon.DateTime.fromISO(day).toFormat("LLL yy");
-    }
-
-    dateLabel(day) {
-        return day ? luxon.DateTime.fromISO(day).toFormat("dd.MM") : "";
     }
 
     /** Сума без зайвих нулів: 3 → «3», 1,5 → «1,5». */
@@ -246,6 +280,51 @@ export class RatesOverview extends Component {
         }
         const sum = f.min === f.max ? `−${this.plain(f.max)} €` : `−${this.plain(f.min)}…${this.plain(f.max)} €`;
         return `${this.data.labels.fund} ${sum}`;
+    }
+
+    /** Підказка картки лінії: усе, чого на короткій картці немає — якір, платять нам, після бонусів, посередник, фонд, нижче мінімуму, що
+     *  робить клік. Рядки — через перенос. */
+    lineTip(line) {
+        const L = this.data.labels;
+        const anchor = L["anchor_" + line.anchor] || "";
+        let agent = "";
+        if (line.agent === "yes") {
+            agent = this.agentText(line);
+        } else if (line.agent === "expected") {
+            agent = L.agent_wait;
+        }
+        return [
+            anchor ? `${line.name} · ${anchor}` : line.name,
+            this.fill(L.tip_price, this.money(line.avg_price)),
+            this.fill(L.tip_net, this.money(line.avg_net)),
+            agent,
+            this.fundText(line),
+            line.below_min ? this.fill(L.tip_below, this.int(line.below_min)) : "",
+            L.tip_line,
+        ]
+            .filter(Boolean)
+            .join("\n");
+    }
+
+    /** Картка лінії вибрана фільтром сторінки (лише вона). */
+    isLineOn(line) {
+        return this.filter.lines.length === 1 && this.filter.lines[0] === line.id;
+    }
+
+    /** Клік по картці лінії — фільтр сторінки за цією лінією; ще раз — усі лінії. */
+    filterLine(line) {
+        if (this.isLineOn(line)) {
+            return this.allLines();
+        }
+        this.filter.lines.splice(0, this.filter.lines.length, line.id);
+        this.changed();
+    }
+
+    onLineKey(ev, line) {
+        if (ev.key === "Enter" || ev.key === " ") {
+            ev.preventDefault();
+            this.filterLine(line);
+        }
     }
 
     /** Підпис із сервера з підстановкою %s по черзі: підпис("Частка %s", "5–6") */
@@ -326,10 +405,11 @@ export class RatesOverview extends Component {
         }
         const scheme = cookie.get("color_scheme");
         const color = (i) => getColor(i, scheme, "odoo");
-        const css = getComputedStyle(this.historyRef.el);
-        const text = css.getPropertyValue("--bs-body-color").trim() || undefined;
-        const grid = css.getPropertyValue("--bs-border-color").trim() || undefined;
-        const primary = css.getPropertyValue("--bs-primary").trim() || color(0);
+        // кольори — з обчисленого стилю картки графіка (світла й темна тема): Odoo 19 CSS-змінних Bootstrap не задає (копія 20, 06.11);
+        // сітка й нейтральний сектор — напівпрозорі від кольору тексту
+        const css = getComputedStyle(this.historyRef.el.parentElement || this.historyRef.el);
+        const text = css.color || undefined;
+        const grid = withAlpha(text, 0.15);
         const axis = { ticks: { color: text }, grid: { color: grid } };
         // підписи осей і підказок — числа за мовою користувача (uk / ru: пробіл тисяч, кома)
         const base = {
@@ -339,6 +419,7 @@ export class RatesOverview extends Component {
             animation: false,
             plugins: { legend: { position: "bottom", labels: { color: text, boxWidth: 12 } } },
         };
+        const font = (px) => `600 ${px}px ${css.fontFamily}`;
         const line = (i) => ({ borderColor: color(i), backgroundColor: hexToRGBA(color(i), 0.2), tension: 0.3, pointRadius: 2 });
         const labels = d.series.days.map((day) => this.monthLabel(day));
         const L = d.labels;
@@ -347,27 +428,53 @@ export class RatesOverview extends Component {
             // колір ряду — колір лінії з сервера (l.color), як смуга її картки
             datasets = d.series.by_line.map((l) => ({ label: l.name, data: l.share, ...line(l.color || 0) }));
         } else {
+            // три лінії різних кольорів (круг вигляду 06.11): «Ставок діяло» (друга вісь) і «після бонусів» — не на графіку
             const total = d.series.total;
             datasets = [
                 { label: L.wage, data: total.map((p) => p.avg_wage), ...line(0) },
                 { label: L.price, data: total.map((p) => p.avg_price), ...line(1) },
                 { label: L.share, data: total.map((p) => p.avg_share), ...line(2) },
-                { label: L.net, data: total.map((p) => p.avg_net), ...line(3) },
-                { label: L.count, data: total.map((p) => p.count), yAxisID: "y1", borderDash: [4, 4], ...line(4) },
             ];
         }
+        // значення на останній точці кожної лінії (лише «Загалом»: по лініях підписи налізли б одне на одне)
+        const lastValue = {
+            id: "wsLastValue",
+            afterDatasetsDraw: (chart) => {
+                if (this.state.byLine) {
+                    return;
+                }
+                const ctx = chart.ctx;
+                ctx.save();
+                ctx.font = font(12);
+                ctx.textAlign = "left";
+                ctx.textBaseline = "middle";
+                chart.data.datasets.forEach((ds, i) => {
+                    const points = chart.getDatasetMeta(i).data;
+                    const value = ds.data[ds.data.length - 1];
+                    if (!points.length || value === null || value === undefined || !chart.isDatasetVisible(i)) {
+                        return;
+                    }
+                    const pt = points[points.length - 1];
+                    ctx.fillStyle = ds.borderColor;
+                    ctx.fillText(this.money(value), pt.x + 6, pt.y);
+                });
+                ctx.restore();
+            },
+        };
         this.charts.push(
             new Chart(this.historyRef.el, {
                 type: "line",
                 data: { labels, datasets },
                 options: {
                     ...base,
+                    layout: { padding: { right: this.state.byLine ? 0 : 44 } },
                     scales: {
-                        x: axis,
+                        // підписи місяців крупніше
+                        x: { ...axis, ticks: { color: text, font: { size: 13 } } },
                         y: { ...axis, beginAtZero: true },
-                        y1: { ...axis, beginAtZero: true, position: "right", display: !this.state.byLine, grid: { drawOnChartArea: false } },
                     },
                 },
+                plugins: [lastValue],
             })
         );
         // клік по елементу графіка відкриває список, курсор-вказівник — лише над елементом
@@ -384,19 +491,40 @@ export class RatesOverview extends Component {
                 }
             },
         });
+        // «Розподіл частки»: число над стовпцем (порожні — без числа); крок стовпця — сервер (BUCKET_STEP)
+        const barValue = {
+            id: "wsBarValue",
+            afterDatasetsDraw: (chart) => {
+                const ctx = chart.ctx;
+                const values = chart.data.datasets[0].data;
+                ctx.save();
+                ctx.font = font(12);
+                ctx.textAlign = "center";
+                ctx.textBaseline = "bottom";
+                ctx.fillStyle = text || color(0);
+                chart.getDatasetMeta(0).data.forEach((bar, i) => {
+                    if (values[i]) {
+                        ctx.fillText(this.int(values[i]), bar.x, bar.y - 3);
+                    }
+                });
+                ctx.restore();
+            },
+        };
         this.charts.push(
             new Chart(this.bucketsRef.el, {
                 type: "bar",
                 data: {
                     labels: d.buckets.map((b) => b.label),
-                    datasets: [{ label: L.people, data: d.buckets.map((b) => b.count), backgroundColor: primary, borderRadius: 3 }],
+                    datasets: [{ label: L.people, data: d.buckets.map((b) => b.count), backgroundColor: color(0), borderRadius: 3 }],
                 },
                 options: {
                     ...base,
                     ...clickable((i) => this.openBucket(i)),
+                    layout: { padding: { top: 18 } },
                     plugins: { legend: { display: false } },
                     scales: { x: axis, y: { ...axis, beginAtZero: true, ticks: { color: text, precision: 0 } } },
                 },
+                plugins: [barValue],
             })
         );
         // «Хто знайшов»: «Не вказано» — нейтральний сірий (змінна теми), щоб не збігатися з «Знайшли ми»; поле порожнє в усіх — підпис у центрі,
@@ -404,7 +532,7 @@ export class RatesOverview extends Component {
         const kinds = ["us", "line", "none"];
         const total = d.found.us + d.found.line + d.found.none;
         const empty = total > 0 && d.found.us + d.found.line === 0;
-        const neutral = css.getPropertyValue("--bs-gray-500").trim() || grid || color(5);
+        const neutral = withAlpha(text, 0.35) || color(5);
         const centerText = {
             id: "wsFoundEmpty",
             afterDraw: (chart) => {
@@ -418,7 +546,6 @@ export class RatesOverview extends Component {
                 const inner = arc && arc.innerRadius ? arc.innerRadius : Math.min(a.width, a.height) * 0.3;
                 const ctx = chart.ctx;
                 const rows = this.fill(L.found_empty, this.int(total), this.int(total)).split("\n");
-                const font = (px) => `600 ${px}px ${css.fontFamily}`;
                 let size = inner / 3;
                 ctx.save();
                 ctx.font = font(size);

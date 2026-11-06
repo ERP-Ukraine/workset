@@ -21,7 +21,9 @@ GANTT_CTX = 'workset_rates_gantt'                    # контекст дії �
 GANTT_ROW_FIELDS = frozenset(['line_id', 'person_id', 'customer_id'])  # рядок «Стрічки»: смугу в інший рядок не переносять
 GANTT_MOVE_FIELDS = GANTT_ROW_FIELDS | {'date_from'}                   # у контексті «Стрічки» — це перенос смуги
 LABELS = ('count', 'wage', 'price', 'share', 'net', 'people', 'found_us', 'found_line', 'found_none', 'found_empty', 'agent_from',
-          'fund')  # calc.TX: ov_<ключ>
+          'fund', 'tip_check', 'tip_contract', 'tip_people', 'tip_price', 'tip_net', 'tip_below', 'tip_line', 'line_list', 'anchor_markup',
+          'anchor_tariff', 'agent_wait', 'share_short', 'g_action', 'g_contract', 'g_data')  # calc.TX: ov_<ключ>
+BUCKET_STEP = 2    # «Розподіл частки»: крок стовпця, €/год (круг вигляду 06.11: з кроком 1 половина стовпців порожні)
 ALERT_ROWS = 5     # рядків у тривозі «Огляду»; решта — списком за кліком на заголовок
 ALERT_IDS = 1000    # id для списку тривоги не більше
 
@@ -141,17 +143,20 @@ class WorksetRateOverview(models.Model):
         lines = self._overview_lines(rows, hist, days, months, h, only_working, base, lang)
         series['by_line'] = [{'id': c['id'], 'name': c['name'], 'color': c['color'], 'share': c.pop('_share')} for c in lines]
         working = bool(only_working)
-        buckets = calc.share_buckets([r['our_share'] for r in rows])
+        buckets = calc.share_buckets([r['our_share'] for r in rows], step=BUCKET_STEP)
         for b in buckets:
             b['open'] = calc.ov_list(calc.t('ov_t_bucket', lang) % b['label'], base, calc.bucket_domain(b), working=working)
         found_open = {k: calc.ov_list(calc.t('ov_t_found', lang) % calc.t('ov_found_' + k, lang), base, calc.found_domain(k), working=working)
                       for k in ('us', 'line', 'none')}
+        alerts = self._overview_alerts(base, scope, today, lang)
+        # розділ звірки «Проєкти без ставки» — та сама біда, що жива тривога «Працюють без ставки»: коли вона є, розділ не дублюється
+        live = {a['key'] for a in alerts if a['count']}
         return {
             'today': today, 'months': months, 'tiles': tiles, 'lines': lines, 'series': series, 'buckets': buckets,
             'found': calc.found_split([r['found_by'] for r in rows]),
             'open': {'tiles': calc.ov_tiles_open(base, only_working, lang), 'found': found_open},
-            'alerts': self._overview_alerts(base, scope, today, lang),
-            'check': self._overview_check(),
+            'alerts': alerts,
+            'check': self._overview_check(lang, skip=('nomap',) if 'no_rate' in live else ()),
             'options': self._overview_options(),
             'labels': {k: calc.t('ov_' + k, lang) for k in LABELS},
         }
@@ -274,13 +279,18 @@ class WorksetRateOverview(models.Model):
             out = found if out is None else out & found
         return out if out is not None else None
 
-    def _overview_check(self):
-        # остання «Звірка ставок»: розділи й число ставок у кожному (з її запису; розділи пише А4)
+    def _overview_check(self, lang='uk', skip=()):
+        # остання «Звірка ставок»: розділи й число пунктів у кожному (з її запису; розділи пише А4). groups — «Тривоги» трьома групами
+        # мовою користувача (calc.check_groups: запис звірки може бути іншою мовою); head — «Звірка від 06.11 · 444 пункти»
         last = self.env[CHECK].search([], order='date desc, id desc', limit=1)
         if not last:
             return False
+        sections = calc.check_sections(last.body)
+        head = calc.t('ov_check_head', lang) % (calc.short_date(last.date), calc.points_text(last.issue_count, lang))
+        if last.done:
+            head += ' · ' + calc.t('ov_check_done', lang)
         return {'id': last.id, 'name': last.name or '', 'date': calc.iso(last.date), 'done': bool(last.done), 'issues': last.issue_count,
-                'sections': calc.check_sections(last.body)}
+                'head': head, 'sections': sections, 'groups': calc.check_groups(sections, lang, skip)}
 
     def _overview_options(self):
         # фільтр сторінки: усі активні лінії; замовники — ті, в кого є діючі ставки

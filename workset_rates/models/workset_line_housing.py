@@ -35,9 +35,10 @@ class WorksetLineHousing(models.Model):
                                   help="Порожньо — правило всієї лінії; замовник (об'єкт) — його правило, точніше за правило лінії")
     kind = fields.Selection(KINDS, string='Як рахуємо', required=True, tracking=3)
     currency_id = fields.Many2one('res.currency', string='Валюта', default=lambda self: self.env.ref('base.EUR', raise_if_not_found=False))
-    amount = fields.Monetary(string='Сума', currency_field='currency_id', tracking=4, aggregator='avg', help='У одиниці з поля «Одиниця»; порожньо — суми ще немає')
+    # без підсумку в рядку групи: суми в різних одиницях (€ за годину, € за місяць, %) не складаються й не усереднюються (розбір вигляду 06.11)
+    amount = fields.Monetary(string='Сума', currency_field='currency_id', tracking=4, aggregator=False, help='У одиниці з поля «Одиниця»; порожньо — суми ще немає')
     amount_unit = fields.Selection(UNITS, string='Одиниця', tracking=5)
-    hours_per_person = fields.Float(string='Годин житла на особу', tracking=6,
+    hours_per_person = fields.Float(string='Годин житла на особу', tracking=6, aggregator=False,
                                     help='Лише для «Вирахування: години житла × €»: скільки годин житла на особу за період. Порожньо — не задано')
     payer = fields.Selection(PAYERS, string='Хто платить', tracking=7)
     date_from = fields.Date(string='З', required=True, index=True, tracking=8)

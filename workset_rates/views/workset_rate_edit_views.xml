@@ -66,16 +66,15 @@
                         <field name="source"/>
                     </group>
                 </group>
-                <div class="text-muted small" invisible="what == 'agent' and agent_scope == 'deal'">
-                    «Нова ставка з дати» — з цього дня діє нова ставка, попередня закінчується напередодні, частка рахується одразу.
-                    «Виправити помилку» — число в цій самій ставці, причина — в історію ставки.
-                </div>
                 <div class="text-muted small" invisible="what != 'agent' or agent_scope != 'deal'">
                     Сума посередника однакова для всіх ставок домовленості — її змінюють у картці домовленості.
                 </div>
+                <!-- що робить кожна кнопка — у підказці самої кнопки, а не сірим абзацом над ними (розбір вигляду 06.11) -->
                 <footer>
-                    <button name="action_new_from_date" type="object" string="Нова ставка з дати" class="btn-primary" invisible="what == 'agent' and agent_scope == 'deal'"/>
-                    <button name="action_fix" type="object" string="Виправити помилку" class="btn-secondary" invisible="what == 'agent' and agent_scope == 'deal'"/>
+                    <button name="action_new_from_date" type="object" string="Нова ставка з дати" class="btn-primary" invisible="what == 'agent' and agent_scope == 'deal'"
+                            title="З цієї дати діє нова ставка, попередня закінчується напередодні; частка рахується одразу"/>
+                    <button name="action_fix" type="object" string="Виправити помилку" class="btn-secondary" invisible="what == 'agent' and agent_scope == 'deal'"
+                            title="Число змінюється в цій самій ставці; причина — в історію ставки"/>
                     <button name="action_open_deal" type="object" string="Відкрити домовленість" class="btn-primary" invisible="what != 'agent' or agent_scope != 'deal' or not deal_ok"/>
                     <button string="Скасувати" special="cancel" class="btn-secondary"/>
                 </footer>
@@ -84,8 +83,8 @@
     </record>
 
     <!-- «Переговорити»: з ким говорити (лише ті, хто в ставки є: працівник, посередник, замовник, партнер лінії; під вибором — ім'я, телефон,
-         Telegram), кому доручити (за замовчуванням — сам; у виборі — лише ті, хто читає ставки), строк, назва задачі з цифрами людини (можна
-         змінити), нотатка -->
+         Telegram — лише те, що є), кому доручити (за замовчуванням: замовник і посередник — менеджер із замовниками з параметра модуля,
+         решта — сам; у виборі — лише ті, хто читає ставки), строк, назва задачі з цифрами людини (можна змінити), нотатка -->
     <record id="view_rate_talk_form" model="ir.ui.view">
         <field name="name">workset.rate.talk.form</field>
         <field name="model">workset.rate.talk</field>
