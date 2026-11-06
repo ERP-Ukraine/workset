@@ -139,7 +139,7 @@ class WorksetRateOverview(models.Model):
         shown = days[-months:]
         series = {'days': shown, 'total': calc.month_series([h(r) for r in hist], shown), 'by_line': []}
         lines = self._overview_lines(rows, hist, days, months, h, only_working, base, lang)
-        series['by_line'] = [{'id': c['id'], 'name': c['name'], 'share': c.pop('_share')} for c in lines]
+        series['by_line'] = [{'id': c['id'], 'name': c['name'], 'color': c['color'], 'share': c.pop('_share')} for c in lines]
         working = bool(only_working)
         buckets = calc.share_buckets([r['our_share'] for r in rows])
         for b in buckets:
@@ -189,8 +189,8 @@ class WorksetRateOverview(models.Model):
                                                     for r in mine]),
                         'fund': calc.fund_badge([r['worker_fund_share'] for r in mine]),
                         'spark': calc.spark_path(spark), 'spark_values': spark, '_share': share[-months:]})
-        out.sort(key=lambda c: (-c['working'], -c['total'], c['name']))
-        return out
+        # один ряд від більшого числа до меншого; 'color' — місце в ряду (смуга картки й ряд «По лініях» — один колір)
+        return calc.line_cards_order(out)
 
     def _rate_rows(self, rates, sub):
         return [{'id': r.id, 'title': r.person_id.display_name or '', 'sub': sub(r)} for r in rates[:ALERT_ROWS]]

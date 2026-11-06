@@ -1481,8 +1481,8 @@ TX.update({
                  'ставку пары — изменились бы прошлые месяцы. Ошибку в числе исправляет «Исправить ошибку».'],
     'e_past': ['Ставка минула — це історія пари, її не правлять. Нове число — у діючій ставці цієї пари.',
                'Ставка прошла — это история пары, её не правят. Новое число — в действующей ставке этой пары.'],
-    'talk_user': ['«Кому»: %s не бачить ставок — задачу на ставці не відкриє. Оберіть того, хто читає ставки (редактор, кадри, бухгалтерія).',
-                  '«Кому»: %s не видит ставок — задачу на ставке не откроет. Выберите того, кто читает ставки (редактор, кадры, бухгалтерия).'],
+    'talk_user': ['«Кому доручити»: %s не бачить ставок — задачу на ставці не відкриє. Оберіть того, хто читає ставки (редактор, кадри, бухгалтерія).',
+                  '«Кому поручить»: %s не видит ставок — задачу на ставке не откроет. Выберите того, кто читает ставки (редактор, кадры, бухгалтерия).'],
     'e_zero': ['«Зарплата працівника» має бути більше 0 €/год.', '«Зарплата работника» должна быть больше 0 €/час.'],
     'e_negative': ['Сума не може бути менша за 0.', 'Сумма не может быть меньше 0.'],
     'e_new_note': ['Нова ставка з %s (майстер правки): %s %s → %s. %s', 'Новая ставка с %s (мастер правки): %s %s → %s. %s'],
@@ -1493,6 +1493,21 @@ TX.update({
     'talk_summary': ['Переговорити: %s', 'Переговорить: %s'],
     'talk_wage': ['зарплата %s', 'зарплата %s'], 'talk_price': ['платять %s', 'платят %s'], 'talk_agent': ['посередник %s', 'посредник %s'],
     'talk_fund': ['фонд %s', 'фонд %s'], 'talk_car': ['авто %s', 'авто %s'], 'talk_share': ['частка %s', 'доля %s'],
+    # «Переговорити»: з ким говорити (роль, ім'я, телефон, Telegram) — у майстрі й першим абзацом нотатки задачі (слово власника 06.11)
+    'talk_who_worker': ['Працівник', 'Работник'], 'talk_who_agent': ['Посередник', 'Посредник'], 'talk_who_customer': ['Замовник', 'Заказчик'],
+    'talk_who_partner': ['Партнер лінії', 'Партнёр линии'],
+    'talk_no_phone': ['телефону немає', 'телефона нет'], 'talk_tg': ['Telegram %s', 'Telegram %s'],
+    'talk_with': ['З ким говорити — %s: %s', 'С кем говорить — %s: %s'],
+    'talk_who_none': ['«З ким говорити»: у цієї ставки такої людини немає — оберіть іншу.',
+                      '«С кем говорить»: у этой ставки такого человека нет — выберите другого.'],
+    # вікно правки «Посередник»: чий посередник і звідки сума (слово власника 06.11: «какой посредник… за кем прикреплено, непонятно»)
+    'e_agent_src_deal': ['за домовленістю', 'по договорённости'],
+    'e_agent_src_own_deal': ['своє для цієї людини (домовленість є)', 'своё для этого человека (договорённость есть)'],
+    'e_agent_src_own': ['своє — домовленості немає', 'своё — договорённости нет'],
+    'e_agent_src_none': ['домовленості немає', 'договорённости нет'],
+    'e_agent_noname': ['не вказано', 'не указан'],
+    'e_agent_reason': ['Посередник лише цій людині — своє значення: вкажіть причину (чому не за домовленістю).',
+                       'Посредник только этому человеку — своё значение: укажите причину (почему не по договорённости).'],
     # «Стрічка»: перенос смуги
     'gantt_move': ['У «Стрічці» минулі та чинні ставки не пересуваються: нова ціна з дати — «Нова ставка з дати», помилкову дату виправте в картці '
                    'ставки через «Ставки → Усі ставки».',
@@ -1514,6 +1529,73 @@ def talk_text(nums, lang):
             parts.append(t('talk_' + key, lang) % money(nums[key]))
     parts.append(t('talk_share', lang) % money(nums.get('share')))
     return ', '.join(parts)
+
+
+TALK_WHO = ('worker', 'agent', 'customer', 'partner')  # «З ким говорити»: порядок варіантів у майстрі «Переговорити»
+
+
+def talk_options(have):
+    """«З ким говорити» майстра «Переговорити»: have — {роль: чи є в ставки така людина} → (ролі з людиною в порядку TALK_WHO, роль за
+    замовчуванням: посередник, якщо є, інакше працівник; нікого — False)."""
+    opts = [k for k in TALK_WHO if have.get(k)]
+    for k in ('agent', 'worker'):
+        if k in opts:
+            return opts, k
+    return opts, (opts[0] if opts else False)
+
+
+def first_filled(values):
+    """Перше непорожнє значення рядком (телефон: мобільний картки, робочий, контакту, особистий) або ''."""
+    for v in values or []:
+        s = str(v or '').strip()
+        if s:
+            return s
+    return ''
+
+
+def talk_reach(name, phone, tg, lang):
+    """Як зв'язатися: «Ім'я · телефон · Telegram 123»; телефону немає — «телефону немає», Telegram — лише коли є."""
+    parts = [str(name or '').strip() or '—', str(phone or '').strip() or t('talk_no_phone', lang)]
+    if str(tg or '').strip():
+        parts.append(t('talk_tg', lang) % str(tg).strip())
+    return ' · '.join(parts)
+
+
+def talk_note(role, reach, note, lang):
+    """Нотатка задачі «Переговорити» (Html): перший абзац — з ким говорити (роль, ім'я, телефон, Telegram), далі — нотатка з майстра
+    (рядки — <br>). Текст екранується (ім'я й нотатка — від людей)."""
+    out = '<p>%s</p>' % esc(t('talk_with', lang) % (t('talk_who_' + role, lang), reach)) if role and reach else ''
+    text = str(note or '').strip()
+    if text:
+        out += '<p>%s</p>' % '<br>'.join(esc(x) for x in text.splitlines())
+    return out
+
+
+def agent_who(deals, cust_id, line_id, day, own, line_agent=None):
+    """Чий посередник у ставки — для людей (вікно правки «Посередник», «Переговорити»). deals — як у agent_share_for (ще 'agent' — ім'я
+    й 'agent_id' — контакт посередника, якщо модуль посередників їх дає; None — модуля немає); line_agent — [id, ім'я] агента лінії або None.
+    Ім'я й контакт — з домовленостей, що стосуються ставки (те саме правило, що сума: agent_share_for), без них — агент лінії. source — звідки
+    сума: 'deal' — за домовленістю; 'own_deal' — своє для цієї людини, хоча домовленість є; 'own' — своє, домовленості немає; 'none' —
+    домовленості немає (посередник 0). → {'names': [ім'я], 'agent_id': контакт або 0, 'source', 'ids': [id домовленостей ставки] — на них
+    веде ім'я-посилання вікна «Посередник»}."""
+    _sum, used = agent_share_for(deals or [], cust_id, line_id, day)
+    by_id = {d['id']: d for d in deals or []}
+    names, agent_id = [], 0
+    for i in used:
+        d = by_id.get(i) or {}
+        name = str(d.get('agent') or '').strip()
+        if name and name not in names:
+            names.append(name)
+        if not agent_id and d.get('agent_id'):
+            agent_id = d['agent_id']
+    if not names and not agent_id and line_agent and line_agent[0]:
+        agent_id = line_agent[0]
+        names = [str(line_agent[1] or '').strip()] if str(line_agent[1] or '').strip() else []
+    if own:
+        source = 'own_deal' if used else 'own'
+    else:
+        source = 'deal' if used else 'none'
+    return {'names': names, 'agent_id': agent_id, 'source': source, 'ids': list(used)}
 
 
 def contract_raise_price(kind, old_price, old_wage, new_wage):
@@ -1715,6 +1797,17 @@ def fund_badge(values):
     «−А…Б €»); фонду немає ні в кого — False."""
     vals = [round(float(v or 0), 2) for v in values if abs(float(v or 0)) >= 0.005]
     return {'min': min(vals), 'max': max(vals)} if vals else False
+
+
+def line_cards_order(cards):
+    """Картки ліній «Огляду» (слово власника 06.11: «в одну полосу… от большего к меньшему»): від більшого числа картки ('count' — людей,
+    коли «Тільки працюють», інакше діючих ставок) до меншого; рівні — за діючими ставками ('total'), далі за назвою. 'color' — номер кольору
+    штатної палітри Odoo за місцем у ряду: один для смуги картки й ряду лінії на графіку «По лініях». Картки змінюються на місці; → той самий
+    список, відсортований."""
+    cards.sort(key=lambda c: (-(c.get('count') or 0), -(c.get('total') or 0), str(c.get('name') or '')))
+    for i, c in enumerate(cards):
+        c['color'] = i
+    return cards
 
 
 def gantt_groups_last(groups, field):

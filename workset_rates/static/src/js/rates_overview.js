@@ -4,16 +4,19 @@
  *  localStorage браузера окремо для кожного користувача. Графіки — Chart.js, який уже вантажить web (бандл web.chartjs_lib), кольори —
  *  штатна палітра Odoo й змінні Bootstrap теми (світла й темна). Клік по числу смуги, «пігулці», картці лінії, стовпцю розподілу, сектору
  *  «Хто знайшов» — штатний список за описом, який сервер прислав поруч із числом (open: дія, заголовок, домен, фільтри пошуку; openList
- *  лише виконує його) — число на елементі = число рядків списку; клік по тривозі — список або картка. */
+ *  лише виконує його) — число на елементі = число рядків списку; клік по тривозі — список або картка.
+ *  Круг 06.11 (слово власника): картки ліній — один ряд від більшого числа до меншого, смуга зліва картки — колір лінії з сервера
+ *  (line.color — той самий, що ряд лінії на графіку «По лініях»); усі числа — з роздільником тисяч (groupNumber). */
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { loadBundle } from "@web/core/assets";
 import { browser } from "@web/core/browser/browser";
 import { cookie } from "@web/core/browser/cookie";
 import { getColor, hexToRGBA } from "@web/core/colors/colors";
+import { localization } from "@web/core/l10n/localization";
 import { user } from "@web/core/user";
-import { formatFloat } from "@web/views/fields/formatters";
 import { Layout } from "@web/search/layout";
+import { groupNumber } from "@workset_rates/js/rates_format";
 import { Dropdown } from "@web/core/dropdown/dropdown";
 import { DropdownItem } from "@web/core/dropdown/dropdown_item";
 import { CheckboxItem } from "@web/core/dropdown/checkbox_item";
@@ -191,7 +194,17 @@ export class RatesOverview extends Component {
     }
 
     money(value) {
-        return formatFloat(value || 0, { digits: [16, 2] });
+        return groupNumber(value, { decimalPoint: localization.decimalPoint });
+    }
+
+    /** Кількість (людей, ставок, тривог) — ціле з роздільником тисяч. */
+    int(value) {
+        return groupNumber(value, { digits: 0 });
+    }
+
+    /** Колір лінії (номер штатної палітри з сервера, line.color) — смуга картки; той самий номер — ряд лінії на графіку «По лініях». */
+    lineColor(line) {
+        return getColor(line.color || 0, cookie.get("color_scheme"), "odoo");
     }
 
     monthLabel(day) {
@@ -204,7 +217,7 @@ export class RatesOverview extends Component {
 
     /** Сума без зайвих нулів: 3 → «3», 1,5 → «1,5». */
     plain(value) {
-        return formatFloat(value || 0, { digits: [16, 2], trailingZeros: false });
+        return groupNumber(value, { trailingZeros: false, decimalPoint: localization.decimalPoint });
     }
 
     /** Посередники картки лінії одним рядком: «Ім'я −сума €»; суми різні — сума більшості ставок і замовники з іншою сумою
@@ -318,7 +331,9 @@ export class RatesOverview extends Component {
         const grid = css.getPropertyValue("--bs-border-color").trim() || undefined;
         const primary = css.getPropertyValue("--bs-primary").trim() || color(0);
         const axis = { ticks: { color: text }, grid: { color: grid } };
+        // підписи осей і підказок — числа за мовою користувача (uk / ru: пробіл тисяч, кома)
         const base = {
+            locale: (user.lang || "").replace("_", "-") || undefined,
             responsive: true,
             maintainAspectRatio: false,
             animation: false,
@@ -329,7 +344,8 @@ export class RatesOverview extends Component {
         const L = d.labels;
         let datasets;
         if (this.state.byLine) {
-            datasets = d.series.by_line.map((l, i) => ({ label: l.name, data: l.share, ...line(i) }));
+            // колір ряду — колір лінії з сервера (l.color), як смуга її картки
+            datasets = d.series.by_line.map((l) => ({ label: l.name, data: l.share, ...line(l.color || 0) }));
         } else {
             const total = d.series.total;
             datasets = [
@@ -401,7 +417,7 @@ export class RatesOverview extends Component {
                 const cy = arc ? arc.y : (a.top + a.bottom) / 2;
                 const inner = arc && arc.innerRadius ? arc.innerRadius : Math.min(a.width, a.height) * 0.3;
                 const ctx = chart.ctx;
-                const rows = this.fill(L.found_empty, total, total).split("\n");
+                const rows = this.fill(L.found_empty, this.int(total), this.int(total)).split("\n");
                 const font = (px) => `600 ${px}px ${css.fontFamily}`;
                 let size = inner / 3;
                 ctx.save();

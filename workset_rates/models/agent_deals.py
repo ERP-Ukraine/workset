@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """Адаптер моделей посередників і агентів людей (ручні моделі модуля посередників) — ЄДИНИЙ файл модуля, що знає їхні імена.
 
-«Ставки» лише читають: посередник (агент по замовниках) — домовленості DEAL; агент людей — учасники MEMBER домовленостей PEOPLE_DEAL.
+«Ставки» лише читають: посередник (агент по замовниках) — домовленості DEAL; агент людей — учасники MEMBER домовленостей PEOPLE_DEAL;
+Telegram контакту (поле модуля посередників на res.partner) — partner_tg, для задачі «Переговорити».
 Моделі немає (модуль посередників не встановлено) або бракує полів — None: частка 0 і підпис «посередники не підключені»; кнопки
-«Домовленість» у формі ставки не видно (deal_ids / deal_action).
+«Домовленість» у формі ставки не видно (deal_ids / deal_action), ім'я посередника у вікні правки — текстом, без посилання (deal_link).
 Лінія домовленості рахується лише тоді, коли її поле вже веде на workset.line (до перейменування воно веде на стару модель).
 Переїде модуль посередників у свій код — змінюється лише цей файл."""
 from . import calc
@@ -17,9 +18,10 @@ NEED_PEOPLE = ('x_rate', 'x_state', 'x_date_from', 'x_date_to')
 
 
 def read_deals(env):
-    """→ [{'id', 'rate', 'rate_full', 'state', 'kind', 'customer_ids', 'line_id', 'date_from', 'date_to', 'agent'}] діючих домовленостей або None.
-    kind — вид домовленості: 'hour' (посередник, €/год), 'fixed', 'worker_fund' (фонд працівників — calc.worker_fund_for); поля виду немає —
-    'hour'. rate_full — сума фонду на повну ставку зайнятості (x_rate_full); поля немає — None (тоді для всіх rate)."""
+    """→ [{'id', 'rate', 'rate_full', 'state', 'kind', 'customer_ids', 'line_id', 'date_from', 'date_to', 'agent', 'agent_id'}] діючих
+    домовленостей або None. kind — вид домовленості: 'hour' (посередник, €/год), 'fixed', 'worker_fund' (фонд працівників —
+    calc.worker_fund_for); поля виду немає — 'hour'. rate_full — сума фонду на повну ставку зайнятості (x_rate_full); поля немає — None (тоді
+    для всіх rate). agent / agent_id — ім'я й контакт посередника (вікно правки «Посередник», «Переговорити»); поля немає — '' і 0."""
     if DEAL not in env:
         return None
     Deal = env[DEAL].sudo()
@@ -34,7 +36,43 @@ def read_deals(env):
         out.append({'id': d.id, 'rate': d.x_rate, 'rate_full': d.x_rate_full if has_full else None, 'state': d.x_state,
                     'kind': d.x_kind if has_kind else 'hour', 'customer_ids': d.x_customer_ids.ids, 'line_id': d.x_line_id.id if by_line else 0,
                     'date_from': calc.iso(d.x_date_from), 'date_to': calc.iso(d.x_date_to),
-                    'agent': (d.x_agent_id.name or '') if has_agent else ''})
+                    'agent': (d.x_agent_id.name or '') if has_agent else '', 'agent_id': d.x_agent_id.id if has_agent else 0})
+    return out
+
+
+TG = 'x_agent_tg_id'  # Telegram контакту — поле модуля посередників на res.partner (є лише там, де модуль стоїть)
+
+
+def partner_tg(partner):
+    """Telegram контакту для задачі «Переговорити»: поле модуля посередників; поля немає або воно порожнє — ''. Лише це поле, під sudo."""
+    if not partner or TG not in partner._fields:
+        return ''
+    value = partner.sudo()[TG]
+    return str(value).strip() if value else ''
+
+
+DEAL_ACTION = 'workset_hq.agents_act_cl_deals'  # дія «Домовленості (агенти по замовниках)» модуля посередників (є лише там, де він стоїть)
+
+
+def deal_link(env, ids, title):
+    """Ім'я посередника посиланням (вікно правки «Посередник», слово власника 06.11 «за кем прикреплено, непонятно»): дія модуля
+    посередників DEAL_ACTION на домовленості ids, з яких сума ставки (calc.agent_who → 'ids'); одна — картка, кілька — список. Від імені
+    користувача: бачить лише свої. Моделі чи дії немає, прав немає або жодної не видно — None (ім'я тоді текстом)."""
+    if not ids or DEAL not in env or not env[DEAL].has_access('read'):
+        return None
+    act = env.ref(DEAL_ACTION, raise_if_not_found=False)
+    if not act or act._name != 'ir.actions.act_window' or act.res_model != DEAL:
+        return None
+    seen = env[DEAL].search([('id', 'in', list(ids))]).ids
+    if not seen:
+        return None
+    out = env['ir.actions.actions']._for_xml_id(DEAL_ACTION)
+    out.update({'name': title, 'target': 'current'})
+    if len(seen) == 1:
+        forms = [v for v in out.get('views') or [] if v[1] == 'form']
+        out.update({'res_id': seen[0], 'view_mode': 'form', 'views': forms[:1] or [[False, 'form']]})
+    else:
+        out['domain'] = [('id', 'in', seen)]
     return out
 
 
