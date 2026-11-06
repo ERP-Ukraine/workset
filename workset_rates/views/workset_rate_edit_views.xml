@@ -2,7 +2,8 @@
 <odoo>
     <!-- Майстер правки з рядка списку (олівець біля «Зарплата працівника», «Платять нам», «Посередник»): хто й що, «зараз → нове», дата,
          причина; дві дії — «Нова ставка з дати» (нова ставка пари, попередня закривається сама) і «Виправити помилку» (те саме число в цій
-         ставці, причина обов'язкова). «Посередник» → «для всієї домовленості» — картка домовленості, якщо її можна правити -->
+         ставці, причина обов'язкова). «Посередник»: рядок «Посередник: ім'я · звідки сума» (ім'я — посиланням на домовленість, коли сума з
+         неї; «своє» — попередженням із причиною); «для всієї домовленості» — лише коли домовленість ставки є й її можна правити -->
     <record id="view_rate_edit_form" model="ir.ui.view">
         <field name="name">workset.rate.edit.form</field>
         <field name="model">workset.rate.edit</field>
@@ -14,13 +15,35 @@
                 <field name="currency_id" invisible="1"/>
                 <field name="what" invisible="1"/>
                 <field name="deal_ok" invisible="1"/>
+                <field name="deal_found" invisible="1"/>
                 <div class="d-flex align-items-baseline gap-2 flex-wrap mb-2">
                     <field name="person_id" readonly="1" class="fw-semibold fs-5 w-auto"/>
                     <field name="customer_id" readonly="1" class="text-muted w-auto"/>
                 </div>
+                <!-- чий посередник (слово власника 06.11): з домовленості, що стосується ставки, без неї — агент лінії; ім'я — посиланням
+                     на ту домовленість (дія модуля посередників), коли вона є й її видно, інакше текстом -->
+                <div class="d-flex align-items-baseline gap-2 flex-wrap mb-1" invisible="what != 'agent'">
+                    <div class="text-muted">Посередник:</div>
+                    <button name="action_open_agent_link" type="object" class="btn-link p-0 fw-semibold" title="Відкрити домовленість посередника"
+                            invisible="not agent_deal_name">
+                        <field name="agent_deal_name" readonly="1"/>
+                    </button>
+                    <field name="agent_name" readonly="1" class="fw-semibold w-auto" invisible="not agent_name"/>
+                    <field name="agent_source" readonly="1" class="text-muted w-auto" invisible="not agent_source"/>
+                </div>
+                <div class="d-flex align-items-baseline gap-2 flex-wrap fw-semibold text-warning mb-1" role="alert" invisible="what != 'agent' or not agent_warning">
+                    <div><i class="fa fa-exclamation-triangle me-1" role="img" title="Своє значення"/></div>
+                    <field name="agent_warning" readonly="1" class="w-auto"/>
+                    <div class="fw-normal" invisible="not agent_reason">· причина:</div>
+                    <field name="agent_reason" readonly="1" class="w-auto fw-normal" invisible="not agent_reason"/>
+                </div>
+                <div class="text-muted small mb-2" invisible="what != 'agent' or deal_ok">
+                    <span invisible="deal_found">Домовленості з посередником для цієї ставки немає — нове значення діє лише для цієї людини (своє, з причиною).</span>
+                    <span invisible="not deal_found">Домовленість є, але правити її у вас немає права — нове значення діє лише для цієї людини (своє, з причиною).</span>
+                </div>
                 <group>
                     <group>
-                        <field name="agent_scope" widget="radio" invisible="what != 'agent'"/>
+                        <field name="agent_scope" widget="radio" invisible="what != 'agent' or not deal_ok"/>
                         <label for="old_value" string="Зараз"/>
                         <div class="d-flex align-items-baseline gap-2 flex-wrap">
                             <field name="old_value" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
@@ -35,7 +58,11 @@
                     </group>
                     <group invisible="what == 'agent' and agent_scope == 'deal'">
                         <field name="date" options="{'numeric': True}"/>
+                        <!-- посередник лише цій людині — своє значення з причиною. Не required у виді: кнопки type="object" (ім'я посередника
+                             — посилання на домовленість) спершу зберігають майстер, і порожня причина зупинила б посилання (ревю 06.11).
+                             Причину вимагає сервер — action_new_from_date і action_fix; тут — підказка під полем -->
                         <field name="reason" placeholder="Напр.: розмова з посередником, дата; помилка при введенні"/>
+                        <div colspan="2" class="text-muted small" invisible="what != 'agent' or agent_scope == 'deal'">Причина обов'язкова: своє значення посередника без неї не збережеться.</div>
                         <field name="source"/>
                     </group>
                 </group>
@@ -45,7 +72,6 @@
                 </div>
                 <div class="text-muted small" invisible="what != 'agent' or agent_scope != 'deal'">
                     Сума посередника однакова для всіх ставок домовленості — її змінюють у картці домовленості.
-                    <span invisible="deal_ok">Домовленості цієї ставки немає або немає права її правити.</span>
                 </div>
                 <footer>
                     <button name="action_new_from_date" type="object" string="Нова ставка з дати" class="btn-primary" invisible="what == 'agent' and agent_scope == 'deal'"/>
@@ -57,25 +83,29 @@
         </field>
     </record>
 
-    <!-- «Переговорити»: кому (за замовчуванням — сам; у виборі — лише ті, хто читає ставки), строк, назва задачі з цифрами людини (можна
+    <!-- «Переговорити»: з ким говорити (лише ті, хто в ставки є: працівник, посередник, замовник, партнер лінії; під вибором — ім'я, телефон,
+         Telegram), кому доручити (за замовчуванням — сам; у виборі — лише ті, хто читає ставки), строк, назва задачі з цифрами людини (можна
          змінити), нотатка -->
     <record id="view_rate_talk_form" model="ir.ui.view">
         <field name="name">workset.rate.talk.form</field>
         <field name="model">workset.rate.talk</field>
         <field name="arch" type="xml">
             <form string="Переговорити">
-                <!-- ставка — поле форми (див. «Правка ставки»): без неї порожні «Задача» (precompute) і вибір «Кому» (reader_ids) -->
+                <!-- ставка — поле форми (див. «Правка ставки»): без неї порожні «Задача» (precompute), «З ким говорити» і вибір «Кому доручити» -->
                 <field name="rate_id" invisible="1"/>
                 <field name="reader_ids" invisible="1" widget="many2many_tags"/>
+                <field name="who_options" invisible="1"/>
                 <div class="d-flex align-items-baseline gap-2 flex-wrap mb-2">
                     <field name="person_id" readonly="1" class="fw-semibold fs-5 w-auto"/>
                     <field name="customer_id" readonly="1" class="text-muted w-auto"/>
                 </div>
                 <group>
+                    <field name="who" widget="workset_rates_talk_who" options="{'horizontal': True}"/>
+                    <field name="contact_text" string="Контакт" readonly="1" invisible="not contact_text"/>
                     <field name="summary"/>
                     <field name="user_id" options="{'no_create': True}" domain="[('id', 'in', reader_ids)]"/>
                     <field name="date_deadline" options="{'numeric': True}"/>
-                    <field name="note" placeholder="Що з'ясувати, з ким говорити"/>
+                    <field name="note" placeholder="Що з'ясувати"/>
                 </group>
                 <footer>
                     <button name="action_create" type="object" string="Поставити задачу" class="btn-primary"/>

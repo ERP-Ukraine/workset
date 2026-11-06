@@ -139,7 +139,7 @@ class WorksetRateOverview(models.Model):
         shown = days[-months:]
         series = {'days': shown, 'total': calc.month_series([h(r) for r in hist], shown), 'by_line': []}
         lines = self._overview_lines(rows, hist, days, months, h, only_working, base, lang)
-        series['by_line'] = [{'id': c['id'], 'name': c['name'], 'share': c.pop('_share')} for c in lines]
+        series['by_line'] = [{'id': c['id'], 'name': c['name'], 'color': c['color'], 'share': c.pop('_share')} for c in lines]
         working = bool(only_working)
         buckets = calc.share_buckets([r['our_share'] for r in rows])
         for b in buckets:
@@ -189,8 +189,8 @@ class WorksetRateOverview(models.Model):
                                                     for r in mine]),
                         'fund': calc.fund_badge([r['worker_fund_share'] for r in mine]),
                         'spark': calc.spark_path(spark), 'spark_values': spark, '_share': share[-months:]})
-        out.sort(key=lambda c: (-c['working'], -c['total'], c['name']))
-        return out
+        # один ряд від більшого числа до меншого; 'color' — місце в ряду (смуга картки й ряд «По лініях» — один колір)
+        return calc.line_cards_order(out)
 
     def _rate_rows(self, rates, sub):
         return [{'id': r.id, 'title': r.person_id.display_name or '', 'sub': sub(r)} for r in rates[:ALERT_ROWS]]
@@ -210,7 +210,7 @@ class WorksetRateOverview(models.Model):
             raises = raises.filtered(lambda x: (x.person_id.id, cust_of(x.customer_id)) in pairs)
         out.append({'key': 'raise_soon', 'model': RAISE, 'count': len(raises), 'ids': raises.ids[:ALERT_IDS],
                     'rows': [{'id': x.id, 'title': x.person_id.display_name or '',
-                              'sub': '%s · %s' % (cust(x), calc.t('raise_badge', lang) % (('+' if x.amount > 0 else '') + calc.num(x.amount),
+                              'sub': '%s · %s' % (cust(x), calc.t('raise_badge', lang) % (('+' if x.amount > 0 else '') + calc.num_group(x.amount),
                                                                                           calc.short_date(x.date_to)))}
                              for x in raises[:ALERT_ROWS]]})
         future = self.search(base + [('state', '=', 'future'), ('date_from', '<=', calc.add_days(today, calc.FUTURE_SOON_DAYS))], order='date_from, id')
@@ -238,7 +238,8 @@ class WorksetRateOverview(models.Model):
             who = Partner.browse(p['person']).name if p['person'] else Emp.browse(p['cards'][0][0]).name
             new = {'default_person_id': p['person'], 'default_customer_id': p['cust']} if (p['person'] and can_new) else False
             rows.append({'id': p['aal'], 'title': who or '',
-                         'sub': calc.t('ov_norate_sub', lang) % (Partner.browse(p['cust']).name or '', calc.num(p['hours']), calc.RECENT_DAYS),
+                         # години — з роздільником тисяч (calc.num_group), як усі числа «Огляду»
+                         'sub': calc.t('ov_norate_sub', lang) % (Partner.browse(p['cust']).name or '', calc.num_group(p['hours']), calc.RECENT_DAYS),
                          'new': new, 'click': bool(new or can_aal)})
         out.append({'key': 'no_rate', 'model': 'account.analytic.line', 'count': len(pairs), 'ids': aal_ids, 'link': can_aal, 'rows': rows})
         # «Переговорити»: відкриті задачі типу «Переговорити» (кнопка рядка списку «Працюють зараз») на ставках фільтра; інші задачі на ставці

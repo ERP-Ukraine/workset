@@ -49,9 +49,26 @@
                 <field name="state" widget="badge" decoration-success="state == 'current'" decoration-info="state == 'future'" decoration-muted="state == 'past'"/>
                 <field name="issues" string="Перевірити" decoration-warning="issues" optional="show"/>
                 <field name="to_check" optional="hide"/>
-                <button name="action_talk" type="object" icon="fa-phone" string="Переговорити" title="Поставити задачу «Переговорити» з цифрами людини"
-                        class="btn-link p-0" invisible="state == 'past' or not active" groups="workset_rates.group_editor,base.group_system"/>
+                <!-- «Переговорити» — лише значок телефону у вузькому стовпці в кінці рядка (слово власника 06.11: «значок»), підказка — назва -->
+                <button name="action_talk" type="object" icon="fa-phone" title="Переговорити"
+                        class="btn-link text-muted p-0" invisible="state == 'past' or not active" groups="workset_rates.group_editor,base.group_system"/>
             </list>
+        </field>
+    </record>
+
+    <!-- «Працюють зараз»: той самий список без стовпця «Статус ставки» — тут усі ставки діючі (слово власника 06.11 «статус: убрать»). Окремий
+         вид дії (view_id), а не column_invisible за контекстом: «Огляд» відкриває цю дію зі своїм контекстом (openList), а вид дії лишається.
+         priority 20 — типовим списком моделі лишається view_rate_list («Усі ставки», «Ставки з розбіжностями», форма лінії тощо) -->
+    <record id="view_rate_list_current" model="ir.ui.view">
+        <field name="name">workset.rate.list.current</field>
+        <field name="model">workset.rate</field>
+        <field name="inherit_id" ref="view_rate_list"/>
+        <field name="mode">primary</field>
+        <field name="priority">20</field>
+        <field name="arch" type="xml">
+            <field name="state" position="attributes">
+                <attribute name="column_invisible">1</attribute>
+            </field>
         </field>
     </record>
 
@@ -67,6 +84,9 @@
                     <button name="action_back_to_rule" type="object" string="Повернути до загальної" class="btn-secondary" invisible="not id or not is_own or not rule_id"
                             groups="workset_rates.group_editor,base.group_system" confirm="«Платять нам», тип ціни й фікс стануть як у загальній ставці. Продовжити?"/>
                     <button name="action_new_raise" type="object" string="Тимчасова зміна" class="btn-secondary" invisible="not id or not active or state == 'past'"
+                            groups="workset_rates.group_editor,base.group_system"/>
+                    <!-- «Переговорити» — лише значок телефону, як у списку (слово власника 06.11: «значок»); підказка — назва -->
+                    <button name="action_talk" type="object" icon="fa-phone" title="Переговорити" class="btn-secondary" invisible="not id or not active or state == 'past'"
                             groups="workset_rates.group_editor,base.group_system"/>
                     <field name="state" widget="statusbar" statusbar_visible="future,current,past"/>
                 </header>
@@ -495,6 +515,7 @@
         <field name="res_model">workset.rate</field>
         <field name="view_mode">list,kanban,form,pivot,graph</field>
         <field name="mobile_view_mode">kanban</field>
+        <field name="view_id" ref="view_rate_list_current"/>
         <field name="search_view_id" ref="view_rate_search"/>
         <field name="context">{'search_default_current': 1, 'searchpanel_default_work_group': 'g1_work'}</field>
         <field name="help" type="html">

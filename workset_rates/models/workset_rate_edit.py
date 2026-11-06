@@ -5,10 +5,14 @@
 - «Нова ставка з дати» — нова ставка пари з цієї дати (копія поточної — workset.rate._successor_vals, нове число — у ній); попередня
   закінчується напередодні за правилами модуля (А1), частка — одразу ланцюжком. Дата — лише пізніше за «Ставка з» цієї ставки.
 - «Виправити помилку» — число змінюється в цій самій ставці; причина обов'язкова й іде в історію ставки (message_post).
-- «Посередник»: «лише цій людині» — своє значення на ставці з причиною (agent_own, ланцюжок бере його замість домовленостей); «для всієї
-  домовленості» — картка домовленості модуля посередників (кнопка лише коли модель є й користувач має право її правити).
-- «Переговорити» — задача mail.activity типу «Переговорити» (TALK_TYPE) на ставці для обраного користувача (за замовчуванням — сам; у
-  виборі — лише ті, хто читає ставки) з цифрами людини в назві; відкриті задачі цього типу — рядком «Переговорити» в «Тривогах» «Огляду».
+- «Посередник»: рядок «Посередник: ім'я · звідки сума» (з домовленості, що стосується ставки, без неї — агент лінії; «за домовленістю» /
+  «своє — домовленості немає» — calc.agent_who); «лише цій людині» — своє значення на ставці з причиною (agent_own, ланцюжок бере його
+  замість домовленостей); «для всієї домовленості» — картка домовленості модуля посередників: вибір видно лише коли домовленість ставки є
+  й користувач може її правити, інакше — підказка, чому значення діє лише для цієї людини.
+- «Переговорити» — задача mail.activity типу «Переговорити» (TALK_TYPE) на ставці для обраного користувача («Кому доручити»: за
+  замовчуванням — сам; у виборі — лише ті, хто читає ставки) з цифрами людини в назві; «З ким говорити» — працівник, посередник, замовник,
+  партнер лінії (лише ті, хто в ставки є; за замовчуванням — посередник, інакше працівник): ім'я, телефон і Telegram — першим абзацом
+  нотатки задачі. Відкриті задачі цього типу — рядком «Переговорити» в «Тривогах» «Огляду».
 Право — лише в того, хто пише ставки (check_access('write') ставки; майстри — редактору й адміністратору); минулу ставку майстер не правит."""
 from odoo import api, fields, models
 from odoo.exceptions import UserError
@@ -18,6 +22,8 @@ from .workset_rate import RATE, SOURCES, TALK_TYPE, cust_of
 
 WHAT = [('wage', 'Зарплата працівника'), ('price', 'Платять нам'), ('agent', 'Посередник')]
 SCOPES = [('person', 'Лише цій людині'), ('deal', 'Для всієї домовленості')]
+WHO = [('worker', 'Працівник'), ('agent', 'Посередник'), ('customer', 'Замовник'), ('partner', 'Партнер лінії')]  # порядок — calc.TALK_WHO
+EMP_PHONES = ('mobile_phone', 'work_phone', 'private_phone')  # телефони картки працівника (hr.employee), які читає «Переговорити»
 
 
 def check_live(rate, lang):
@@ -72,6 +78,51 @@ class WorksetRateActions(models.Model):
         return {'wage': self.wage, 'price': self.price, 'agent': agents, 'fund': self.worker_fund_share, 'car': self.car_rent_share,
                 'share': self.our_share}
 
+    # ——— чий посередник і з ким говорити (вікно правки «Посередник», «Переговорити»; слово власника 06.11) ———
+    def _agent_who(self):
+        """Чий посередник у ставки (calc.agent_who): ім'я й контакт — з домовленостей, що стосуються ставки (те саме правило, що сума), без
+        них — агент лінії; source — звідки сума. Агент лінії — під sudo (контакт може належати іншій фірмі; читається лише ім'я)."""
+        self.ensure_one()
+        agent = self.line_id.sudo().agent_id
+        return calc.agent_who(self._deals(), cust_of(self.customer_id), self.line_id.id, self._chain_day(self._today()), self.agent_own,
+                              [agent.id, agent.name or ''] if agent else None)
+
+    def _talk_people(self):
+        """«З ким говорити» → контакт (res.partner під sudo; з нього беремо лише ім'я, телефон і Telegram): працівник — робочий контакт картки,
+        посередник — _agent_who, замовник — комерційний контрагент, партнер лінії — поле лінії. Людини немає — порожній запис."""
+        self.ensure_one()
+        agent_id = self._agent_who()['agent_id']
+        return {'worker': self.person_id.sudo(), 'agent': self.env['res.partner'].sudo().browse(agent_id).exists() if agent_id else self.env['res.partner'],
+                'customer': self.customer_id.sudo().commercial_partner_id, 'partner': self.line_id.sudo().partner_id}
+
+    def _talk_options(self, people=None):
+        """→ (ролі «З ким говорити», для яких людина є; роль за замовчуванням) — calc.talk_options."""
+        people = self._talk_people() if people is None else people
+        return calc.talk_options({k: bool(p) for k, p in people.items()})
+
+    def _talk_phone(self, role, partner):
+        """Телефон для дзвінка. Працівник — картки з цим робочим контактом (sudo; читаються лише поля телефонів): мобільний, робочий, далі
+        телефон контакту, наостанок особистий — лише користувачу з групою кадрів (поле кадрів: інакше редактор ставок побачив би його в
+        майстрі, а нотатка задачі — бухгалтерія й проєкти; ревю 06.11). Решта — телефон контакту (у Odoo 19 в res.partner лише phone)."""
+        phones = []
+        if role == 'worker':
+            Emp = self.env['hr.employee'].sudo()
+            own = self.env.user.has_group('hr.group_hr_user')
+            names = [f for f in EMP_PHONES if f in Emp._fields and (f != 'private_phone' or own)]
+            cards = Emp.search_read([('work_contact_id', '=', partner.id)], names, order='id') if names else []
+            for f in ('mobile_phone', 'work_phone'):
+                phones += [c.get(f) for c in cards]
+            phones.append(partner.phone)
+            if own:
+                phones += [c.get('private_phone') for c in cards]
+        else:
+            phones.append(partner.phone)
+        return calc.first_filled(phones)
+
+    def _talk_reach(self, role, partner, lang):
+        """«Ім'я · телефон · Telegram» контакту ролі (calc.talk_reach); Telegram — поле модуля посередників, якщо воно є (agent_deals)."""
+        return calc.talk_reach(partner.name, self._talk_phone(role, partner), agent_deals.partner_tg(partner), lang)
+
 
 class WorksetRateEdit(models.TransientModel):
     _name = 'workset.rate.edit'
@@ -91,6 +142,15 @@ class WorksetRateEdit(models.TransientModel):
     agent_scope = fields.Selection(SCOPES, string='Кому', default='person',
                                    help='Лише цій людині — своє значення на ставці з причиною; для всієї домовленості — правка домовленості посередника')
     deal_ok = fields.Boolean(string='Домовленість можна правити', compute='_compute_deal_ok')
+    deal_found = fields.Boolean(string='Домовленість є', compute='_compute_deal_ok')
+    # «Посередник» (слово власника 06.11: «какой посредник… за кем прикреплено, непонятно»): чий він і звідки сума. Ім'я — посиланням на
+    # домовленість, коли сума з неї й домовленість видно (agent_deal_name), інакше текстом (agent_name); «своє» — помітним попередженням із
+    # причиною (agent_warning, agent_reason), «за домовленістю» / «домовленості немає» — сірим (agent_source)
+    agent_name = fields.Char(string='Чий посередник', compute='_compute_agent_who')
+    agent_deal_name = fields.Char(string='Посередник за домовленістю', compute='_compute_agent_who')
+    agent_source = fields.Char(string='Звідки сума посередника', compute='_compute_agent_who')
+    agent_warning = fields.Char(string='Посередник — своє значення', compute='_compute_agent_who')
+    agent_reason = fields.Char(related='rate_id.agent_own_reason', string='Чому посередник свій')
 
     @api.depends('rate_id', 'what')
     def _compute_old(self):
@@ -100,10 +160,30 @@ class WorksetRateEdit(models.TransientModel):
 
     @api.depends('rate_id')
     def _compute_deal_ok(self):
-        # кнопка «Відкрити домовленість»: модель посередників є, користувач може її правити, і домовленість цієї ставки знайшлася
+        # «Для всієї домовленості» (кнопка «Відкрити домовленість»): модель посередників є, домовленість цієї ставки знайшлася (deal_found —
+        # користувач її бачить) і користувач може її правити (deal_ok). Немає — вибору «Кому» не видно, підказка — чому лише цій людині
         for w in self:
             r = w.rate_id
-            w.deal_ok = bool(r) and agent_deals.deal_writable(self.env) and bool(agent_deals.deal_ids(self.env, cust_of(r.customer_id), r.line_id.id))
+            found = bool(r) and bool(agent_deals.deal_ids(self.env, cust_of(r.customer_id), r.line_id.id))
+            w.deal_found = found
+            w.deal_ok = found and agent_deals.deal_writable(self.env)
+
+    @api.depends('rate_id', 'what')
+    def _compute_agent_who(self):
+        lang = calc.lang_of(self.env.lang)
+        for w in self:
+            r = w.rate_id
+            who = r._agent_who() if (r and w.what == 'agent') else None
+            name = (', '.join(who['names']) or calc.t('e_agent_noname', lang)) if who else ''
+            # посилання — лише коли сума справді з домовленості, дія модуля посередників є й користувач цю домовленість бачить (модуля
+            # посередників немає — текст)
+            link = bool(who) and who['source'] in ('deal', 'own_deal') and bool(agent_deals.deal_link(self.env, who['ids'], name))
+            text = calc.t('e_agent_src_' + who['source'], lang) if who else ''
+            own = bool(who) and who['source'] in ('own', 'own_deal')
+            w.agent_deal_name = name if link else ''
+            w.agent_name = '' if link else name
+            w.agent_warning = text if own else ''
+            w.agent_source = '' if own else text
 
     def _check_value(self):
         lang = calc.lang_of(self.env.lang)
@@ -146,6 +226,9 @@ class WorksetRateEdit(models.TransientModel):
         if day < calc.iso(rate.date_from):
             raise UserError(calc.t('e_before', lang) % (calc.fmt_date(rate.date_from), calc.fmt_date(day)))
         reason = (self.reason or '').strip()
+        if self.what == 'agent' and not reason:
+            # посередник лише цій людині — «своє» значення: без причини не видно, чому не за домовленістю
+            raise UserError(calc.t('e_agent_reason', lang))
         vals = rate._successor_vals(day, self.value if self.what == 'wage' else rate.wage)
         vals.update(self._change(rate, reason))
         vals.update({'source': self.source or 'other', 'source_note': reason or calc.t('e_title', lang) % self._label(lang),
@@ -182,6 +265,14 @@ class WorksetRateEdit(models.TransientModel):
         self.ensure_one()
         return self.rate_id.action_open_agent_deal()
 
+    def action_open_agent_link(self):
+        """Ім'я посередника — посилання: домовленість (або кілька), з якої сума ставки (calc.agent_who → 'ids'), дією модуля посередників
+        (agent_deals.deal_link). Посилання вже немає (домовленість закрили, права забрали) — повідомлення, без помилки."""
+        self.ensure_one()
+        who = self.rate_id._agent_who()
+        act = agent_deals.deal_link(self.env, who['ids'], ', '.join(who['names']) or calc.t('agent_deal', calc.lang_of(self.env.lang)))
+        return act or self.rate_id.action_open_agent_deal()
+
 
 class WorksetRateTalk(models.TransientModel):
     _name = 'workset.rate.talk'
@@ -190,8 +281,16 @@ class WorksetRateTalk(models.TransientModel):
     rate_id = fields.Many2one(RATE, string='Ставка', required=True, ondelete='cascade')
     person_id = fields.Many2one(related='rate_id.person_id', string='Працівник')
     customer_id = fields.Many2one(related='rate_id.customer_id', string='Замовник')
-    user_id = fields.Many2one('res.users', string='Кому', required=True, default=lambda self: self.env.user, domain=[('share', '=', False)])
-    # «Кому» — лише ті, хто читає ставки: задачу на ставці людині без доступу Odoo не створить (помилка замість підказки)
+    # «З ким говорити» (слово власника 06.11 «переговорити: значок и с кем»): лише ролі, для яких у ставки є людина (who_options — віджет
+    # workset_rates_talk_who показує лише їх; сервер перевіряє вибір ще раз), за замовчуванням — посередник, якщо є, інакше працівник.
+    # precompute — як «Задача»: обов'язкове поле рахується й при створенні без форми
+    who = fields.Selection(WHO, string='З ким говорити', compute='_compute_who', store=True, readonly=False, required=True, precompute=True,
+                           help='Посередник — з домовленості, що стосується ставки, або агент лінії; партнер лінії — з картки лінії. Кого в ставки '
+                                'немає, того й у виборі немає. Ім\'я, телефон і Telegram підуть першим рядком нотатки задачі.')
+    who_options = fields.Char(string='Можна говорити з', compute='_compute_who_options')
+    contact_text = fields.Char(string='Контакт', compute='_compute_contact_text')
+    user_id = fields.Many2one('res.users', string='Кому доручити', required=True, default=lambda self: self.env.user, domain=[('share', '=', False)])
+    # «Кому доручити» — лише ті, хто читає ставки: задачу на ставці людині без доступу Odoo не створить (помилка замість підказки)
     reader_ids = fields.Many2many('res.users', 'workset_rate_talk_reader_rel', 'talk_id', 'user_id', string='Читають ставки', compute='_compute_reader_ids')
     # precompute: назва рахується й при створенні без форми (RPC, тест) — інакше обов'язкове поле йде в базу порожнім (NOT NULL, збірка Odoo.sh 06.11)
     summary = fields.Char(string='Задача', compute='_compute_summary', store=True, readonly=False, required=True, precompute=True)
@@ -203,6 +302,24 @@ class WorksetRateTalk(models.TransientModel):
         lang = calc.lang_of(self.env.lang)
         for w in self:
             w.summary = calc.t('talk_summary', lang) % calc.talk_text(w.rate_id._talk_numbers(), lang) if w.rate_id else ''
+
+    @api.depends('rate_id')
+    def _compute_who(self):
+        for w in self:
+            w.who = w.rate_id._talk_options()[1] if w.rate_id else False
+
+    @api.depends('rate_id')
+    def _compute_who_options(self):
+        for w in self:
+            w.who_options = ','.join(w.rate_id._talk_options()[0]) if w.rate_id else ''
+
+    @api.depends('rate_id', 'who')
+    def _compute_contact_text(self):
+        # під вибором «З ким говорити»: ім'я, телефон, Telegram — те, що піде в нотатку задачі
+        lang = calc.lang_of(self.env.lang)
+        for w in self:
+            partner = w.rate_id._talk_people().get(w.who) if (w.rate_id and w.who) else None
+            w.contact_text = w.rate_id._talk_reach(w.who, partner, lang) if partner else ''
 
     @api.model
     def _readers(self):
@@ -217,13 +334,19 @@ class WorksetRateTalk(models.TransientModel):
 
     def action_create(self):
         """Задача «Переговорити» (тип модуля — її рахує тривога «Огляду») на ставці для обраного користувача; назва — цифри людини (як у
-        списку на момент задачі). Обраний не читає ставок — пояснення, а не помилка доступу Odoo."""
+        списку на момент задачі); нотатка — першим абзацом з ким говорити (роль, ім'я, телефон, Telegram), далі — нотатка з майстра. Обраний
+        не читає ставок або в ставки немає людини обраної ролі — пояснення, а не помилка доступу Odoo."""
         self.ensure_one()
         rate = self.rate_id
         rate.check_access('write')
+        lang = calc.lang_of(self.env.lang)
         if not self.env[RATE].with_user(self.user_id).has_access('read'):
-            raise UserError(calc.t('talk_user', calc.lang_of(self.env.lang)) % (self.user_id.name or ''))
-        act = rate.activity_schedule(TALK_TYPE, date_deadline=self.date_deadline, summary=self.summary, note=self.note or False,
+            raise UserError(calc.t('talk_user', lang) % (self.user_id.name or ''))
+        people = rate._talk_people()
+        if self.who not in rate._talk_options(people)[0]:
+            raise UserError(calc.t('talk_who_none', lang))
+        note = calc.talk_note(self.who, rate._talk_reach(self.who, people[self.who], lang), self.note, lang)
+        act = rate.activity_schedule(TALK_TYPE, date_deadline=self.date_deadline, summary=self.summary, note=note or False,
                                      user_id=self.user_id.id)
         return {'type': 'ir.actions.client', 'tag': 'display_notification',
                 'params': {'title': rate.display_name, 'message': act.summary or '', 'type': 'success', 'sticky': False,

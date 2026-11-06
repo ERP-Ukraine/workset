@@ -21,6 +21,7 @@
                 <field name="min_share" string="Мінімум" optional="hide"/>
                 <field name="good_share" string="Добра" optional="hide"/>
                 <field name="agent_id" string="Агент" optional="hide"/>
+                <field name="partner_id" string="Партнер" optional="hide"/>
                 <field name="rule_note" optional="hide"/>
             </list>
         </field>
@@ -91,6 +92,7 @@
                         <group name="who" string="Хто">
                             <field name="customer_ids" string="Замовники" widget="many2many_tags" options="{'no_create': True}" domain="['|', ('is_company', '=', True), ('customer_rank', '&gt;', 0)]"/>
                             <field name="agent_id" string="Агент лінії" options="{'no_create': True}"/>
+                            <field name="partner_id" string="Партнер лінії" options="{'no_create': True}" placeholder="з ким говорити про ставки лінії"/>
                             <label for="agent_share" string="Частка агента"/>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap">
                                 <field name="agent_share" nolabel="1" class="o_input_7ch w-auto"/>

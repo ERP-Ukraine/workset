@@ -323,6 +323,12 @@ class TestWorksetRates(TransactionCase):
             none = self._rate(person_id=self._person('Тест П без').id, found_by=False)
         self.assertEqual(us.rule_id, self.line_rule, 'загальна ставка лінії на «Ставка з»')
         self.assertEqual(us.anchor, 'markup')
+        # діюче правило лінії шукається (ревю D: без пошуку Odoo 19 попереджає про залежність «Якоря» лінії від rule_id)
+        L = self.env['workset.line']
+        self.assertEqual((self.line.rule_id, self.line.anchor), (self.line_rule, 'markup'))
+        self.assertIn(self.line, L.search([('rule_id', '=', self.line_rule.id)]))
+        self.assertNotIn(self.line, L.search([('rule_id', '=', False)]))
+        self.assertIn(self.line, L.search([('rule_id', '!=', False)]))
         self.assertEqual((us.price, us.our_share), (19, 5), 'надбавка, «знайшли ми»: Р 14 + 5')
         self.assertEqual((line.price, line.our_share), (18, 4), '«знайшла лінія»: Р 14 + 4')
         self.assertEqual((none.price, none.our_share), (18, 4), '«Хто знайшов» порожньо — за «знайшла лінія»')
@@ -1506,6 +1512,13 @@ class TestWorksetRates(TransactionCase):
         self.assertEqual(H._housing_at(lt, ct, DAY), mine, 'правило замовника перекриває правило лінії')
         self.assertEqual(H._housing_at(lt, ct, DAY).payer, 'worker_fund', '«Хто платить» — «З фонду працівників» (М3 читає через _housing_at)')
         self.assertEqual(H._housing_at(lt, other, DAY), later)
+        # «€ за місяць за особу» (300 з людини вираховує замовник) — звичайна одиниця: створюється, назва з підписом, _housing_at віддає її
+        lt2 = self.env['workset.line'].create({'name': 'Тест лінія житло за особу'})
+        mp = H.create({'line_id': lt2.id, 'source': 'owner', 'source_note': 'тест', 'kind': 'customer_deducts', 'amount': 300,
+                       'amount_unit': 'month_person', 'payer': 'customer', 'date_from': OLD})
+        self.assertEqual(H._housing_at(lt2, False, DAY), mp)
+        self.assertEqual(H._housing_at(lt2, False, DAY).amount_unit, 'month_person')
+        self.assertIn('/міс за особу', mp.name)
         self.assertEqual(H._housing_at(lt, other, calc.add_days(DAY, -5)), base, 'на минулу дату — правило, що діяло тоді')
         self.assertFalse(H._housing_at(lt, other, '2020-01-01'))
         mine.active = False
@@ -2192,6 +2205,135 @@ class TestWorksetRates(TransactionCase):
         t = Form(self.env['workset.rate.talk'].with_context(**act['context']), view='workset_rates.view_rate_talk_form')
         self.assertEqual((t.rate_id, t.person_id, t.summary), (r, r.person_id, 'Переговорити: зарплата 14, платять 19, частка 5'))
         self.assertIn(self.env.ref('base.user_admin'), t.reader_ids, 'вибір «Кому» — ті, хто читає ставки, не порожній')
+
+    def test_c_0611_overview_order_and_color(self):
+        """Круг 06.11 «Огляд»: картки ліній — від більшого числа людей до меншого, колір картки = колір ряду лінії на графіку «По лініях»."""
+        self._isolate()
+        self._quiet_bonuses()
+        other = self.env['workset.line'].create({'name': 'Тест лінія 0611', 'code': 'T0611', 'customer_ids': [(6, 0, [self.cust2.id])]})
+        self.env['workset.rate.rule'].create({'line_id': other.id, 'anchor': 'markup', 'share_line_found': 4, 'share_we_found': 5, 'date_from': OLD,
+                                              'source': 'owner', 'source_note': 'тест'})
+        a, b = self._no_agents()
+        with a, b:
+            r = self._rate()
+            r2 = self._rate(person_id=self._person('Тест П 0611 а').id, customer_id=self.cust2.id)
+            r3 = self._rate(person_id=self._person('Тест П 0611 б').id, customer_id=self.cust2.id)
+        self.assertEqual((r2.line_id, r3.line_id), (other, other))
+        (r | r2 | r3).write({'work': 'work', 'work_group': 'g1_work'})
+        res = self.R.rates_overview([('id', 'in', (r | r2 | r3).ids)], 12)
+        self.assertEqual([(c['id'], c['count'], c['color']) for c in res['lines']], [(other.id, 2, 0), (self.line.id, 1, 1)],
+                         'двоє людей — першою, хоч назва й пізніша; колір — місце в ряду')
+        self.assertEqual([(s['id'], s['color']) for s in res['series']['by_line']], [(other.id, 0), (self.line.id, 1)], 'ряд графіка — той самий колір')
+
+    def test_c_0611_talk_who_and_agent_window(self):
+        """Круг 06.11: «Переговорити» — «З ким говорити» лише з тими, хто в ставки є (партнер лінії — поле лінії); ім'я й телефон контакту —
+        у нотатці задачі, Telegram — лише коли поле модуля посередників є. Вікно «Посередник»: ім'я й звідки сума, посилання — лише коли
+        домовленість можна відкрити; «своє» без причини — ні."""
+        self._isolate()
+        self._quiet_bonuses()
+        admin = self.env.ref('base.user_admin')
+        Talk = self.env['workset.rate.talk']
+        Edit = self.env['workset.rate.edit']
+        partner = self.env['res.partner'].create({'name': 'Тест партнер лінії', 'phone': '+48 000 000 001'})
+        agent = self.env['res.partner'].create({'name': 'Тест посередник 0611', 'phone': '+48 000 000 002'})
+        a, b = self._no_agents()
+        with a, b:
+            r = self._rate()
+            t = Talk.create({'rate_id': r.id, 'user_id': admin.id})
+            self.assertEqual((t.who_options, t.who), ('worker,customer', 'worker'), 'посередника й партнера лінії немає — їх і у виборі немає')
+            bad = Talk.create({'rate_id': r.id, 'user_id': admin.id, 'who': 'partner'})
+            with self.assertRaisesRegex(UserError, 'такої людини немає'), self.env.cr.savepoint():
+                bad.action_create()
+            self.line.partner_id = partner
+            if agent_deals.TG in partner._fields:
+                partner.write({agent_deals.TG: '700100'})
+            t = Talk.create({'rate_id': r.id, 'user_id': admin.id, 'who': 'partner', 'note': 'тест: що зʼясувати'})
+            self.assertEqual(t.who_options, 'worker,customer,partner')
+            self.assertIn('Тест партнер лінії · +48 000 000 001', t.contact_text)
+            t.action_create()
+            note = str(self.env['mail.activity'].search([('res_model', '=', 'workset.rate'), ('res_id', '=', r.id)]).note)
+            self.assertIn('Партнер лінії: Тест партнер лінії · +48 000 000 001', note)
+            self.assertIn('тест: що зʼясувати', note)
+            # Telegram — лише коли поле модуля посередників є (на проді його немає — без помилки й без «Telegram»)
+            self.assertEqual('Telegram 700100' in note, agent_deals.TG in partner._fields)
+            # вікно «Посередник» без домовленості: ім'я не вказано, «домовленості немає»; своє без причини — ні
+            w = Edit.create({'rate_id': r.id, 'what': 'agent', 'value': 0.5, 'date': NEXT, 'agent_scope': 'person'})
+            self.assertEqual((w.agent_name, w.agent_deal_name, w.agent_source, w.agent_warning), ('не вказано', '', 'домовленості немає', ''))
+            with self.assertRaisesRegex(UserError, 'причину'), self.env.cr.savepoint():
+                w.action_new_from_date()
+            Edit.create({'rate_id': r.id, 'what': 'agent', 'value': 0.5, 'date': DAY, 'agent_scope': 'person', 'reason': 'тест: домовились'}).action_fix()
+            w = Edit.create({'rate_id': r.id, 'what': 'agent', 'value': 0.7, 'date': NEXT, 'agent_scope': 'person'})
+            self.assertEqual((w.agent_warning, w.agent_reason, w.agent_source), ('своє — домовленості немає', 'тест: домовились', ''))
+            r.action_agent_by_deal()
+        deals = [{'id': 7, 'rate': 1.5, 'state': 'active', 'kind': 'hour', 'customer_ids': [self.cust.id], 'line_id': 0, 'date_from': '', 'date_to': '',
+                  'agent': 'Тест посередник 0611', 'agent_id': agent.id}]
+        with patch.object(agent_deals, 'read_deals', return_value=deals), patch.object(agent_deals, 'read_people', return_value=[]):
+            # домовленість є, але відкрити її нічим (модуля посередників чи його дії немає) — ім'я текстом
+            with patch.object(agent_deals, 'deal_link', return_value=None):
+                w = Edit.create({'rate_id': r.id, 'what': 'agent', 'value': 1, 'date': NEXT, 'agent_scope': 'person'})
+                self.assertEqual((w.agent_name, w.agent_deal_name, w.agent_source), ('Тест посередник 0611', '', 'за домовленістю'))
+            with patch.object(agent_deals, 'deal_link', return_value={'type': 'ir.actions.act_window', 'res_model': 'res.partner'}) as link:
+                w = Edit.create({'rate_id': r.id, 'what': 'agent', 'value': 1, 'date': NEXT, 'agent_scope': 'person'})
+                self.assertEqual((w.agent_name, w.agent_deal_name), ('', 'Тест посередник 0611'), 'ім\'я — посиланням на домовленість')
+                self.assertEqual(link.call_args[0][1], [7], 'посилання — на домовленість, з якої сума')
+                self.assertEqual(w.action_open_agent_link()['type'], 'ir.actions.act_window')
+                # шлях виду: майстер із дії олівця, причина порожня — кнопка type="object" спершу зберігає майстер; збереження не падає на
+                # обов'язковій причині, посилання відкривається (ревю 06.11)
+                f = Form(Edit.with_context(**r.action_edit_agent()['context']), view='workset_rates.view_rate_edit_form')
+                self.assertFalse(f.reason)
+                self.assertEqual(f.save().action_open_agent_link()['type'], 'ir.actions.act_window')
+            t = Talk.create({'rate_id': r.id, 'user_id': admin.id})
+            self.assertEqual((t.who_options, t.who), ('worker,agent,customer,partner', 'agent'), 'посередник є — він за замовчуванням')
+            self.assertIn('Тест посередник 0611 · +48 000 000 002', t.contact_text)
+        self.assertIsNone(agent_deals.deal_link(self.env, [], 'тест'), 'без домовленостей — без посилання')
+
+    def test_c_0611_talk_private_phone_only_hr(self):
+        """Особистий телефон картки (поле кадрів) — у «Переговорити» лише користувачу з групою кадрів: редактор ставок без неї його не бачить
+        ні в майстрі, ні в нотатці задачі (її читають бухгалтерія й проєкти); робочий — бачить (ревю 06.11)."""
+        self._isolate()
+        self._quiet_bonuses()
+        if 'private_phone' not in self.env['hr.employee']._fields:
+            self.skipTest('у hr.employee немає private_phone')
+        a, b = self._no_agents()
+        with a, b:
+            r = self._rate()
+        self.person.phone = False
+        (self.emp_a | self.emp_b | self.emp_uah | self.emp_out).sudo().write({'mobile_phone': False, 'work_phone': False})
+        self.emp_a.sudo().private_phone = '+48 000 000 009'
+        firms = list(self.env.context['allowed_company_ids'])
+        editor = new_test_user(self.env, login='ws_c_0611_editor', groups='base.group_user,workset_rates.group_editor',
+                               company_id=self.env.company.id, company_ids=[(6, 0, firms)])
+        hr_editor = new_test_user(self.env, login='ws_c_0611_hr', groups='base.group_user,workset_rates.group_editor,hr.group_hr_user',
+                                  company_id=self.env.company.id, company_ids=[(6, 0, firms)])
+        self.assertFalse(editor.has_group('hr.group_hr_user'))
+        with a, b:
+            t = self.env['workset.rate.talk'].with_user(editor).create({'rate_id': r.id, 'who': 'worker'})
+            self.assertNotIn('000 009', t.contact_text)
+            self.assertIn('телефон: —', t.contact_text)
+            t.action_create()
+            note = str(self.env['mail.activity'].search([('res_model', '=', 'workset.rate'), ('res_id', '=', r.id)]).note)
+            self.assertNotIn('000 009', note, 'нотатка — лише те, що бачить користувач')
+            self.emp_a.sudo().work_phone = '+48 000 000 008'
+            t = self.env['workset.rate.talk'].with_user(editor).create({'rate_id': r.id, 'who': 'worker'})
+            self.assertIn('+48 000 000 008', t.contact_text, 'робочий телефон — бачить')
+            self.emp_a.sudo().work_phone = False
+            t = self.env['workset.rate.talk'].with_user(hr_editor).create({'rate_id': r.id, 'who': 'worker'})
+            self.assertIn('+48 000 000 009', t.contact_text, 'кадри — бачать особистий')
+
+    def test_c_0611_current_list_without_state(self):
+        """«Працюють зараз» — свій вид без стовпця «Статус ставки»; «Усі ставки» — зі статусом (слово власника 06.11 «статус: убрать»)."""
+        view = self.env.ref('workset_rates.view_rate_list_current')
+        self.assertEqual(self.env.ref('workset_rates.action_rates_current').view_id, view)
+        self.assertFalse(self.env.ref('workset_rates.action_rates_all').view_id == view)
+
+        def state_hidden(view_id):
+            arch = etree.fromstring(self.R.get_views([(view_id, 'list')])['views']['list']['arch'])
+            return [f.get('column_invisible') for f in arch.iter('field') if f.get('name') == 'state']
+
+        self.assertIn(state_hidden(view.id)[0], ('1', 'True'))
+        self.assertFalse(state_hidden(self.env.ref('workset_rates.view_rate_list').id)[0], 'у загальному списку стовпець є')
+        # типовий список моделі (форма лінії, «Усі ставки» без view_id) — базовий, зі статусом
+        self.assertEqual(self.R.get_views([(False, 'list')])['views']['list']['id'], self.env.ref('workset_rates.view_rate_list').id)
 
     def test_c_map_row_same_card_cost_not_mismatch(self):
         """Odoo 19: is_cost_changed — readonly-обчислюване cost ≠ hourly_cost картки; спільний write перераховує його з cost, тож при
