@@ -467,9 +467,6 @@
                 <filter name="work_idle" string="Не працюють" domain="[('work', '=', 'z_idle')]"/>
                 <filter name="work_none" string="Годин не було" domain="[('work', '=', 'z_none')]"/>
                 <separator/>
-                <filter name="work_future" string="Працюють і майбутні" help="Діючі ставки тих, хто працює, і всі майбутні ставки — «Стрічка» за замовчуванням"
-                        domain="['|', ('state', '=', 'future'), '&amp;', ('state', '=', 'current'), ('work', 'in', ['work', 'work_new'])]"/>
-                <separator/>
                 <filter name="current" string="Діють" domain="[('state', '=', 'current')]"/>
                 <filter name="future" string="Майбутні" domain="[('state', '=', 'future')]"/>
                 <filter name="past" string="Минулі" domain="[('state', '=', 'past')]"/>
@@ -491,8 +488,6 @@
                 <separator/>
                 <filter name="this_month" string="Змінені цього місяця" help="«Ставка з» у цьому місяці: нові ставки й зміни"
                         domain="[('date_from', '&gt;=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d')), ('date_from', '&lt;=', (context_today() + relativedelta(day=31)).strftime('%Y-%m-%d'))]"/>
-                <filter name="changed_60" string="Зміни за 60 днів" help="«Ставка з» за останні 60 днів: нові ставки й зміни"
-                        domain="[('date_from', '&gt;=', (context_today() - relativedelta(days=60)).strftime('%Y-%m-%d')), ('date_from', '&lt;=', context_today().strftime('%Y-%m-%d'))]"/>
                 <separator/>
                 <filter name="archived" string="В архіві" domain="[('active', '=', False)]"/>
                 <group>

@@ -17,7 +17,7 @@
     'website': 'https://workset.com.ua',
     'license': 'LGPL-3',
     'category': 'Human Resources',
-    'version': '19.0.4.2.0',
+    'version': '19.0.4.1.0',
     # hr — картки й групи кадрів; account — група бухгалтерії й customer_rank; project — група адміністраторів проєктів і форма проєкту;
     # sale_timesheet — карта проєктів (project.sale.line.employee.map) і табелі (через hr_timesheet; hourly_cost — hr_hourly_cost).
     # hourly_wage версії договору (hr_payroll, Enterprise) читається м'яко: поля немає — «У договорі» 0.

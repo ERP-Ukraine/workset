@@ -1787,46 +1787,6 @@ msgid "Колір смуги"
 msgstr "Цвет полосы"
 
 #. module: workset_rates
-#: model:ir.model.fields,help:workset_rates.field_workset_rate__gantt_color
-msgid "Колір лінії (місце лінії в ряду карток «Огляду»); минула ставка й ставка без лінії — без кольору."
-msgstr "Цвет линии (место линии в ряду карточек «Обзора»); прошлая ставка и ставка без линии — без цвета."
-
-#. module: workset_rates
-#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__gantt_person
-msgid "Працівник у стрічці"
-msgstr "Работник в ленте"
-
-#. module: workset_rates
-#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__gantt_period
-msgid "Період ставки"
-msgstr "Период ставки"
-
-#. module: workset_rates
-#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__gantt_money
-msgid "Зарплата і ціна"
-msgstr "Зарплата и цена"
-
-#. module: workset_rates
-#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__gantt_shares
-msgid "Частки"
-msgstr "Доли"
-
-#. module: workset_rates
-#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__gantt_found
-msgid "Хто знайшов (стрічка)"
-msgstr "Кто нашёл (лента)"
-
-#. module: workset_rates
-#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__gantt_agent
-msgid "Посередник (стрічка)"
-msgstr "Посредник (лента)"
-
-#. module: workset_rates
-#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__gantt_alert
-msgid "Тривога смуги"
-msgstr "Тревога полосы"
-
-#. module: workset_rates
 #: model:ir.model,name:workset_rates.model_workset_rate_raise
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate_raise_month__raise_id
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
@@ -2226,6 +2186,7 @@ msgstr "В архиве"
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rule_form
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_raise_form
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_gantt
 #: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 #: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
 msgid "€/год"
@@ -2368,16 +2329,6 @@ msgstr "Работают сейчас"
 
 #. module: workset_rates
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
-msgid "Працюють і майбутні"
-msgstr "Работают и будущие"
-
-#. module: workset_rates
-#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
-msgid "Діючі ставки тих, хто працює, і всі майбутні ставки — «Стрічка» за замовчуванням"
-msgstr "Действующие ставки тех, кто работает, и все будущие ставки — «Лента» по умолчанию"
-
-#. module: workset_rates
-#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rule_search
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_raise_search
 msgid "Діють"
@@ -2449,16 +2400,6 @@ msgid "«Ставка з» у цьому місяці: нові ставки й 
 msgstr "«Ставка с» в этом месяце: новые ставки и изменения"
 
 #. module: workset_rates
-#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
-msgid "Зміни за 60 днів"
-msgstr "Изменения за 60 дней"
-
-#. module: workset_rates
-#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
-msgid "«Ставка з» за останні 60 днів: нові ставки й зміни"
-msgstr "«Ставка с» за последние 60 дней: новые ставки и изменения"
-
-#. module: workset_rates
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_graph
 msgid "Частка WorkSET по лініях"
 msgstr "Доля WorkSET по линиям"
@@ -2467,6 +2408,7 @@ msgstr "Доля WorkSET по линиям"
 #: model_terms:ir.actions.act_window,help:workset_rates.action_rates_current
 #: model_terms:ir.actions.act_window,help:workset_rates.action_rates_all
 #: model_terms:ir.actions.act_window,help:workset_rates.action_rates_analytics
+#: model_terms:ir.actions.act_window,help:workset_rates.action_rates_gantt
 msgid "Ставок ще немає"
 msgstr "Ставок пока нет"
 
@@ -2969,14 +2911,19 @@ msgid "Стрічка"
 msgstr "Лента"
 
 #. module: workset_rates
-#: model_terms:ir.actions.act_window,help:workset_rates.action_rates_gantt
-msgid "Смуга — ставка пари у часі; колір — лінія; підпис — замовник і гроші"
-msgstr "Полоса — ставка пары во времени; цвет — линия; подпись — заказчик и деньги"
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_gantt
+msgid "Частка WorkSET:"
+msgstr "Доля WorkSET:"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_gantt
+msgid "Після бонусів офісу:"
+msgstr "После бонусов офиса:"
 
 #. module: workset_rates
 #: model_terms:ir.actions.act_window,help:workset_rates.action_rates_gantt
-msgid "Зараз показано тих, хто працює, і майбутні ставки; історію видно, якщо зняти фільтр «Працюють і майбутні»."
-msgstr "Сейчас показаны те, кто работает, и будущие ставки; историю видно, если снять фильтр «Работают и будущие»."
+msgid "Смуги з’являться, коли в ставок будуть дати: перетягнути можна лише майбутню ставку."
+msgstr "Полосы появятся, когда у ставок будут даты: перетащить можно только будущую ставку."
 
 #. module: workset_rates
 #: model:ir.actions.client,name:workset_rates.action_overview
@@ -2997,18 +2944,6 @@ msgstr "Отчёты сверки"
 #: model:ir.ui.menu,name:workset_rates.menu_settings
 msgid "Налаштування"
 msgstr "Настройки"
-
-#. module: workset_rates
-#. odoo-javascript
-#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
-msgid "Сьогодні вирішити"
-msgstr "Сегодня решить"
-
-#. module: workset_rates
-#. odoo-javascript
-#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
-msgid "Сьогодні вирішувати нічого"
-msgstr "Сегодня решать нечего"
 
 #. module: workset_rates
 #. odoo-javascript

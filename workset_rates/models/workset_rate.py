@@ -569,7 +569,7 @@ class WorksetRate(models.Model):
                                     'to_check': r.to_check, 'check_reason': r.check_reason, 'is_own': r.is_own, 'own_reason': r.own_reason,
                                     'found_missing': r.found_missing}, lang)
 
-    @api.depends('customer_id', 'customer_id.name', 'line_id', 'line_id.name', 'wage', 'our_share', 'agent_client_share', 'agent_people_share', 'people_agent_payer', 'price', 'price_mode',
+    @api.depends('customer_id', 'line_id', 'wage', 'our_share', 'agent_client_share', 'agent_people_share', 'people_agent_payer', 'price', 'price_mode',
                  'fixed_month', 'month_hours', 'net_share', 'worker_fund_share', 'car_rent_share')
     @api.depends_context('lang')
     def _compute_texts(self):

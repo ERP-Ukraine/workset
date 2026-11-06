@@ -1447,13 +1447,9 @@ GANTT_OPEN_DAYS = 30           # «Стрічка»: смуга без «Ста�
 BUCKETS_MAX = 40               # стовпців у «Розподілі частки» не більше: вищі частки — в останньому
 GANTT_OPS = ('<', '<=', '>', '>=')
 
-# колір смуги «Стрічки» — колір лінії (правка 06.11 «стрічка: дорабатывать»): місце лінії в ряду карток «Огляду» (line_cards_order) →
-# номер палітри смуг gantt (поле color: 0 без кольору, 1 червоний, 2 помаранчевий, 3 жовтий, 4 блакитний, 5 сливовий, 6 лососевий,
-# 7 бірюзовий, 8 темно-синій, 9 малиновий, 10 зелений, 11 фіолетовий). Палітра карток «Огляду» (getColor «odoo») інша — тут найближчий
-# відтінок за місцем: синій, рожево-червоний, бірюзово-зелений, помаранчевий, фіолетовий, жовтий, далі — решта. Червоний (1) не беремо:
-# він — низька частка (decoration-danger); 0 — минула ставка й ставка без лінії
-GANTT_LINE_COLORS = (4, 6, 10, 2, 11, 3, 7, 8, 5, 9)
-GANTT_NAME_MAX = 24  # підпис смуги: замовник довший — обрізаємо з «…»
+# кольори смуги «Стрічки» — номери штатної палітри Odoo (поле color виду gantt): 0 без кольору, 2 помаранчевий, 4 блакитний,
+# 9 малиновий, 10 зелений
+GANTT_COLORS = {('past', ''): 0, ('current', ''): 10, ('current', 'low'): 2, ('future', ''): 4, ('future', 'low'): 9}
 
 TX.update({
     # ряди й підписи графіків «Огляду» (рядки для JS приходять з сервера мовою користувача)
@@ -1486,11 +1482,6 @@ TX.update({
     'ov_g_action': ['Потрібна дія', 'Нужно действие'],
     'ov_g_contract': ['Договір ≠ база — подробиці', 'Договор ≠ база — подробности'],
     'ov_g_data': ['Неповні дані', 'Неполные данные'],
-    # «Сьогодні вирішити» (блок Е): підписи чипів — коротко, число стоїть перед підписом (calc.decide_chips)
-    'ov_d_contract': ['договір ≠ база', 'договор ≠ база'], 'ov_d_low': ['нижче мінімуму', 'ниже минимума'],
-    'ov_d_mismatch': ['вартість години ≠ ставка', 'стоимость часа ≠ ставка'], 'ov_d_rule': ['частка не за правилом', 'доля не по правилу'],
-    'ov_d_no_rate': ['без ставки', 'без ставки'], 'ov_d_nomap': ['проєкти без ставки', 'проекты без ставки'],
-    'ov_d_norule': ['без загальної ставки', 'без общей ставки'],
     'ov_check_head': ['Звірка від %s · %s', 'Сверка от %s · %s'],
     'ov_check_done': ['розібрано', 'разобрано'],
     'ov_tip_check': ['Пункти звірки: рядок на кожну розбіжність — одна ставка може дати кілька пунктів (напр., по картці в кожній фірмі). '
@@ -1559,19 +1550,6 @@ TX.update({
                    'В «Ленте» будущую ставку можно передвинуть только на дату после сегодня (%s) — историю не переписываем.'],
     'gantt_row': ['У «Стрічці» смугу можна лише пересунути в часі: працівника, замовника й лінію змінюють у картці ставки.',
                   'В «Ленте» полосу можно только передвинуть во времени: работника, заказчика и линию меняют в карточке ставки.'],
-    # «Стрічка»: підпис смуги, група без лінії, вікно над смугою (popover)
-    'gantt_month': ['%s €/міс', '%s €/мес'],
-    'gantt_low': ['⚠ низька частка', '⚠ низкая доля'],
-    'gantt_no_line': ['Без лінії', 'Без линии'],
-    'gp_period': ['Ставка з %s → %s', 'Ставка с %s → %s'],
-    'gp_open_current': ['діє', 'действует'],
-    'gp_open_future': ['майбутня', 'будущая'],
-    'gp_money': ['Зарплата %s → платять нам %s %s', 'Зарплата %s → платят нам %s %s'],
-    'gp_money_month': ['Зарплата %s %s → платять нам %s €/міс', 'Зарплата %s %s → платят нам %s €/мес'],
-    'gp_share': ['Частка WorkSET %s · після бонусів %s %s', 'Доля WorkSET %s · после бонусов %s %s'],
-    'gp_found': ['Хто знайшов: %s', 'Кто нашёл: %s'],
-    'gp_found_none': ['не вказано', 'не указано'],
-    'gp_agent': ['Посередник: %s', 'Посредник: %s'],
 })
 
 
@@ -1867,17 +1845,12 @@ def line_cards_order(cards):
     return cards
 
 
-def gantt_groups_last(groups, field, label=''):
+def gantt_groups_last(groups, field):
     """«Стрічка»: рядки лінії «без лінії» (field порожнє) — в кінець, решта — у своєму порядку (стійко). groups — список груп gantt
-    ({поле: значення або False, …}; при default_group_by «лінія, працівник» — група на кожну пару значень, тож у кінець ідуть усі групи
-    без лінії). label — назва групи без лінії: порожнє значення стає [False, label] (так many2one приходить у gantt), і рядок підписано
-    label, а не «Невизначений Лінія». Не список і групи без поля лишаємо як є."""
+    ({поле: значення або False, …}); не список і групи без поля лишаємо як є."""
     if not isinstance(groups, list):
         return groups
-    out = sorted(groups, key=lambda g: isinstance(g, dict) and field in g and not g[field])
-    if label:
-        out = [dict(g, **{field: [False, label]}) if isinstance(g, dict) and field in g and not g[field] else g for g in out]
-    return out
+    return sorted(groups, key=lambda g: isinstance(g, dict) and field in g and not g[field])
 
 
 # «Огляд»: клік по числу відкриває список ставок. Опис списку складає сервер разом із числом (rates_overview), JS лише виконує його —
@@ -2023,36 +1996,6 @@ def check_groups(sections, lang, skip=()):
     return out
 
 
-# «Сьогодні вирішити» (блок Е, на показ; свод UX-разборів 06.11, «Смелые идеи»): один рядок над смугою — лише «Потрібна дія», спершу гроші,
-# далі люди без ставки. Ключ → (звідки: 'check' — розділ звірки групи action, 'live' — жива тривога «Огляду»; підпис у TX; гроші). Порядок
-# рядків = порядок чипів. «Загальної ставки немає» (norule) стоїть у групі «Неповні дані» — чип з'явиться, лише якщо розділ перейде в action
-DECIDE = (('contract', 'check', 'ov_d_contract', True), ('low', 'check', 'ov_d_low', True), ('mismatch', 'check', 'ov_d_mismatch', True),
-          ('rule', 'check', 'ov_d_rule', True), ('no_rate', 'live', 'ov_d_no_rate', False), ('nomap', 'check', 'ov_d_nomap', False),
-          ('norule', 'check', 'ov_d_norule', False))
-DECIDE_MAX = 5
-
-
-def decide_chips(alerts, groups, lang, check_id=False, limit=DECIDE_MAX):
-    """Стрічка «Сьогодні вирішити»: живі тривоги (rates_overview → alerts) і групи «Тривог» (check_groups) → [{'key', 'n', 'label', 'money',
-    'open'}] у порядку DECIDE (гроші першими), лише з групи «Потрібна дія», без нулів, не більше limit. open — те саме, що клік рядка
-    «Тривог»: жива тривога — {'model', 'ids', 'link'} (список, openAlert), розділ звірки — {'check': id запису звірки} (openCheck). Нічого
-    вирішувати — []."""
-    items = {x['key']: x for g in groups or [] if g.get('key') == 'action' for x in g.get('items') or []}
-    live = {a['key']: a for a in alerts or []}
-    out = []
-    for key, src, label, money in DECIDE:
-        if src == 'live':
-            a = live.get(key) or {}
-            n = int(a.get('count') or 0)
-            spec = {'model': a.get('model'), 'ids': list(a.get('ids') or []), 'link': a.get('link', True)}
-        else:
-            n = int((items.get(key) or {}).get('count') or 0)
-            spec = {'check': check_id}
-        if n > 0:
-            out.append({'key': key, 'n': n, 'label': t(label, lang), 'money': money, 'open': spec})
-    return out[:limit]
-
-
 def gantt_stop(state, date_from, date_to, today, days=GANTT_OPEN_DAYS):
     """Кінець смуги «Стрічки»: «Ставка до», якщо є; без неї чинна — сьогодні + days, майбутня — «Ставка з» + days, минула (архівна) — «Ставка з»."""
     if date_to:
@@ -2100,52 +2043,14 @@ def gantt_search(op, value, today, days=GANTT_OPEN_DAYS):
     return [('date_from', op, value)]
 
 
-def gantt_line_places(lines):
-    """Місце лінії в ряду карток «Огляду» без фільтра з «Тільки працюють»: lines — [{'id', 'name', 'count'}] (count — діючих ставок, де
-    працюють). Порядок — line_cards_order (від більшого до меншого, рівні — за назвою); лінії без тих, хто працює, — після них за назвою.
-    → {id лінії: місце з 0}."""
-    cards = [{'id': x['id'], 'name': x.get('name') or '', 'count': x.get('count') or 0, 'total': x.get('count') or 0} for x in lines or []]
-    return {c['id']: c['color'] for c in line_cards_order(cards)}
-
-
-def gantt_color(state, place):
-    """Колір смуги — колір лінії: place — місце лінії (gantt_line_places), None — ставка без лінії. Минула, без лінії чи невідомий статус —
-    без кольору (0); низьку частку показує decoration-danger виду й «⚠» у підписі, не колір."""
-    if state not in ('current', 'future') or place is None or place is False:
+def gantt_color(state, level):
+    """Колір смуги: статус (минула — без кольору, чинна — зелена, майбутня — блакитна) з відтінком низької частки (W або Ч нижче мінімуму)."""
+    if state not in ('past', 'current', 'future'):
         return 0
-    return GANTT_LINE_COLORS[int(place) % len(GANTT_LINE_COLORS)]
+    key = (state, 'low' if level == 'low' and state != 'past' else '')
+    return GANTT_COLORS[key]
 
 
-def short_name(name, limit=GANTT_NAME_MAX):
-    """Назва для підпису смуги: зайві пробіли прибрано; довша за limit — обрізано до limit знаків разом із «…»."""
-    s = ' '.join(str(name or '').split())
-    return s if len(s) <= limit else s[:limit - 1].rstrip() + '…'
-
-
-def gantt_label(customer, wage, price, month_price, low, lang):
-    """Підпис смуги «Стрічки»: «Замовник · зарплата → платять нам €»; фікс за місяць (month_price не 0) — «зарплата → фікс €/міс»;
-    низька частка — ще « · ⚠ низька частка». Замовник — до GANTT_NAME_MAX знаків."""
-    paid = t('gantt_month', lang) % money(month_price) if month_price else '%s €' % num(price)
-    parts = [short_name(customer), '%s → %s' % (num(wage), paid)] + ([t('gantt_low', lang)] if low else [])
-    return ' · '.join([p for p in parts if p])
-
-
-def gantt_popover(r, lang):
-    """Рядки вікна над смугою «Стрічки». r — {'state', 'date_from', 'date_to', 'wage', 'price', 'month_price', 'share', 'net', 'found'
-    (підпис «хто знайшов» або ''), 'agent' (нотатка посередника або ''), 'agent_share', 'low'} → {'period', 'money', 'share', 'found',
-    'agent', 'alert'}; чого немає — ''."""
-    unit = t('unit', lang)
-    end = fmt_date(r.get('date_to')) or t('gp_open_future' if r.get('state') == 'future' else 'gp_open_current', lang)
-    if r.get('month_price'):
-        paid = t('gp_money_month', lang) % (num(r.get('wage')), unit, money(r.get('month_price')))
-    else:
-        paid = t('gp_money', lang) % (num(r.get('wage')), num(r.get('price')), unit)
-    agent = r.get('agent') or (('%s %s' % (num(r.get('agent_share')), unit)) if (r.get('agent_share') or 0) > 0 else '')
-    return {
-        'period': t('gp_period', lang) % (fmt_date(r.get('date_from')), end),
-        'money': paid,
-        'share': t('gp_share', lang) % (num(r.get('share')), num(r.get('net')), unit),
-        'found': t('gp_found', lang) % (r.get('found') or t('gp_found_none', lang)),
-        'agent': t('gp_agent', lang) % agent if agent else '',
-        'alert': t('gantt_low', lang) if r.get('low') else '',
-    }
+def gantt_label(state_label, formula_text):
+    """Підпис смуги: «Діє · на руки + частка = ціна €/год» (formula ставки)."""
+    return ' · '.join([p for p in [state_label, formula_text] if p])

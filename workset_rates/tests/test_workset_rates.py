@@ -1693,8 +1693,6 @@ class TestWorksetRates(TransactionCase):
         self.assertEqual(len(card['spark_values']), calc.SPARK_MONTHS)
         self.assertEqual([x['key'] for x in res['alerts']], ['raise_soon', 'future', 'no_line', 'to_check', 'no_rate', 'talk'])
         self.assertEqual([x for x in res['alerts'] if x['key'] == 'future'][0]['ids'], fut.ids, 'майбутня ставка лінії — у тривозі «на 7 днів»')
-        self.assertNotIn('future', [c['key'] for c in res['decide']], '«Сьогодні вирішити» — лише гроші й люди без ставки')
-        self._assert_decide_matches(res)
         self.assertEqual(sum(x['count'] for x in res['buckets']), 2)
         self.assertEqual(res['found'], {'us': 1, 'line': 1, 'none': 0})
         # домен звужує: інша лінія — нулі; «Без лінії» — ставка замовника поза лініями
@@ -1845,44 +1843,6 @@ class TestWorksetRates(TransactionCase):
         self.assertEqual(len(res['series']['total']), 24)
         self.assertTrue(all(p['count'] == 0 and p['avg_share'] == 0 for p in res['series']['total']))
         self.assertEqual([x['count'] for x in res['alerts'] if x['model'] == 'workset.rate'], [0, 0, 0, 0], 'майбутні, без лінії, перевірити, переговорити')
-        self.assertEqual(res['decide'], [], '«Сьогодні вирішити»: нічого — порожньо (на сторінці — один сірий рядок)')
-
-    def test_b_decide_chips(self):
-        # «Сьогодні вирішити» (блок Е): чиста функція — гроші першими, лише «Потрібна дія», нулі випадають, не більше 5; клік — як рядок «Тривог»
-        live = [{'key': 'future', 'model': 'workset.rate', 'count': 2, 'ids': [1, 2]},
-                {'key': 'no_rate', 'model': 'account.analytic.line', 'count': 4, 'ids': [7, 8, 9, 10], 'link': False}]
-        groups = [{'key': 'action', 'items': [{'key': 'nomap', 'count': 6}, {'key': 'low', 'count': 3}, {'key': 'rule', 'count': 0},
-                                              {'key': 'contract', 'count': 88}, {'key': 'mismatch', 'count': 5}]},
-                  {'key': 'data', 'items': [{'key': 'norule', 'count': 226}, {'key': 'check', 'count': 52}]}]
-        chips = calc.decide_chips(live, groups, 'uk', 41)
-        self.assertEqual([(c['key'], c['n'], c['money']) for c in chips],
-                         [('contract', 88, True), ('low', 3, True), ('mismatch', 5, True), ('no_rate', 4, False), ('nomap', 6, False)],
-                         'гроші першими; «частка не за правилом» з нулем — ні; «Неповні дані» й «майбутні» — ні')
-        self.assertEqual(chips[0]['label'], 'договір ≠ база')
-        self.assertEqual(chips[0]['open'], {'check': 41}, 'розділ звірки — запис звірки, як рядок «Тривог»')
-        self.assertEqual(chips[3]['open'], {'model': 'account.analytic.line', 'ids': [7, 8, 9, 10], 'link': False}, 'жива тривога — її список')
-        self.assertEqual(calc.decide_chips(live, groups, 'ru', 41)[3]['label'], 'без ставки')
-        self.assertEqual(calc.decide_chips(live, groups, 'ru', 41)[2]['label'], 'стоимость часа ≠ ставка', 'підпис мовою користувача')
-        groups[0]['items'].append({'key': 'rule', 'count': 1})
-        groups[0]['items'] = [x for x in groups[0]['items'] if x['count']]
-        self.assertEqual(len(calc.decide_chips(live, groups, 'uk', 41)), 5, 'не більше 5: «проєкти без ставки» вже не влазить')
-        self.assertEqual([c['key'] for c in calc.decide_chips(live, groups, 'uk', 41)][3], 'rule')
-        self.assertEqual(calc.decide_chips([dict(x, count=0) for x in live], [], 'uk', False), [], 'усі нулі — порожньо')
-        self.assertEqual(calc.decide_chips([], False, 'uk', False), [], 'звірки немає — лише живі тривоги')
-
-    def _assert_decide_matches(self, res):
-        # чипи «Огляду» = «Потрібна дія» тих самих даних: число й перехід — як у живої тривоги або розділу звірки групи action
-        live = {a['key']: a for a in res['alerts']}
-        action = {x['key']: x['count'] for g in ((res['check'] or {}).get('groups') or []) if g['key'] == 'action' for x in g['items']}
-        for chip in res['decide']:
-            if 'check' in chip['open']:
-                self.assertEqual((chip['n'], chip['open']['check']), (action.get(chip['key']), res['check']['id']), chip['key'])
-            else:
-                a = live[chip['key']]
-                self.assertEqual((chip['n'], chip['open']['ids'], chip['open']['model']), (a['count'], a['ids'], a['model']), chip['key'])
-        money = [c['money'] for c in res['decide']]
-        self.assertEqual(money, sorted(money, reverse=True), 'гроші першими')
-        self.assertLessEqual(len(res['decide']), calc.DECIDE_MAX)
 
     def test_b_overview_rights(self):
         hr_user = new_test_user(self.env, login='ws_b_hr', groups='base.group_user,hr.group_hr_user')
@@ -1922,29 +1882,10 @@ class TestWorksetRates(TransactionCase):
         ids = (past | cur | fut | alone).ids
         self.assertEqual(self.R.search([('id', 'in', ids), ('gantt_stop', '>', '2026-03-31')]), fut | alone, 'пошук «Смуга до» — тими самими правилами')
         self.assertEqual(self.R.search([('id', 'in', ids), ('gantt_stop', '<', DAY)]), past)
-        # колір смуги — колір лінії (місце лінії, як у карток «Огляду»): діюча й майбутня тієї самої лінії — один колір, минула — без кольору
-        place = self.R._gantt_line_places()[self.line.id]
-        self.assertEqual((past.gantt_color, cur.gantt_color, fut.gantt_color), (0, calc.gantt_color('current', place), calc.gantt_color('current', place)))
-        self.assertTrue(cur.gantt_color, 'лінія є — колір є')
-        # підпис смуги: «Замовник · зарплата → платять нам», без «Діє · формула»
+        self.assertEqual((past.gantt_color, cur.gantt_color, fut.gantt_color), (0, 10, 4))
         label = cur.with_context(workset_rates_gantt=1).display_name
-        self.assertEqual(label, calc.gantt_label(cur.customer_id.name, cur.wage, cur.price, 0, False, calc.lang_of(self.env.lang)))
-        self.assertTrue(label.startswith(calc.short_name(cur.customer_id.name) + ' · ') and ' → ' in label and 'Діє' not in label, label)
+        self.assertTrue(label.startswith('Діє · ') and cur.formula in label, label)
         self.assertEqual(cur.display_name, cur.name, 'поза «Стрічкою» — звичайна назва')
-        # вікно над смугою: період, гроші, частки — готові рядки
-        self.assertTrue(cur.gantt_period.startswith('Ставка з ') and cur.gantt_money and cur.gantt_shares, cur.gantt_period)
-        self.assertEqual(cur.gantt_person, cur.person_id.name)
-        self.assertFalse(cur.gantt_alert, 'частка не нижче мінімуму — без «⚠»')
-        # дія «Стрічки»: за замовчуванням — фільтр «Працюють і майбутні»; вид gantt читається з ним
-        act = self.env.ref('workset_rates.action_rates_gantt')
-        ctx = ast.literal_eval(act.context)
-        self.assertEqual((ctx.get('workset_rates_gantt'), ctx.get('search_default_work_future')), (1, 1))
-        search = etree.fromstring(self.R.get_views([(self.env.ref('workset_rates.view_rate_search').id, 'search')])['views']['search']['arch'])
-        flt = search.xpath("//filter[@name='work_future']")
-        self.assertTrue(flt, 'фільтр «Працюють і майбутні» є в пошуку')
-        live = self.R.search([('id', 'in', ids)] + ast.literal_eval(flt[0].get('domain')))
-        self.assertIn(fut, live, 'майбутня — у «Стрічці» за замовчуванням')
-        self.assertNotIn(past, live, 'минула — ні (історія — після зняття фільтра)')
 
         def as_(rec):
             return rec.with_user(editor).with_context(allowed_company_ids=editor.company_ids.ids)
@@ -2529,12 +2470,6 @@ class TestWorksetRates(TransactionCase):
         self.assertEqual((alert['count'], alert['model'], alert['rows'][0]['new']['default_person_id']), (1, 'account.analytic.line', other.work_contact_id.id),
                          'тривога «Працюють без ставки»: рядок — нова ставка цієї пари')
         self.assertEqual((alert['link'], alert['rows'][0]['click']), (True, True), 'з правом на табелі — заголовок і рядок клікаються')
-        # «Сьогодні вирішити»: «без ставки» — та сама жива тривога (число, список); «Проєкти без ставки» звірки її не дублює
-        chip = [c for c in ov['decide'] if c['key'] == 'no_rate'][0]
-        self.assertEqual((chip['n'], chip['open']), (1, {'model': 'account.analytic.line', 'ids': alert['ids'], 'link': True}))
-        self.assertNotIn('nomap', [c['key'] for c in ov['decide']])
-        self._assert_decide_matches(ov)
-        self.assertNotIn('no_rate', [c['key'] for c in ov_other['decide']], 'фільтр сторінки за іншим замовником — чипа немає')
         self.assertEqual([x for x in ov_other['alerts'] if x['key'] == 'no_rate'][0]['count'], 0, 'фільтр сторінки за іншим замовником — ні')
 
     def test_c_wage_from_contract(self):
