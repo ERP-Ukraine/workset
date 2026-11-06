@@ -707,6 +707,87 @@ class TestWorksetProfit(TransactionCase):
         res = new.action_open_card()
         self.assertEqual((res['tag'], res['params']['month']), ('workset_profit.line_card', '2030-05-01'))
 
+    # ——— круг 3в: кожне число відкриває те, з чого воно складене ———
+    def test_screen_every_number_opens_records(self):
+        self._run()
+        rows = self._rows(row_kind='line')
+        row_a = self._rows(row_kind='line', line_id=self.line_a.id)
+        lang = self.Month._lang()
+        Screen = self.Month.with_context(profit_today='2030-04-20')
+        with self._deals():
+            over = Screen.profit_overview(M)
+            card = Screen.profit_line_card(self.line_a.id, M)
+            data = Screen.profit_matrix(M, M_LAST)
+
+        def got(spec, what):
+            # опис списку: модель, домен, заголовок, без «Створити» → записи списку
+            self.assertTrue(spec and spec['model'] and spec['domain'] and spec['title'], what)
+            self.assertEqual(spec['context'], {'create': False}, what)
+            return self.env[spec['model']].search(spec['domain'])
+        # A: п'ять підсумків — табелі місяця, рядки ліній місяця, рядки ліній з витратами
+        op = over['opens']
+        self.assertEqual(set(op), {'hours', 'share', 'costs', 'net', 'net_month'})
+        for k in ('share', 'costs', 'net', 'net_month'):
+            self.assertIn(('month', '=', M), op[k]['domain'], k)
+        for k in ('share', 'net', 'net_month'):
+            self.assertEqual(got(op[k], k), rows, 'A %s — рядки ліній місяця' % k)
+        costs = rows.filtered(lambda r: any(r[f] for f in ('car_rent', 'housing', 'housing_customer', 'auto', 'fuel', 'tool', 'transport')))
+        self.assertTrue(costs)
+        self.assertEqual(got(op['costs'], 'A витрати'), costs, 'A витрати — рядки ліній з витратами')
+        self.assertEqual(op['hours']['model'], 'account.analytic.line')
+        self.assertAlmostEqual(sum(got(op['hours'], 'A години').mapped('unit_amount')), sum(rows.mapped('hours_total')),
+                               msg='табелі місяця = «Годин» «Огляду»')
+        # B: п'ять підсумків — домен з місяцем і лінією; години — табелі лінії
+        cop = card['opens']
+        for k in ('share', 'costs', 'net', 'net_month'):
+            self.assertIn(('month', '=', M), cop[k]['domain'], k)
+            self.assertIn(('line_id', '=', self.line_a.id), cop[k]['domain'], k)
+            self.assertEqual(got(cop[k], k), row_a, 'B %s — рядок лінії' % k)
+        self.assertAlmostEqual(sum(got(cop['hours'], 'B години').mapped('unit_amount')), row_a.hours_total, msg='табелі лінії = «Години»')
+        self.assertEqual(cop['hours']['title'], calc.t('o_ts', lang) % (self.line_a.display_name, card['month']['title_in']))
+        # B: кожен крок водоспаду — свої записи; житло й інструмент — та сама аналітика, перевезення — транзакції картки «перевезення»
+        bars = {b['key']: b for b in card['waterfall']['bars']}
+        for k, b in bars.items():
+            got(b['open'], 'крок %s' % k)
+        for k in ('share', 'car_rent', 'net'):
+            self.assertEqual(got(bars[k]['open'], k), row_a, '%s — рядок лінії' % k)
+        for k in ('housing', 'tool'):
+            self.assertEqual(bars[k]['open']['model'], 'account.analytic.line', k)
+            self.assertAlmostEqual(sum(got(bars[k]['open'], k).mapped('amount')), bars[k]['amount'], msg='%s: записи = сума кроку' % k)
+        self.assertEqual(bars['transport']['open']['model'], 'workset.dkv.txn')
+        self.assertEqual(got(bars['transport']['open'], 'transport').card_id, self.card_tr)
+        # B: «Хто платить» — правило, за яким визначено платника; згорнутий рядок — правила лінії
+        fold = card['pays_fold']
+        self.assertEqual(got(fold['open'], 'правила лінії'), self.env['workset.line.cost.rule'].search([('line_id', '=', self.line_a.id)]))
+        fuel = [r for r in fold['rows'] if r['label'] == calc.t('s_fuel', lang)][0]['open']
+        rule = self.env['workset.line.cost.rule'].browse(fuel['res_id'])
+        self.assertEqual((fuel['model'], rule.line_id, rule.kind, rule.payer), ('workset.line.cost.rule', self.line_a, 'fuel', 'worker_fund'))
+        pays = {p['key']: p for p in card['pays']}
+        house = pays['housing']['open']
+        self.assertEqual(house['model'], 'workset.line.housing')
+        self.assertEqual(self.env['workset.line.housing'].browse(house['res_id']).line_id, self.line_a, 'житло — правило житла «Ставок» лінії')
+        self.assertNotIn('res_id', pays['auto']['open'], 'правила авто немає — список правил лінії цього виду')
+        self.assertFalse(got(pays['auto']['open'], 'авто'), 'порожній список — «правил немає → ми»')
+        # A: сегмент «Куди йде частка» — ті самі записи, що крок водоспаду; «чисто» — рядок лінії
+        split = {p['key']: p for p in [t for t in over['lines'] if t['id'] == self.line_a.id][0]['split']}
+        for k in ('housing', 'tool', 'transport'):
+            self.assertEqual((split[k]['open']['model'], split[k]['open']['domain']), (bars[k]['open']['model'], bars[k]['open']['domain']), k)
+        self.assertEqual(got(split['net']['open'], 'net'), row_a)
+        # C: «N місяців» лінії, «Не розподілено» і «Власник» по місяцях і за період, «Звірка» — форма запису місяця
+        line_c = [x for x in data['lines'] if x['id'] == self.line_a.id][0]
+        self.assertEqual(got(line_c['total']['open'], 'C лінія'), row_a)
+        un = self._rows(row_kind='unallocated')
+        cell = data['unallocated']['cells'][0]
+        self.assertIn(('month', '=', M), cell['open']['domain'])
+        self.assertEqual(got(cell['open'], 'C не розподілено'), un)
+        self.assertEqual(got(data['unallocated']['open'], 'C не розподілено за період'), un)
+        owner = [o for o in data['owners'] if o['code'] == 'Owner X'][0]
+        self.assertEqual(got(owner['cells'][0]['open'], 'C власник').mapped('row_kind'), ['owner'])
+        self.assertAlmostEqual(sum(got(owner['open'], 'C власник за період').mapped('net')), owner['total'])
+        chk = data['checks'][0]['open']
+        self.assertEqual(chk['model'], 'workset.profit.check')
+        self.assertEqual(calc.iso(self.env['workset.profit.check'].browse(chk['res_id']).month), M, '«Звірка» — запис свого місяця (форма)')
+
     def test_screen_access_only_viewer_group(self):
         viewer = new_test_user(self.env, login='ws_profit_screen_viewer', groups='base.group_user,workset_profit.group_viewer')
         plain = new_test_user(self.env, login='ws_profit_screen_plain', groups='base.group_user')

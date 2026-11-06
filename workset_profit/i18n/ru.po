@@ -1131,6 +1131,12 @@ msgstr "От доли до чистого,"
 #. module: workset_profit
 #. odoo-javascript
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Відкрити записи"
+msgstr "Открыть записи"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "повернення"
 msgstr "возврат"
 

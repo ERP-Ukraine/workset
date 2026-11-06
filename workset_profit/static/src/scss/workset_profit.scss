@@ -20,6 +20,22 @@
             box-shadow: 0 0 0 1px $primary;
         }
     }
+    // круг 3в: усе, що відкриває записи (підсумки, кроки водоспаду, «Хто платить», клітинки компанії й «N місяців»), — один клас: рука
+    // й легке підкреслення при наведенні, вигляд числа не змінюється; сегмент смуги (без тексту) — тонка рамка кольору тексту (на смузі
+    // «чисто» кольору $primary рамка $primary не видна)
+    .o_workset_profit_click {
+        cursor: pointer;
+
+        &:hover,
+        &:focus-visible {
+            text-decoration: underline;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 0.2em;
+        }
+        &.o_workset_profit_part:hover {
+            box-shadow: inset 0 0 0 1px $body-color;
+        }
+    }
     // смуга п'яти підсумків: вузько — перший рядком зверху, решта 2 × 2; широко — п'ять колонок із роздільниками
     .o_workset_profit_band {
         display: grid;

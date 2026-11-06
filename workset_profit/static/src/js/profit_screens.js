@@ -6,7 +6,8 @@
  *  Bootstrap Odoo 19 не задає, Chart.js малював своєю палітрою): сірі ряди, бренд — той самий тон, що смуга «чисто» (клас scss), мінус —
  *  червоний; світла чи темна тема — за яскравістю фону. Переходи: плитка
  *  «Огляду», смуга «Куди йде частка», «Відкрити рядки» з клітинки таблиці й кнопка рядка списку «Рядки розрахунку» — картка лінії
- *  (лінія й місяць — у params дії; після перезавантаження сторінки — останні з localStorage користувача). */
+ *  (лінія й місяць — у params дії; після перезавантаження сторінки — останні з localStorage користувача). Круг 3в: кожне число відкриває
+ *  свої записи — опис 'open' приходить із сервера в тій самій відповіді (openList), точка чи стовпець графіка — місяць (chartPick). */
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { loadBundle } from "@web/core/assets";
@@ -190,23 +191,58 @@ class ProfitScreen extends Component {
     /** Після помилки — вибір екрана (місяць, лінія, період) назад до показаних даних, щоб наступний запит ішов від них. */
     keep() {}
 
-    /** Список за описом сервера: модель, заголовок, домен — число на елементі пораховано по тих самих записах. */
+    /** Список за описом сервера: модель, заголовок, домен, контекст (без «Створити») — число на елементі пораховано по тих самих
+     *  записах; є res_id — форма одного запису (правило «Хто платить», «Звірка місяця»). */
     openList(spec) {
         if (!spec) {
             return;
         }
+        const form = Boolean(spec.res_id);
         this.action.doAction({
             type: "ir.actions.act_window",
             name: spec.title,
             res_model: spec.model,
-            views: [
-                [false, "list"],
-                [false, "form"],
-            ],
+            views: form
+                ? [[false, "form"]]
+                : [
+                      [false, "list"],
+                      [false, "form"],
+                  ],
+            ...(form ? { res_id: spec.res_id } : {}),
             domain: spec.domain,
-            context: {},
+            context: spec.context || {},
             target: "current",
         });
+    }
+
+    /** Круг 3в: вигляд «клікабельно» (рука, легке підкреслення при наведенні) — лише в елемента з описом списку; без опису — як текст. */
+    clickCls(spec) {
+        return spec ? "o_workset_profit_click" : "";
+    }
+
+    /** Підказка «Відкрити записи» — лише в елемента, що їх відкриває. */
+    hint(spec) {
+        return spec ? _t("Відкрити записи") : false;
+    }
+
+    /** Клік і наведення на графіку (круг 3в): номер місяця найближчої точки чи стовпця (Chart.js getElementsAtEventForMode, режим «index»
+     *  без точного влучання — як підказка) → onPick(i); над полем графіка — рука. */
+    chartPick(onPick) {
+        const at = (chart, ev) => {
+            const els = chart.getElementsAtEventForMode(ev, "index", { intersect: false }, true);
+            return els.length ? els[0].index : null;
+        };
+        return {
+            onClick: (ev, _els, chart) => {
+                const i = at(chart, ev);
+                if (i !== null) {
+                    onPick(i);
+                }
+            },
+            onHover: (ev, _els, chart) => {
+                chart.canvas.style.cursor = at(chart, ev) === null ? "" : "pointer";
+            },
+        };
     }
 
     /** Картка лінії (екран B) за лінією й місяцем. */
@@ -400,6 +436,8 @@ export class ProfitOverview extends ProfitScreen {
                 data: { labels: s.labels, datasets },
                 options: {
                     ...c.options,
+                    // клік по місяцю — «Огляд» цього місяця (як вибір місяця вгорі)
+                    ...this.chartPick((i) => s.months[i] && this.setMonth(s.months[i].value)),
                     plugins: {
                         legend: this.legend(c, [
                             { text: s.total_label, color: c.brand, width: 4 },
@@ -563,6 +601,8 @@ export class ProfitLineCard extends ProfitScreen {
                 },
                 options: {
                     ...c.options,
+                    // клік по стовпцю — картка лінії на цей місяць (як стрілки)
+                    ...this.chartPick((i) => this.go(d.series.months[i])),
                     interaction: { mode: "index", intersect: false },
                     layout: { padding: { top: 8, bottom: 4 } },
                     plugins: {
