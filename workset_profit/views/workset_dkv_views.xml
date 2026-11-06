@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- «Картки DKV»: картка — номер, № у кабінеті DKV, машина; періоди (лінія / офіс / перевезення людей з датами) — правка на місці в
+         картці. «Транзакції DKV» пише інструмент штабу (PDF рахунків, згодом API); у «Прибутковості» витрата — брутто EUR -->
+    <record id="view_dkv_card_list" model="ir.ui.view">
+        <field name="name">workset.dkv.card.list</field>
+        <field name="model">workset.dkv.card</field>
+        <field name="arch" type="xml">
+            <list string="Картки DKV" decoration-muted="not active" default_order="seq, number">
+                <field name="active" column_invisible="1"/>
+                <field name="seq"/>
+                <field name="number"/>
+                <field name="vehicle_id" optional="show"/>
+                <field name="now_text"/>
+                <field name="txn_count" optional="show"/>
+                <field name="note" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dkv_card_form" model="ir.ui.view">
+        <field name="name">workset.dkv.card.form</field>
+        <field name="model">workset.dkv.card</field>
+        <field name="arch" type="xml">
+            <form string="Картка DKV">
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_txns" type="object" class="oe_stat_button" icon="fa-list" invisible="not id">
+                            <field name="txn_count" widget="statinfo" string="Транзакцій"/>
+                        </button>
+                    </div>
+                    <widget name="web_ribbon" title="В архіві" bg_color="text-bg-danger" invisible="active"/>
+                    <field name="active" invisible="1"/>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1" placeholder="№ · номер картки"/></h1>
+                        <div class="text-muted" invisible="not now_text">Зараз: <field name="now_text" readonly="1" class="w-auto"/></div>
+                    </div>
+                    <group>
+                        <group name="card" string="Картка">
+                            <field name="number"/>
+                            <field name="seq"/>
+                            <field name="vehicle_id" options="{'no_create': True}"/>
+                            <field name="note"/>
+                        </group>
+                    </group>
+                    <label for="period_ids" string="Періоди: куди йдуть транзакції картки"/>
+                    <field name="period_ids" nolabel="1">
+                        <list editable="bottom" default_order="date_from desc">
+                            <field name="target"/>
+                            <field name="line_id" options="{'no_create': True}" invisible="target != 'line'" required="target == 'line'"/>
+                            <field name="customer_id" options="{'no_create': True}" optional="show" invisible="target != 'line'"/>
+                            <field name="date_from" options="{'numeric': True}"/>
+                            <field name="date_to" options="{'numeric': True}"/>
+                            <field name="note"/>
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_dkv_card_search" model="ir.ui.view">
+        <field name="name">workset.dkv.card.search</field>
+        <field name="model">workset.dkv.card</field>
+        <field name="arch" type="xml">
+            <search string="Картки DKV">
+                <field name="number"/>
+                <field name="vehicle_id"/>
+                <filter name="archived" string="В архіві" domain="[('active', '=', False)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_dkv_cards" model="ir.actions.act_window">
+        <field name="name">Картки DKV</field>
+        <field name="res_model">workset.dkv.card</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_dkv_card_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Карток DKV ще немає</p>
+            <p>Картка, її машина й періоди: лінія, офіс або перевезення людей — так транзакції знаходять лінію самі.</p>
+        </field>
+    </record>
+
+    <record id="view_dkv_txn_list" model="ir.ui.view">
+        <field name="name">workset.dkv.txn.list</field>
+        <field name="model">workset.dkv.txn</field>
+        <field name="arch" type="xml">
+            <list string="Транзакції DKV" default_order="date desc, id desc" limit="200">
+                <field name="currency_id" column_invisible="1"/>
+                <field name="date" options="{'numeric': True}"/>
+                <field name="card_id"/>
+                <field name="country" optional="show"/>
+                <field name="city"/>
+                <field name="product_group" optional="show"/>
+                <field name="quantity" optional="show" sum="Разом"/>
+                <field name="amount_net" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" optional="hide" sum="Разом"/>
+                <field name="amount_gross" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" sum="Разом"/>
+                <field name="invoice_no" optional="show"/>
+                <field name="move_id" optional="hide"/>
+                <field name="source" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dkv_txn_form" model="ir.ui.view">
+        <field name="name">workset.dkv.txn.form</field>
+        <field name="model">workset.dkv.txn</field>
+        <field name="arch" type="xml">
+            <form string="Транзакція DKV">
+                <sheet>
+                    <field name="currency_id" invisible="1"/>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1" placeholder="Дата · картка · місто · брутто"/></h1>
+                    </div>
+                    <group>
+                        <group name="what" string="Операція">
+                            <field name="date" options="{'numeric': True}"/>
+                            <field name="card_id" options="{'no_create': True}"/>
+                            <field name="country"/>
+                            <field name="city"/>
+                            <field name="product_group"/>
+                            <field name="quantity"/>
+                        </group>
+                        <group name="money" string="Гроші й рахунок">
+                            <field name="amount_net" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                            <field name="amount_gross" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                            <field name="invoice_no"/>
+                            <field name="move_id" options="{'no_create': True}"/>
+                            <field name="source"/>
+                            <field name="ref"/>
+                            <field name="note"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_dkv_txn_search" model="ir.ui.view">
+        <field name="name">workset.dkv.txn.search</field>
+        <field name="model">workset.dkv.txn</field>
+        <field name="arch" type="xml">
+            <search string="Транзакції DKV">
+                <field name="card_id"/>
+                <field name="invoice_no"/>
+                <field name="city"/>
+                <filter name="no_move" string="Без рахунку в Odoo" domain="[('move_id', '=', False)]"/>
+                <separator/>
+                <filter name="date_filter" string="Дата" date="date"/>
+                <group>
+                    <filter name="groupby_card" string="Картка" context="{'group_by': 'card_id'}"/>
+                    <filter name="groupby_month" string="Місяць" context="{'group_by': 'date:month'}"/>
+                    <filter name="groupby_invoice" string="Рахунок DKV" context="{'group_by': 'invoice_no'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_dkv_txns" model="ir.actions.act_window">
+        <field name="name">Транзакції DKV</field>
+        <field name="res_model">workset.dkv.txn</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_dkv_txn_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Транзакцій DKV ще немає</p>
+            <p>Їх запише інструмент штабу з PDF рахунків DKV, згодом — з API DKV.</p>
+        </field>
+    </record>
+</odoo>
