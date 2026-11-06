@@ -1227,8 +1227,20 @@ msgstr "— упало больше чем на"
 #. module: workset_profit
 #. odoo-javascript
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
-msgid "€ год порівняно з минулим місяцем; клік по клітинці — ланцюжок місяця."
-msgstr "€ ч по сравнению с прошлым месяцем; клик по ячейке — цепочка месяца."
+msgid "€ год порівняно з минулим місяцем;"
+msgstr "€ ч по сравнению с прошлым месяцем;"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "мінус червоним дрібно «€/міс»"
+msgstr "минус красным мелко «€/мес»"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "— місяць без годин зі ставкою, але з витратами; клік по клітинці — ланцюжок місяця."
+msgstr "— месяц без часов со ставкой, но с расходами; клик по ячейке — цепочка месяца."
 
 #. module: workset_profit
 #. odoo-javascript

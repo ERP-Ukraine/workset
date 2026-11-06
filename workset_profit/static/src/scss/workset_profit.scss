@@ -111,6 +111,17 @@
         position: relative;
         height: 16rem;
     }
+    // «Чисто по місяцях» «Огляду» (круг 3б): ~340 px і тягнеться на всю висоту картки — поруч «Куди йде частка», картки однакові
+    .o_workset_profit_chart_a {
+        height: auto;
+        min-height: 21.25rem;
+        flex: 1 1 auto;
+    }
+    // другорядний текст без прозорості (text-muted Odoo напівпрозорий — на темній темі читався слабо): розклад чипа «Власники»,
+    // рядок «Компанія» і підпис-легенда таблиці C (круг 3б)
+    .o_workset_profit_muted {
+        color: $gray-500;
+    }
     // «Куди йде частка»: назва лінії й смуга з частин (ширина — % від сервера); чисто — колір бренду, витрати — відтінки сірого теми
     // назва · смуга · «чисто N %»
     .o_workset_profit_split_row {
@@ -146,20 +157,21 @@
     .o_workset_profit_part_net {
         background-color: $primary;
     }
+    // сусідні частини — через дві ступені сірого й більше (круг 3б: авто й паливо зливалися): 700 · 500 · 300 · 600 · 400
     .o_workset_profit_part_housing {
         background-color: $gray-700;
     }
     .o_workset_profit_part_auto {
-        background-color: $gray-600;
-    }
-    .o_workset_profit_part_fuel {
         background-color: $gray-500;
     }
+    .o_workset_profit_part_fuel {
+        background-color: $gray-300;
+    }
     .o_workset_profit_part_tool {
-        background-color: $gray-400;
+        background-color: $gray-600;
     }
     .o_workset_profit_part_transport {
-        background-color: $gray-300;
+        background-color: $gray-400;
     }
     // водоспад картки лінії: колонки однакової ширини впритул (лінія нуля й пунктир — суцільні через усі колонки), стовпець — у полі
     // фіксованої висоти за геометрією сервера (bottom / height / end у %); на телефоні — гортається вбік
@@ -248,6 +260,11 @@
         }
         td {
             opacity: 0.85;
+        }
+        // підпис групи «Компанія, € за місяць» — сірим без прозорості (круг 3б)
+        td.o_workset_profit_muted {
+            color: $gray-500;
+            opacity: 1;
         }
     }
     .o_workset_profit_sticky_text {
