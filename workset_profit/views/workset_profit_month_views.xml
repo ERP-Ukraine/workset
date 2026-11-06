@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- «Лінії × місяці» (круг 1 — прості види; екран з плитками й графіком — круг 2 за макетом, обраним власником). Рядки пише лише код:
+    <!-- «Рядки розрахунку» (круг 1 — прості види; екрани з плитками й графіками круга 2 — workset_profit_screens_views.xml). Рядки пише лише код:
          створення, правка й видалення в списку вимкнені. Ланцюжок зліва направо: години → частка → оренда авто → житло → житло (вирахував
          замовник) → авто → паливо → інструмент → перевезення → чисто — усі доданки «чисто» видно за замовчуванням, тож видимі стовпці
          складаються в «Чисто»; поруч — гроші лінії й фонд. Не доданки (у фонд, буфер, сума рядка компанії, службові) — у «Додаткових
@@ -44,6 +44,8 @@
                        groups="base.group_system"/>
                 <field name="dkv_amount" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" optional="hide" sum="Разом"
                        groups="base.group_system"/>
+                <!-- круг 2: рядок лінії — картка лінії (екран B) за цей місяць; до 2026 (calc.MIN_MONTH) картки немає — кнопки теж -->
+                <button name="action_open_card" type="object" icon="fa-bar-chart" title="Картка лінії" invisible="row_kind != 'line' or month &lt; '2026-01-01'"/>
             </list>
         </field>
     </record>
@@ -54,6 +56,9 @@
         <field name="model">workset.profit.month</field>
         <field name="arch" type="xml">
             <form string="Лінія × місяць" create="0" edit="0" delete="0">
+                <header>
+                    <button name="action_open_card" type="object" string="Картка лінії" class="btn-primary" invisible="row_kind != 'line' or month &lt; '2026-01-01'"/>
+                </header>
                 <sheet>
                     <field name="currency_id" invisible="1"/>
                     <div class="oe_title">
@@ -156,6 +161,9 @@
                 <filter name="no_rate" string="Є години без ставки" domain="[('hours_no_rate', '&gt;', 0)]"/>
                 <filter name="negative" string="Чисто нижче нуля" domain="[('net', '&lt;', 0)]"/>
                 <separator/>
+                <!-- за замовчуванням — лише 2026 (calc.MIN_MONTH, рішення власника 06.11): рядки 2025 — зняти фільтр -->
+                <filter name="from_2026" string="З 2026 року" domain="[('month', '&gt;=', '2026-01-01')]"/>
+                <separator/>
                 <filter name="month_filter" string="Місяць" date="month"/>
                 <group>
                     <filter name="groupby_month" string="Місяць" context="{'group_by': 'month:month'}"/>
@@ -166,12 +174,13 @@
         </field>
     </record>
 
+    <!-- круг 2: «Лінії × місяці» — екран C (action_matrix); цей список — «Рядки розрахунку» (усі рядки місяців, чипи «Огляду» відкривають його) -->
     <record id="action_months" model="ir.actions.act_window">
-        <field name="name">Лінії × місяці</field>
+        <field name="name">Рядки розрахунку</field>
         <field name="res_model">workset.profit.month</field>
         <field name="view_mode">list,pivot,graph,form</field>
         <field name="search_view_id" ref="view_month_search"/>
-        <field name="context">{'search_default_main': 1, 'search_default_groupby_month': 1}</field>
+        <field name="context">{'search_default_main': 1, 'search_default_groupby_month': 1, 'search_default_from_2026': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">Розрахунку ще немає</p>
             <p>Натисніть «Перерахувати»: останні місяці порахуються з табелів, ставок, аналітики й транзакцій DKV.</p>

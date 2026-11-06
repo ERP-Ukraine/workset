@@ -15,8 +15,11 @@ workset_profit). Усі дані — вигадані в самому тесті
   транзакцій −4, стаття без розмітки −2,5 (підказка «інструмент»)."""
 from unittest.mock import patch
 
+from psycopg2 import IntegrityError
+
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase, new_test_user, tagged
+from odoo.tools import mute_logger
 
 from odoo.addons.workset_rates.models import agent_deals
 
@@ -421,21 +424,298 @@ class TestWorksetProfit(TransactionCase):
         self._run()
         self.assertAlmostEqual(self._rows(row_kind='line', line_id=self.line_a.id).transport, -3)
 
-    def test_housing_deducted_by_customer(self):
-        # травень: замовник лінії A вираховує житло 30 за людину на місяць; людей із годинами — 2 (працівник 1 зі ставкою, 3 — без)
+    def _housing_by_customer(self, unit):
+        # травень: замовник лінії A вираховує житло 30 в одиниці unit; людей із годинами — 2 (працівник 1 зі ставкою, 3 — без)
         may = '2030-05-01'
         self.env['workset.line.housing'].create({'line_id': self.line_a.id, 'customer_id': self.cust1.id, 'kind': 'customer_deducts', 'amount': 30,
-                                                 'amount_unit': 'month', 'payer': 'customer', 'date_from': may, 'source': 'owner',
+                                                 'amount_unit': unit, 'payer': 'customer', 'date_from': may, 'source': 'owner',
                                                  'source_note': 'test'})
         AAL = self.env['account.analytic.line'].with_company(self.co)
         for emp, day, hours in ((self.e1, '2030-05-05', 8), (self.e1, '2030-05-07', 8), (self.e3, '2030-05-06', 4)):
             AAL.create({'name': '/', 'project_id': self.p1.id, 'employee_id': emp.id, 'date': day, 'unit_amount': hours})
         res = self._run(may, may)
-        a = self._rows(may, row_kind='line', line_id=self.line_a.id)
-        self.assertAlmostEqual(a.housing_customer, -60, msg='30 × 2 людей з годинами в місяці в цього замовника')
-        self.assertAlmostEqual(a.housing, 0)
-        self.assertAlmostEqual(a.net, -12, msg='частка 16 × 2,5 + оренда авто 8 − житло, яке вирахував замовник, 60')
         self.assertTrue(res['verify'][0]['ok'], res['verify'][0]['text'])
+        return self._rows(may, row_kind='line', line_id=self.line_a.id)
+
+    def test_housing_deducted_by_customer(self):
+        # «€ за місяць (об'єкт)» (month) — одна сума за місяць на «лінія × замовник», не з кожної людини (calc.MONTH_UNIT = 'object')
+        a = self._housing_by_customer('month')
+        self.assertAlmostEqual(a.housing_customer, -30, msg="month — на об'єкт: 30 раз за місяць, хоч людей 2")
+        self.assertAlmostEqual(a.housing, 0)
+        self.assertAlmostEqual(a.net, 18, msg='частка 16 × 2,5 + оренда авто 8 − житло, яке вирахував замовник, 30')
+
+    def test_housing_deducted_by_customer_per_person(self):
+        # «€ за місяць за особу» (month_person, «Ставки» 06.11) — 30 з кожної людини з годинами в місяці. Значення є лише в «Ставках» із ним
+        field = self.env['workset.line.housing']._fields['amount_unit']
+        if 'month_person' not in dict(field._description_selection(self.env)):
+            self.skipTest('у «Ставках» цієї збірки ще немає одиниці month_person')
+        a = self._housing_by_customer('month_person')
+        self.assertAlmostEqual(a.housing_customer, -60, msg='30 × 2 людей з годинами в місяці в цього замовника')
+        self.assertAlmostEqual(a.net, -12)
+
+    def test_housing_rule_kind_none_goes_to_fund_or_partner(self):
+        # правило житла «Житло не наше» (kind none) з «Хто платить» = фонд працівників / партнер: витрата житла лінії — у «З фонду» / «З
+        # грошей лінії», не в наше «чисто» (правила копії: лінія офісу — фонд, лінія партнера — партнер)
+        Housing = self.env['workset.line.housing']
+        Housing.search([('line_id', 'in', [self.line_a.id, self.line_b.id])]).write({'date_to': '2030-03-31'})
+        Housing.create({'line_id': self.line_a.id, 'kind': 'none', 'payer': 'worker_fund', 'date_from': APR, 'source': 'owner', 'source_note': 'test'})
+        Housing.create({'line_id': self.line_b.id, 'kind': 'none', 'payer': 'partner', 'date_from': APR, 'source': 'owner', 'source_note': 'test'})
+        self._aal(self.a_house_a, -12, '2030-04-10', self.g_exp)
+        self._aal(self.a_house_b, -7, '2030-04-10', self.g_exp)
+        AAL = self.env['account.analytic.line'].with_company(self.co)
+        AAL.create({'name': '/', 'project_id': self.p1.id, 'employee_id': self.e1.id, 'date': '2030-04-03', 'unit_amount': 8})
+        AAL.create({'name': '/', 'project_id': self.p2.id, 'employee_id': self.e2.id, 'date': '2030-04-03', 'unit_amount': 8})
+        res = self._run(APR, '2030-04-30')
+        a = self._rows(APR, row_kind='line', line_id=self.line_a.id)
+        b = self._rows(APR, row_kind='line', line_id=self.line_b.id)
+        self.assertEqual((a.housing, a.fund_paid), (0, -12), 'фонд працівників — «З фонду», не наше житло')
+        self.assertEqual((b.housing, b.partner_paid), (0, -7), 'партнер — «З грошей лінії»')
+        self.assertAlmostEqual(a.net, 8 * 2.5 + 8 * 0.5, msg='у «чисто» житла немає')
+        self.assertTrue(res['verify'][0]['ok'], res['verify'][0]['text'])
+        with self._deals():
+            card = self.Month.with_context(profit_today='2030-05-15').profit_line_card(self.line_a.id, APR)
+        self.assertNotIn('housing', [s['key'] for s in card['waterfall']['bars']], 'нульового кроку «Житло» у водоспаді немає')
+        self.assertEqual([x['amount'] for x in card['aside'] if x['key'] == 'fund_paid'], [-12])
+        self.assertIn('фонд', [p for p in card['pays'] if p['key'] == 'housing'][0]['payer'].lower())
+
+    # ——— круг 2: екрани ———
+    def _screen_rows(self):
+        # синтетичні рядки підсумку (пише лише код — тут суперкористувач): 2025-12 (до 2026 — не показуються), травень–червень 2030
+        # лінії A — чисто на годину падає з 10 до 7 (жовте), липень — чисто нижче нуля (червоне)
+        Month = self.Month.sudo()
+        line = {'row_kind': 'line', 'line_id': self.line_a.id, 'name': 'Line A'}
+        for month, hours, share, net in (('2025-12-01', 10, 50, 50), ('2030-05-01', 10, 120, 100), ('2030-06-01', 10, 90, 70),
+                                         ('2030-07-01', 10, 30, -20)):
+            Month.create(dict(line, month=month, hours_total=hours, hours_rate=hours, share=share, housing=net - share, net=net,
+                              net_per_hour=net / hours, aal_amount=net - share))
+
+    def test_screen_overview_sums_match_month_rows(self):
+        self._run()
+        rows = self._rows(row_kind='line')
+        with self._deals():
+            data = self.Month.with_context(profit_today='2030-04-20').profit_overview(M)
+        self.assertEqual(data['month']['value'], M)
+        tiles = {t['id']: t for t in data['lines']}
+        self.assertEqual(set(tiles), {self.line_a.id, self.line_b.id})
+        for r in rows:
+            t = tiles[r.line_id.id]
+            self.assertEqual((t['net'], t['net_ph'], t['hours']), (r.net, r.net_per_hour, r.hours_total), 'плитка = рядок підсумку')
+            self.assertAlmostEqual(t['share_ph'], round(r.share / r.hours_rate, 2))
+        tot = data['totals']
+        self.assertEqual((tot['net'], tot['hours'], tot['hours_rate']), (sum(rows.mapped('net')), sum(rows.mapped('hours_total')),
+                                                                          sum(rows.mapped('hours_rate'))))
+        self.assertAlmostEqual(tot['share'] + tot['costs'], tot['net'], msg='частка + витрати = чисто')
+        alerts = {a['key']: a for a in data['alerts'] if a['key'] != 'owner'}
+        un = self._rows(row_kind='unallocated')
+        self.assertAlmostEqual(alerts['unallocated']['amount'], sum(un.mapped('net')))
+        self.assertEqual(self.Month.search_count(alerts['unallocated']['open']['domain']), len(un), 'число на чипі — рядки списку')
+        self.assertEqual(alerts['no_rate']['hours'], 12, 'години без ставки: A 4, B 8')
+        self.assertEqual(alerts['check']['state'], 'ok', 'звірка з «Звірки місяця», яку записав перерахунок')
+        owners = [a for a in data['alerts'] if a['key'] == 'owner']
+        self.assertEqual([(a['code'], a['amount']) for a in owners], [('Owner X', -10)])
+        split = tiles[self.line_a.id]['split']
+        self.assertAlmostEqual(sum(p['pct'] for p in split), 100, places=6)
+        self.assertEqual([p['key'] for p in split], ['net', 'housing', 'tool', 'transport'])
+        self.assertEqual(data['series']['months'][0]['value'], '2026-01-01', 'ряди — з січня 2026')
+        i = [m['value'] for m in data['series']['months']].index(M)
+        self.assertAlmostEqual(data['series']['total'][i], round(sum(rows.mapped('net')) / sum(rows.mapped('hours_rate')), 2))
+        with self._deals():
+            default = self.Month.with_context(profit_today='2030-04-20').profit_overview()
+        self.assertEqual(default['month']['value'], M, 'за замовчуванням — останній закритий місяць')
+
+    def test_screen_line_card_chain_closes_to_net(self):
+        self._run()
+        row = self._rows(row_kind='line', line_id=self.line_a.id)
+        with self._deals():
+            card = self.Month.with_context(profit_today='2030-04-20').profit_line_card(self.line_a.id, M)
+        bars = card['waterfall']['bars']
+        self.assertEqual([b['key'] for b in bars], ['share', 'car_rent', 'housing', 'tool', 'transport', 'net'],
+                         'нульових кроків немає (паливо лінії A — з фонду)')
+        self.assertAlmostEqual(sum(b['amount'] for b in bars[:-1]), bars[-1]['amount'], msg='ланцюжок сходиться до «чисто»')
+        self.assertEqual(bars[-1]['amount'], row.net)
+        self.assertEqual(card['totals']['net_ph'], row.net_per_hour)
+        rows = card['rows']
+        chain = sum(r['amount'] for r in rows if r['chain'])
+        self.assertAlmostEqual(chain, row.net - row.share, msg='рядки ланцюжка = витрати лінії: оренда 8, житло −10, інструмент −3, перевезення −3')
+        house = [r for r in rows if r['title'] == self.a_house_a.display_name]
+        self.assertEqual(len(house), 1)
+        self.assertEqual(self.env['account.analytic.line'].search(house[0]['open']['domain']).mapped('amount'), [-10],
+                         'рядок відкриває свої записи аналітики')
+        ts = rows[-1]
+        self.assertTrue(ts.get('timesheets'))
+        self.assertAlmostEqual(sum(self.env['account.analytic.line'].search(ts['open']['domain']).mapped('unit_amount')), row.hours_total,
+                               msg='табелі лінії = «Години» картки')
+        pays = {p['key']: p for p in card['pays']}
+        self.assertEqual(set(pays), {'housing', 'auto', 'fuel', 'tool', 'transport'})
+        self.assertEqual(pays['fuel']['cards'], [self.card_a.name], 'паливо — і картки DKV лінії')
+        self.assertEqual({x['key'] for x in card['aside']}, {'fund_in', 'fund_paid', 'fund_left', 'housing_buffer'})
+        self.assertEqual((card['prev']['value'], card['next']['value']), ('2030-02-01', APR))
+        self.assertFalse(card['stale'], 'одразу після перерахунку рядки = ланцюжку: попередження немає')
+        self.assertTrue(card['recomputed'])
+        self._aal(self.a_house_a, -4, '2030-03-12', self.g_exp)  # житло лінії A з'явилось після перерахунку
+        with self._deals():
+            later = self.Month.with_context(profit_today='2030-04-20').profit_line_card(self.line_a.id, M)
+        self.assertTrue(later['stale'], 'аналітику змінили після перерахунку — «рядки змінилися після перерахунку»')
+        self.assertEqual(later['waterfall']['bars'][-1]['amount'], row.net, 'ланцюжок — досі збережений рядок')
+
+    def test_screen_matrix_tones_and_only_2026(self):
+        self._screen_rows()
+        Month = self.Month.with_context(profit_today='2030-08-10')
+        with self._deals():
+            data = Month.profit_matrix('2030-05-01', '2030-07-31')
+            early = Month.profit_matrix('2025-06-01', '2026-03-31')
+            over = Month.profit_overview('2025-12-01')
+            card = Month.profit_line_card(self.line_a.id, '2025-12-01')
+        self.assertEqual([m['value'] for m in data['months']], ['2030-05-01', '2030-06-01', '2030-07-01'])
+        cells = data['lines'][0]['cells']
+        self.assertEqual([c['tone'] for c in cells], ['', 'drop', 'neg'], 'падіння на 3 за годину > порогу 1,5 — жовте; чисто < 0 — червоне')
+        self.assertEqual(data['lines'][0]['total']['net'], 150)
+        self.assertEqual(data['lines'][0]['total']['net_ph'], 5)
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_DROP, '3')
+        with self._deals():
+            relaxed = Month.profit_matrix('2030-05-01', '2030-07-31')
+        self.assertEqual([c['tone'] for c in relaxed['lines'][0]['cells']], ['', '', 'neg'], 'поріг — параметр: рівно 3 — не жовте')
+        self.assertEqual([m['value'] for m in early['months']], ['2026-01-01', '2026-02-01', '2026-03-01'], 'до січня 2026 — не віддається')
+        self.assertFalse(early['has'], 'рядок 2025-12 у таблицю не потрапляє')
+        self.assertEqual(over['month']['value'], '2026-01-01')
+        self.assertNotIn('2025-12-01', [m['value'] for m in over['months']])
+        self.assertEqual(card['month']['value'], '2026-01-01')
+        self.assertFalse(card['prev'], 'стрілки «назад» з січня 2026 немає')
+
+    def test_screen_no_hours_zero_chips_and_stale_rows(self):
+        # червень 2030: у лінії B лише витрати без годин зі ставкою; «Не розподілено» і «Власник» на 0 €; травень — з годинами (для стрілки)
+        Month = self.Month.sudo()
+        Month.create({'row_kind': 'line', 'line_id': self.line_b.id, 'name': 'Line B', 'month': '2030-05-01', 'hours_total': 10,
+                      'hours_rate': 10, 'share': 60, 'housing': -10, 'net': 50, 'net_per_hour': 5, 'aal_amount': -10})
+        Month.create({'row_kind': 'line', 'line_id': self.line_b.id, 'name': 'Line B', 'month': '2030-06-01', 'hours_total': 4,
+                      'hours_no_rate': 4, 'housing': -20, 'net': -20, 'net_per_hour': 0, 'aal_amount': -20})
+        Month.create({'row_kind': 'unallocated', 'name': 'Buffer without line', 'month': '2030-06-01', 'housing_buffer': 15, 'amount': 15,
+                      'net': 0, 'aal_amount': 15})
+        Month.create({'row_kind': 'owner', 'analytic_id': self.a_owner.id, 'name': 'Owner X', 'month': '2030-06-01', 'net': 0})
+        Screen = self.Month.with_context(profit_today='2030-07-10')
+        with self._deals():
+            over = Screen.profit_overview('2030-06-01')
+            card = Screen.profit_line_card(self.line_b.id, '2030-06-01')
+            junk = Screen.profit_line_card('abc', '2030-06-01')
+            junk_list = Screen.profit_line_card([1], '2030-06-01')
+        tile = [t for t in over['lines'] if t['id'] == self.line_b.id][0]
+        self.assertIsNone(tile['net_ph'], 'годин зі ставкою немає — «—», а не 0,00 € год')
+        self.assertIsNone(tile['share_ph'])
+        self.assertIsNone(tile['trend'], 'стрілки від нуля немає')
+        self.assertEqual(tile['net'], -20)
+        self.assertIsNone(over['totals']['net_ph'], 'підсумок місяця без годин зі ставкою — теж «—»')
+        self.assertNotIn('unallocated', [a['key'] for a in over['alerts']], '«Не розподілено» на 0 € — без чипа')
+        self.assertNotIn('owner', [a['key'] for a in over['alerts']], '«Власник» на 0 € — без чипа')
+        self.assertTrue(card['has'])
+        self.assertIsNone(card['totals']['net_ph'])
+        self.assertIsNone(card['totals']['share_ph'])
+        self.assertTrue(all(b['ph'] is None for b in card['waterfall']['bars']))
+        self.assertTrue(card['stale'], 'рядків розкладу немає, а «Чисто» −20 — рядки змінилися після перерахунку')
+        self.assertTrue(card['recomputed'])
+        for j in (junk, junk_list):
+            self.assertEqual(j['line']['id'], self.line_b.id, 'нечисловий line_id — як «не знайдено»: перша лінія місяця, не помилка')
+        # той самий рядок лінії з годинами (травень) — € год є: «—» лише без годин зі ставкою
+        with self._deals():
+            may = Screen.profit_overview('2030-05-01')
+        self.assertEqual([t['net_ph'] for t in may['lines'] if t['id'] == self.line_b.id], [5])
+
+    def test_check_one_per_month(self):
+        # «Звірка місяця»: плановий перерахунок і «Звірити» за той самий місяць — один запис (оновити, якщо є); другий запис база не пустить
+        Check = self.env['workset.profit.check'].sudo()
+        self._run()
+        self.assertEqual(Check.search_count([('month', '=', M)]), 1)
+        self.Month._store_check(M, {'ok': False, 'text': 'second'})
+        self.Month.search([('month', '=', M)], limit=1).action_verify()
+        recs = Check.search([('month', '=', M)])
+        self.assertEqual(len(recs), 1, 'перерахунок, ще один запис і «Звірити» — той самий запис')
+        self.assertTrue(recs.ok, '«Звірити» оновило запис')
+        with self.assertRaises(IntegrityError), mute_logger('odoo.sql_db'), self.env.cr.savepoint():
+            Check.create({'month': M, 'ok': True})
+            self.env.flush_all()
+
+    def test_check_store_when_record_unseen(self):
+        # «Звірити» чекав замка, поки перерахунок створив запис місяця: перший пошук його не бачить (знімок до замка) — створення
+        # впирається в унікальність, і _store_check оновлює запис, а не падає «Звірка цього місяця вже є»
+        Check = self.env['workset.profit.check'].sudo()
+        self._run()
+        real = type(Check).search
+        calls = []
+
+        def stale_first(me, domain, *args, **kwargs):
+            calls.append(domain)
+            return me.browse() if len(calls) == 1 else real(me, domain, *args, **kwargs)
+        with patch.object(type(Check), 'search', stale_first):
+            self.Month._store_check(M, {'ok': False, 'text': 'unseen'})
+        recs = Check.search([('month', '=', M)])
+        self.assertEqual(len(recs), 1, 'одна звірка на місяць')
+        self.assertEqual(recs.text, 'unseen', 'запис, якого не було видно, — оновлено')
+        self.assertGreaterEqual(len(calls), 2, 'після відмови унікальності — ще один пошук')
+
+    def test_recompute_reads_housing_rules_once(self):
+        # правила житла «Ставок» — одне читання на перерахунок місяця (не _housing_at на кожну «лінію × замовника × день»)
+        Housing = type(self.env['workset.line.housing'])
+        real = Housing._rules
+        n = []
+
+        def counted(me):
+            n.append(1)
+            return real(me)
+        with patch.object(Housing, '_rules', counted), patch.object(Housing, '_housing_at', side_effect=AssertionError('_housing_at')):
+            self._run()
+        self.assertEqual(len(n), 1)
+
+    def test_open_card_only_from_2026(self):
+        self._screen_rows()
+        old = self._rows('2025-12-01', row_kind='line', line_id=self.line_a.id)
+        res = old.action_open_card()
+        self.assertEqual(res['tag'], 'display_notification', 'рядок до 2026 — повідомлення, а не картка січня 2026 мовчки')
+        new = self._rows('2030-05-01', row_kind='line', line_id=self.line_a.id)
+        res = new.action_open_card()
+        self.assertEqual((res['tag'], res['params']['month']), ('workset_profit.line_card', '2030-05-01'))
+
+    def test_screen_access_only_viewer_group(self):
+        viewer = new_test_user(self.env, login='ws_profit_screen_viewer', groups='base.group_user,workset_profit.group_viewer')
+        plain = new_test_user(self.env, login='ws_profit_screen_plain', groups='base.group_user')
+        admin = new_test_user(self.env, login='ws_profit_screen_admin', groups='base.group_user,base.group_system')
+        self._run()
+
+        def as_user(user):
+            return self.Month.with_user(user).with_context(allowed_company_ids=user.company_ids.ids, profit_today=False)
+        for user in (plain, admin):
+            for call in (lambda m: m.profit_overview(M), lambda m: m.profit_line_card(self.line_a.id, M), lambda m: m.profit_matrix(M, M_LAST)):
+                with self.assertRaises(AccessError):
+                    call(as_user(user))
+        # «сьогодні» перегляду — справжнє (підміна — лише адміністратору), тож синтетика — у січні 2026 (він завжди між MIN_MONTH і
+        # поточним місяцем): перегляд читає рядки, line_id / analytic_id (search_read його правами) і всі три екрани з даними
+        Month = self.Month.sudo()
+        jan = calc.MIN_MONTH
+        Month.create({'row_kind': 'line', 'line_id': self.line_a.id, 'name': 'Line A', 'month': jan, 'hours_total': 10, 'hours_rate': 10,
+                      'share': 50, 'housing': -20, 'net': 30, 'net_per_hour': 3, 'aal_amount': -20})
+        Month.create({'row_kind': 'owner', 'analytic_id': self.a_owner.id, 'name': 'Owner X', 'month': jan, 'amount': -5, 'net': -5,
+                      'aal_amount': -5})
+        Month.create({'row_kind': 'unallocated', 'name': 'Unallocated', 'month': jan, 'amount': -2, 'net': -2, 'aal_amount': -2})
+        me = as_user(viewer)
+        with self._deals():
+            over = me.profit_overview(jan)
+            card = me.profit_line_card(self.line_a.id, jan)
+            data = me.profit_matrix(jan, '2026-01-31')
+        self.assertEqual(over['month']['value'], jan)
+        tile = [t for t in over['lines'] if t['id'] == self.line_a.id]
+        self.assertEqual([(t['name'], t['net'], t['net_ph']) for t in tile], [('Line A', 30, 3)], 'перегляд бачить плитку лінії (line_id)')
+        alerts = {a['key']: a for a in over['alerts']}
+        self.assertIn(('Owner X', -5), [(a['code'], a['amount']) for a in over['alerts'] if a['key'] == 'owner'],
+                      'стаття власника — з analytic_id правами перегляду')
+        self.assertTrue(alerts['unallocated']['amount'] <= -2)
+        self.assertTrue(card['has'], 'картка лінії під переглядом — з даними')
+        self.assertEqual((card['line']['id'], card['totals']['net'], card['waterfall']['bars'][-1]['amount']), (self.line_a.id, 30, 30))
+        self.assertTrue(card['recomputed'], 'час перерахунку — з write_date рядка')
+        self.assertEqual(len(data['months']), 1, 'перегляд бачить екран')
+        row = [x for x in data['lines'] if x['id'] == self.line_a.id]
+        self.assertEqual([(c['net'], c['net_ph']) for c in row[0]['cells']], [(30, 3)])
+        self.assertIn('Owner X', [o['code'] for o in data['owners']])
+        menu = self.env.ref('workset_profit.menu_root')
+        groups = menu['group_ids' if 'group_ids' in menu._fields else 'groups_id']  # Odoo 19 — group_ids
+        self.assertEqual(groups, self.env.ref('workset_profit.group_viewer'), 'меню — лише групі перегляду')
 
 
 class _Both:

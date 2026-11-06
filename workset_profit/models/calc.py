@@ -32,6 +32,10 @@ NET_COSTS = ('housing', 'housing_customer', 'auto', 'fuel', 'tool', 'transport')
 NOT_OURS = ('housing_buffer', 'partner')                   # без лінії — «Не розподілено», але не в «чисто» компанії
 PAYER_KEYS = ('we', 'partner', 'worker_fund', 'customer')
 TARGET_KEYS = ('line', 'office', 'transport')              # період картки DKV
+# Житло, яке вираховує замовник, одиниця правила житла «Ставок» «€ за місяць (об'єкт)» (month): 'object' — одна сума на місяць на «лінія ×
+# замовник»; 'person' — з кожної людини з годинами в місяці. «€ за місяць за особу» (month_person, «Ставки» 06.11) — завжди з людини.
+# Як рахувати month — лише цей рядок (рішення coordinator 06.11: month — на об'єкт, «з людини» — лише month_person)
+MONTH_UNIT = 'object'
 # поля рядка, куди лягають гроші аналітики й DKV: їхня сума в рядку = aal_amount + dkv_amount (звірка рядка)
 SPREAD = ('housing', 'auto', 'fuel', 'tool', 'transport', 'partner_paid', 'fund_paid', 'housing_buffer', 'amount')
 # зі ставок і правил (не з аналітики й не з DKV): години × €/год; житло, яке вираховує замовник (правило житла лінії × одиниця)
@@ -39,6 +43,19 @@ RATE_MONEY = ('share', 'car_rent', 'fund_in', 'housing_customer')
 MONEY = RATE_MONEY + SPREAD + ('aal_amount', 'dkv_amount')
 HOURS = ('hours_total', 'hours_rate', 'hours_no_rate')
 ROW_KINDS = ('line', 'noline', 'unallocated', 'office', 'owner', 'ignore', 'dkv')
+
+# Екрани (круг 2): «Огляд», картка лінії, «Лінії × місяці»
+MIN_MONTH = '2026-01-01'   # екрани — лише з січня 2026 (рішення власника 06.11 ~14:5x: «меня интересует только 2026 год»)
+MATRIX_MONTHS = 12         # «Лінії × місяці» за замовчуванням — стільки останніх закритих місяців, але не раніше MIN_MONTH
+MATRIX_MAX = 24            # період таблиці — не більше стільки місяців (останні)
+CARD_ROWS = 12             # «Рядки за місяць» картки лінії — стільки найбільших, решта — «Показано N з M»
+P_DROP = 'workset_profit.drop_alert'                    # жовта клітинка: чисто €/год упало до минулого місяця більше, ніж на стільки
+DROP_DEFAULT = 1.5
+P_HOUSING_SHIFT = 'workset_profit.housing_shift_ratio'  # «Житло не в своєму місяці»: житло на годину > стільки × медіана інших місяців
+HOUSING_SHIFT_DEFAULT = 2.0
+CHAIN = ('share', 'car_rent', 'housing', 'housing_customer', 'auto', 'fuel', 'tool', 'transport')  # ланцюжок лінії до «чисто»
+SPLIT = ('net', 'housing', 'auto', 'fuel', 'tool', 'transport')   # «Куди йде частка»: частини смуги лінії
+ASIDE = ('partner_paid', 'fund_in', 'fund_paid', 'fund_left', 'housing_buffer')  # «Не в нашому чисто» картки лінії
 
 # Підказка виду за назвою статті: (будь-що з, усе з, вид). Лише підказка: рахує розмітка (правило workset.profit.analytic.map)
 HINTS = (
@@ -94,6 +111,34 @@ TX = {
     'a_txns': ['Транзакції DKV', 'Транзакции DKV'],
     'recalc_done': ['Перераховано місяців: %d, рядків: %d.', 'Пересчитано месяцев: %d, строк: %d.'],
     'title': ['Прибутковість', 'Прибыльность'],
+    # ——— екрани (круг 2) ———
+    'only_viewer': ['Екрани «Прибутковості» бачить лише група «Прибутковість: перегляд».',
+                    'Экраны «Прибыльности» видит только группа «Прибыльность: просмотр».'],
+    'card_before': ['Картка лінії — лише з січня 2026; рядок %s відкрийте у списку.', 'Карточка линии — только с января 2026; строку %s откройте в списке.'],
+    's_share': ['Частка WorkSET', 'Доля WorkSET'], 's_car_rent': ['Оренда авто', 'Аренда авто'], 's_housing': ['Житло', 'Жильё'],
+    's_housing_customer': ['Житло (вирахував замовник)', 'Жильё (вычел заказчик)'], 's_auto': ['Авто', 'Авто'], 's_fuel': ['Паливо', 'Топливо'],
+    's_tool': ['Інструмент', 'Инструмент'], 's_transport': ['Перевезення', 'Перевозка'], 's_net': ['Чисто', 'Чисто'],
+    'a_partner_paid': ['З грошей лінії', 'Из денег линии'], 'a_fund_in': ['У фонд працівників', 'В фонд работников'],
+    'a_fund_paid': ['З фонду працівників', 'Из фонда работников'], 'a_fund_left': ['Фонд: залишок місяця', 'Фонд: остаток месяца'],
+    'a_housing_buffer': ['Буфер житла з оплати (довідково)', 'Буфер жилья из оплаты (справочно)'],
+    'r_timesheets': ['Табелі — %s год, людей: %d', 'Табели — %s ч, человек: %d'],
+    'r_card': ['DKV %s — транзакцій: %d', 'DKV %s — транзакций: %d'],
+    'r_pool': ['Перевезення людей — частка лінії за прибуттями', 'Перевозка людей — доля линии по прибытиям'],
+    'r_rent': ['Оренда авто — за ставками', 'Аренда авто — по ставкам'],
+    'r_hc': ['Житло, яке вираховує замовник, — за правилом житла лінії', 'Жильё, которое вычитает заказчик, — по правилу жилья линии'],
+    'r_hc_title': ['Правила житла лінії', 'Правила жилья линии'],
+    'r_rows': ['Рядки: %s · %s', 'Строки: %s · %s'],
+    't_unalloc': ['Не розподілено · %s', 'Не распределено · %s'], 't_no_rate': ['Години без ставки · %s', 'Часы без ставки · %s'],
+    't_noline': ['Години без лінії · %s', 'Часы без линии · %s'], 't_shift': ['Житло не в своєму місяці · %s', 'Жильё не в своём месяце · %s'],
+    't_owner': ['Власник %s · %s', 'Собственник %s · %s'], 't_month': ['Рядки розрахунку · %s', 'Строки расчёта · %s'],
+    'v_none_short': ['звірки ще не було', 'сверки ещё не было'],
+    'l_all': ['Усі лінії', 'Все линии'], 'l_net': ['Чисто, €/год', 'Чисто, €/ч'], 'l_share': ['Частка, €/год', 'Доля, €/ч'],
+    'l_hour': ['€/год', '€/ч'], 'l_month': ['€/міс', '€/мес'],
+    'months': [('січень', 'лютий', 'березень', 'квітень', 'травень', 'червень', 'липень', 'серпень', 'вересень', 'жовтень', 'листопад',
+                'грудень'),
+               ('январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь')],
+    'months_short': [('Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер', 'Лип', 'Сер', 'Вер', 'Жов', 'Лис', 'Гру'),
+                     ('Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек')],
 }
 
 
@@ -701,11 +746,13 @@ def housing_days(rows, segs, plans, cust_lines):
     return [out[k] for k in sorted(out)]
 
 
-def customer_housing(days, day_rules):
+def customer_housing(days, day_rules, month_unit=None):
     """Житло, яке вираховує замовник («Хто платить» правила житла лінії «Ставок» — customer), — мінусом у «Житло (вирахував замовник)»
-    лінії. day_rules — [{'line', 'cust', 'date', 'payer', 'amount', 'unit'}] — правило _housing_at на день. Одиниці: month — сума за
-    людину на місяць (людина з годинами в місяці в цього замовника, раз — у її перший день, коли правило діє); day_person — сума × людино-
-    дні з годинами; hour — сума × години; pct — % від «Платять нам» × години. Інше або без суми — 0. → [[лінія, сума]] за лінією."""
+    лінії. day_rules — [{'line', 'cust', 'date', 'payer', 'amount', 'unit'}] — правило _housing_at на день. Одиниці: month_person —
+    сума за людину на місяць (людина з годинами в місяці в цього замовника, раз — у її перший день, коли правило діє); month — за
+    month_unit (немає — MONTH_UNIT): 'object' — сума раз на місяць на «лінія × замовник» (перший день із годинами, коли правило діє),
+    'person' — як month_person; day_person — сума × людино-дні з годинами; hour — сума × години; pct — % від «Платять нам» × години.
+    Інше або без суми — 0. → [[лінія, сума]]."""
     rules = {(r['line'], r['cust'], iso(r['date'])): r for r in day_rules or []}
     out = {}
     counted = set()
@@ -714,8 +761,9 @@ def customer_housing(days, day_rules):
         if not r or r.get('payer') != 'customer' or not r.get('amount'):
             continue
         amount, unit = float(r['amount']), r.get('unit') or ''
-        if unit == 'month':
-            k = (d['line'], d['cust'], d['person'])
+        if unit in ('month', 'month_person'):
+            per = 'person' if unit == 'month_person' else (month_unit or MONTH_UNIT)
+            k = (d['line'], d['cust'], d['person']) if per == 'person' else (d['line'], d['cust'])
             if k in counted:
                 continue
             counted.add(k)
@@ -852,3 +900,254 @@ def verify(rows, aal_expected, dkv_expected, month, lang='uk', raw=None, moved=0
             parts.append(t('v_double', lang) % money_text(eur(unbilled)))
     return {'ok': ok, 'aal': eur(aal), 'aal_expected': eur(want_aal), 'dkv': eur(dkv), 'dkv_expected': eur(want_dkv), 'bad': bad,
             'raw_bad': raw_bad, 'text': ' '.join(parts)}
+
+
+# ——— екрани (круг 2): місяці ———
+def add_months(day, n):
+    """Перше число місяця, на n місяців пізніше (n < 0 — раніше) за місяць day."""
+    s = month_first(day)
+    k = int(s[0:4]) * 12 + int(s[5:7]) - 1 + int(n)
+    return '%04d-%02d-01' % (k // 12, k % 12 + 1)
+
+
+def valid_day(value):
+    """«РРРР-ММ-ДД» або «РРРР-ММ» (тоді перше число) → «РРРР-ММ-ДД»; хибне або порожнє — ''."""
+    s = str(value or '').strip()[0:10]
+    if re.match(r'^\d{4}-\d{2}$', s):
+        s += '-01'
+    if not re.match(r'^\d{4}-\d{2}-\d{2}$', s):
+        return ''
+    try:
+        to_date(s)
+    except ValueError:
+        return ''
+    return s
+
+
+def last_closed(today):
+    """Останній закритий місяць (минулий щодо today), не раніше MIN_MONTH."""
+    return max(MIN_MONTH, add_months(today, -1))
+
+
+def screen_month(value, today):
+    """Місяць екрана: перше число місяця value; раніше MIN_MONTH — MIN_MONTH, пізніше поточного — поточний; немає або хибне — останній
+    закритий (last_closed)."""
+    day = valid_day(value)
+    if not day:
+        return last_closed(today)
+    return min(max(month_first(day), MIN_MONTH), max(month_first(today), MIN_MONTH))
+
+
+def screen_period(date_from, date_to, today, n=MATRIX_MONTHS, cap=MATRIX_MAX):
+    """Місяці «Лінії × місяці»: від date_from до date_to (screen_month кожен; переплутані — міняються місцями); немає «до» — останній
+    закритий, немає «з» — n місяців до «до», не раніше MIN_MONTH; довше cap — останні cap. → ['РРРР-ММ-01', …]."""
+    to = screen_month(date_to, today) if valid_day(date_to) else last_closed(today)
+    frm = screen_month(date_from, today) if valid_day(date_from) else max(MIN_MONTH, add_months(to, -(n - 1)))
+    if frm > to:
+        frm, to = to, frm
+    return month_list(frm, to)[-cap:]
+
+
+def month_label(day, lang='uk', short=False):
+    """«вересень 2026» (short — «Вер»), мовою користувача."""
+    s = iso(day)
+    i = int(s[5:7]) - 1
+    names = TX['months_short' if short else 'months'][1 if lang == 'ru' else 0]
+    return names[i] if short else '%s %s' % (names[i], s[0:4])
+
+
+def months_text(n, lang='uk'):
+    """6 → «6 місяців» (1 — «місяць», 2–4 — «місяці», 11–14 — «місяців»), російською — «месяц / месяца / месяцев»."""
+    n = int(n)
+    forms = ('месяц', 'месяца', 'месяцев') if lang == 'ru' else ('місяць', 'місяці', 'місяців')
+    if n % 10 == 1 and n % 100 != 11:
+        word = forms[0]
+    elif 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        word = forms[1]
+    else:
+        word = forms[2]
+    return '%d %s' % (n, word)
+
+
+def month_info(day, lang='uk'):
+    """Місяць для екрана → {'value', 'label' («вересень 2026»), 'title' («Вересень 2026»), 'name' («вересень»), 'short' («Вер»)}."""
+    label = month_label(day, lang)
+    return {'value': month_first(day), 'label': label, 'title': label[0:1].upper() + label[1:], 'name': label.split(' ')[0],
+            'short': month_label(day, lang, True)}
+
+
+def month_axis(days, lang='uk', short=True):
+    """Підписи місяців на осі графіка й у шапці таблиці: «Вер» (short) або «Вересень»; період зачіпає більше одного календарного року —
+    з коротким роком: «Січ '27», «Грудень '26» (інакше з 2027 «Січ» повториться). days — ['РРРР-ММ-ДД', …] → [підпис]."""
+    days = [iso(d) for d in (days or [])]
+    many = len({d[0:4] for d in days}) > 1
+    out = []
+    for d in days:
+        s = month_label(d, lang, short)
+        s = s[0:1].upper() + s[1:] if short else s.split(' ')[0][0:1].upper() + s.split(' ')[0][1:]
+        out.append("%s '%s" % (s, d[2:4]) if many else s)
+    return out
+
+
+def parse_id(value):
+    """id запису з params / localStorage: ціле > 0 або рядок із цифр → int; інше (текст, bool, дробове, від'ємне, порожньо) — 0."""
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return value if value > 0 else 0
+    if isinstance(value, float):
+        return int(value) if value.is_integer() and value > 0 else 0
+    s = str(value or '').strip()
+    return int(s) if re.match(r'^\d{1,18}$', s) and int(s) > 0 else 0
+
+
+def housing_from(payers):
+    """Чип плитки «житло не з наших грошей»: платники правил житла лінії на день (лінії й її замовників, ключі «Ставок») → 'partner'
+    (є «Платить партнер» — з буфера лінії), 'worker_fund' (є фонд працівників), інакше ''."""
+    keys = {housing_payer(p) for p in (payers or []) if p}
+    return 'partner' if 'partner' in keys else ('worker_fund' if 'worker_fund' in keys else '')
+
+
+def parse_num(text, default):
+    """Число з системного параметра («1,5», «2») → float; порожньо, хибне або від'ємне — default."""
+    try:
+        v = float(str(text).strip().replace(',', '.'))
+    except (TypeError, ValueError):
+        return default
+    return v if v >= 0 else default
+
+
+# ——— екрани: числа ———
+def num_text(x):
+    """Число для тексту рядка: 2113 → «2 113», 12.5 → «12,5», −1234.25 → «−1 234,25» (тисячі — вузький пробіл, без зайвих нулів)."""
+    v = round(float(x or 0), 2)
+    whole, frac = ('%.2f' % abs(v)).split('.')
+    groups = []
+    while len(whole) > 3:
+        groups.insert(0, whole[-3:])
+        whole = whole[:-3]
+    s = ' '.join([whole] + groups)
+    frac = frac.rstrip('0')
+    return ('−' if v < 0 else '') + s + (',' + frac if frac else '')
+
+
+def per_hour(amount, hours):
+    """Гроші на годину (на години зі ставкою): годин немає — None (екран пише «—», а не «0,00 € год»)."""
+    return round(float(amount or 0) / float(hours), 2) if hours else None
+
+
+def totals(rows):
+    """Підсумок рядків ліній місяця (або однієї лінії) → {'hours', 'hours_rate', 'hours_no_rate', 'share', 'costs', 'net', 'share_ph',
+    'costs_ph', 'net_ph'}: витрати — усе між часткою й «чисто» (оренда авто плюсом; житло, житло замовника, авто, паливо, інструмент,
+    перевезення — мінусом), частка + витрати = чисто до цента; €/год — на години зі ставкою (їх немає — None)."""
+    rows = rows or []
+    hours_rate = round(sum(float(r.get('hours_rate') or 0) for r in rows), 2)
+    share = sum(cents(r.get('share')) for r in rows)
+    net = sum(cents(r.get('net')) for r in rows)
+    return {'hours': round(sum(float(r.get('hours_total') or 0) for r in rows), 2), 'hours_rate': hours_rate,
+            'hours_no_rate': round(sum(float(r.get('hours_no_rate') or 0) for r in rows), 2), 'share': eur(share), 'costs': eur(net - share),
+            'net': eur(net), 'share_ph': per_hour(eur(share), hours_rate), 'costs_ph': per_hour(eur(net - share), hours_rate),
+            'net_ph': per_hour(eur(net), hours_rate)}
+
+
+def chain_steps(row):
+    """Ланцюжок лінії за місяць: частка → оренда авто → житло → житло (вирахував замовник) → авто → паливо → інструмент → перевезення →
+    чисто. Нульові кроки (крім частки й «чисто») не показуються. Крок — {'key', 'amount' (€ за місяць), 'ph' (€/год на години зі ставкою;
+    їх немає — None)};
+    «чисто» — збережене чисто рядка: кроки до нього дають його до цента (розбіжність — помилка розрахунку, її ловить тест)."""
+    hr = float(row.get('hours_rate') or 0)
+    out = []
+    for f in CHAIN:
+        c = cents(row.get(f))
+        if f == 'share' or c:
+            out.append({'key': f, 'amount': eur(c), 'ph': per_hour(eur(c), hr)})
+    net = cents(row.get('net'))
+    out.append({'key': 'net', 'amount': eur(net), 'ph': per_hour(eur(net), hr)})
+    return out
+
+
+def waterfall(steps):
+    """Геометрія водоспаду картки лінії з кроків chain_steps: перший стовпець (частка) і «чисто» — від нуля, між ними — від поточного
+    підсумку до наступного. Шкала — від min(0, підсумків) до max(0, підсумків). → {'bars': [крок + {'lo', 'hi', 'dir' ('total' / 'down' /
+    'up'), 'bottom', 'height'}], 'zero'}: bottom, height і zero (де нуль) — % висоти поля."""
+    run = 0
+    raw = []
+    for i, s in enumerate(steps or []):
+        c = cents(s.get('amount'))
+        if i == 0 or s.get('key') == 'net':
+            lo, hi = min(0, c), max(0, c)
+            run = c
+            d = 'total'
+        else:
+            lo, hi = min(run, run + c), max(run, run + c)
+            d = 'down' if c < 0 else 'up'
+            run += c
+        raw.append((s, lo, hi, d))
+    vals = [0] + [x[1] for x in raw] + [x[2] for x in raw]
+    bottom, span = min(vals), max(vals) - min(vals)
+
+    def pct(v):
+        return round(v * 100.0 / span, 2) if span else 0.0
+    bars = [dict(s, lo=eur(lo), hi=eur(hi), dir=d, bottom=pct(lo - bottom), height=pct(hi - lo)) for s, lo, hi, d in raw]
+    return {'bars': bars, 'zero': pct(-bottom)}
+
+
+def share_split(row):
+    """«Куди йде частка» лінії: частка + оренда авто розкладені на чисто, житло (разом із тим, що вирахував замовник), авто, паливо,
+    інструмент, перевезення. Частина — витрата додатним числом; «чисто» нижче нуля — 0 (смуга — лише витрати). → [{'key', 'amount',
+    'pct'}] у порядку SPLIT, без нульових; pct — частка суми частин у % (сума — рівно 100); нічого немає — []."""
+    def spend(*fields):
+        return max(-sum(cents(row.get(f)) for f in fields), 0)
+    parts = [('net', max(cents(row.get('net')), 0)), ('housing', spend('housing', 'housing_customer')), ('auto', spend('auto')),
+             ('fuel', spend('fuel')), ('tool', spend('tool')), ('transport', spend('transport'))]
+    parts = [(k, v) for k, v in parts if v > 0]
+    pct = dict(split_cents(10000, parts))
+    return [{'key': k, 'amount': eur(v), 'pct': pct.get(k, 0) / 100.0} for k, v in parts]
+
+
+def cell_tone(net, net_ph, prev_ph, threshold=DROP_DEFAULT):
+    """Колір клітинки «Лінії × місяці»: 'neg' — чисто нижче нуля; 'drop' — чисто €/год упало до минулого місяця більше, ніж на threshold
+    (рівно — ні; минулого місяця немає, prev_ph None — ні); інакше ''. Червоне важливіше за жовте."""
+    if cents(net) < 0:
+        return 'neg'
+    if prev_ph is not None and cents(prev_ph) - cents(net_ph) > cents(threshold):
+        return 'drop'
+    return ''
+
+
+def trend(cur_ph, prev_ph):
+    """Стрілка плитки до минулого місяця: → {'dir': 'up' / 'down' / 'same', 'delta' (модуль різниці €/год)}; минулого або цього
+    (годин зі ставкою немає — None) немає — None: стрілки від нуля немає."""
+    if prev_ph is None or cur_ph is None:
+        return None
+    d = cents(cur_ph) - cents(prev_ph)
+    return {'dir': 'up' if d > 0 else ('down' if d < 0 else 'same'), 'delta': eur(abs(d))}
+
+
+def housing_shift(rows, month, ratio=HOUSING_SHIFT_DEFAULT):
+    """«Житло не в своєму місяці» — лінії, у яких наше житло місяця month не схоже на інші місяці лінії: житло є, а годин у місяці немає;
+    або житло на годину більше за ratio × медіану житла на годину інших місяців лінії (лише місяці з житлом і годинами; таких треба ≥ 2).
+    Типово — рахунок за два місяці одним рядком або оренда в місяці майже без годин. rows — [{'line', 'month', 'housing', 'hours'}] →
+    [лінія] за id."""
+    by_line = {}
+    for r in rows or []:
+        by_line.setdefault(r['line'], []).append(r)
+    out = []
+    for line in sorted(by_line):
+        mine = [r for r in by_line[line] if month_first(r['month']) == month_first(month)]
+        h = abs(sum(cents(r.get('housing')) for r in mine))
+        hours = sum(float(r.get('hours') or 0) for r in mine)
+        if not h:
+            continue
+        if not hours:
+            out.append(line)
+            continue
+        others = sorted(abs(cents(r.get('housing'))) / float(r['hours']) for r in by_line[line]
+                        if month_first(r['month']) != month_first(month) and cents(r.get('housing')) and float(r.get('hours') or 0))
+        if len(others) < 2:
+            continue
+        mid = len(others) // 2
+        median = others[mid] if len(others) % 2 else (others[mid - 1] + others[mid]) / 2.0
+        if h / hours > ratio * median:
+            out.append(line)
+    return out
