@@ -3,21 +3,28 @@
 працівника», «Платять нам» і «Посередник» відкриває майстер workset.rate.edit, кнопка «Переговорити» — майстер задачі workset.rate.talk.
 
 - «Нова ставка з дати» — нова ставка пари з цієї дати (копія поточної — workset.rate._successor_vals, нове число — у ній); попередня
-  закінчується напередодні за правилами модуля (А1), частка — одразу ланцюжком.
+  закінчується напередодні за правилами модуля (А1), частка — одразу ланцюжком. Дата — лише пізніше за «Ставка з» цієї ставки.
 - «Виправити помилку» — число змінюється в цій самій ставці; причина обов'язкова й іде в історію ставки (message_post).
 - «Посередник»: «лише цій людині» — своє значення на ставці з причиною (agent_own, ланцюжок бере його замість домовленостей); «для всієї
   домовленості» — картка домовленості модуля посередників (кнопка лише коли модель є й користувач має право її правити).
-- «Переговорити» — задача mail.activity на ставці для обраного користувача (за замовчуванням — сам) з цифрами людини в назві; відкриті
-  такі задачі — рядком «Переговорити» в «Тривогах» «Огляду».
-Право — лише в того, хто пише ставки (check_access('write') ставки; майстри — редактору й адміністратору)."""
+- «Переговорити» — задача mail.activity типу «Переговорити» (TALK_TYPE) на ставці для обраного користувача (за замовчуванням — сам; у
+  виборі — лише ті, хто читає ставки) з цифрами людини в назві; відкриті задачі цього типу — рядком «Переговорити» в «Тривогах» «Огляду».
+Право — лише в того, хто пише ставки (check_access('write') ставки; майстри — редактору й адміністратору); минулу ставку майстер не правит."""
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 from . import agent_deals, calc
-from .workset_rate import RATE, SOURCES, cust_of
+from .workset_rate import RATE, SOURCES, TALK_TYPE, cust_of
 
 WHAT = [('wage', 'Зарплата працівника'), ('price', 'Платять нам'), ('agent', 'Посередник')]
 SCOPES = [('person', 'Лише цій людині'), ('deal', 'Для всієї домовленості')]
+
+
+def check_live(rate, lang):
+    """Минула (і архівна) ставка — історія пари: майстер правки її не змінює. Олівці в списку сховані, а тут — відмова й для виклику
+    повз список (RPC, стара вкладка)."""
+    if not rate.active or rate.state == 'past':
+        raise UserError(calc.t('e_past', lang))
 
 
 class WorksetRateActions(models.Model):
@@ -27,10 +34,13 @@ class WorksetRateActions(models.Model):
         self.ensure_one()
         self.check_access('write')
         lang = self._lang()
+        check_live(self, lang)
         value = {'wage': self.wage, 'price': self.price, 'agent': self.agent_client_share}[what]
+        # дата «Нова ставка з дати» за замовчуванням — сьогодні, але не раніше дня після «Ставка з» (раніша — відмова майстра)
+        day = max(calc.iso(self._today()), calc.add_days(calc.iso(self.date_from), 1))
         return {'type': 'ir.actions.act_window', 'name': calc.t('e_title', lang) % calc.t('e_' + what, lang), 'res_model': 'workset.rate.edit',
                 'view_mode': 'form', 'views': [[False, 'form']], 'target': 'new',
-                'context': {'default_rate_id': self.id, 'default_what': what, 'default_value': value, 'default_date': calc.iso(self._today())}}
+                'context': {'default_rate_id': self.id, 'default_what': what, 'default_value': value, 'default_date': day}}
 
     def action_edit_wage(self):
         return self._edit_action('wage')
@@ -120,16 +130,21 @@ class WorksetRateEdit(models.TransientModel):
                            'next': {'type': 'ir.actions.act_window_close'}}}
 
     def action_new_from_date(self):
-        """«Нова ставка з дати»: нова ставка пари з self.date (копія поточної) з новим числом; попередня закінчується напередодні (А1)."""
+        """«Нова ставка з дати»: нова ставка пари з self.date (копія поточної) з новим числом; попередня закінчується напередодні (А1).
+        Дата — лише пізніше за «Ставка з» цієї ставки: та сама — це вона («Виправити помилку»); раніша встала б перед нею й укоротила б
+        попередню ставку пари — змінились би минулі місяці."""
         self.ensure_one()
         rate = self.rate_id
         rate.check_access('write')
         self.env[RATE].check_access('create')
         lang = calc.lang_of(self.env.lang)
+        check_live(rate, lang)
         self._check_value()
         day = calc.iso(self.date)
         if day == calc.iso(rate.date_from):
             raise UserError(calc.t('e_same_day', lang) % calc.fmt_date(day))
+        if day < calc.iso(rate.date_from):
+            raise UserError(calc.t('e_before', lang) % (calc.fmt_date(rate.date_from), calc.fmt_date(day)))
         reason = (self.reason or '').strip()
         vals = rate._successor_vals(day, self.value if self.what == 'wage' else rate.wage)
         vals.update(self._change(rate, reason))
@@ -150,6 +165,7 @@ class WorksetRateEdit(models.TransientModel):
         rate = self.rate_id
         rate.check_access('write')
         lang = calc.lang_of(self.env.lang)
+        check_live(rate, lang)
         reason = (self.reason or '').strip()
         if not reason:
             raise UserError(calc.t('e_reason', lang))
@@ -175,7 +191,10 @@ class WorksetRateTalk(models.TransientModel):
     person_id = fields.Many2one(related='rate_id.person_id', string='Працівник')
     customer_id = fields.Many2one(related='rate_id.customer_id', string='Замовник')
     user_id = fields.Many2one('res.users', string='Кому', required=True, default=lambda self: self.env.user, domain=[('share', '=', False)])
-    summary = fields.Char(string='Задача', compute='_compute_summary', store=True, readonly=False, required=True)
+    # «Кому» — лише ті, хто читає ставки: задачу на ставці людині без доступу Odoo не створить (помилка замість підказки)
+    reader_ids = fields.Many2many('res.users', 'workset_rate_talk_reader_rel', 'talk_id', 'user_id', string='Читають ставки', compute='_compute_reader_ids')
+    # precompute: назва рахується й при створенні без форми (RPC, тест) — інакше обов'язкове поле йде в базу порожнім (NOT NULL, збірка Odoo.sh 06.11)
+    summary = fields.Char(string='Задача', compute='_compute_summary', store=True, readonly=False, required=True, precompute=True)
     date_deadline = fields.Date(string='Строк', required=True, default=lambda self: self.env[RATE]._today())
     note = fields.Text(string='Нотатка')
 
@@ -185,13 +204,27 @@ class WorksetRateTalk(models.TransientModel):
         for w in self:
             w.summary = calc.t('talk_summary', lang) % calc.talk_text(w.rate_id._talk_numbers(), lang) if w.rate_id else ''
 
+    @api.model
+    def _readers(self):
+        """Внутрішні користувачі, які читають ставки (права моделі: редактори, кадри, бухгалтерія, проєкти, адміністратор)."""
+        users = self.env['res.users'].sudo().search([('share', '=', False)])
+        return users.filtered(lambda u: self.env[RATE].with_user(u).has_access('read'))
+
+    def _compute_reader_ids(self):
+        readers = self._readers() if self else self.env['res.users']
+        for w in self:
+            w.reader_ids = readers
+
     def action_create(self):
-        """Задача To Do на ставці для обраного користувача; назва — цифри людини (як у списку на момент задачі)."""
+        """Задача «Переговорити» (тип модуля — її рахує тривога «Огляду») на ставці для обраного користувача; назва — цифри людини (як у
+        списку на момент задачі). Обраний не читає ставок — пояснення, а не помилка доступу Odoo."""
         self.ensure_one()
         rate = self.rate_id
         rate.check_access('write')
-        act = rate.activity_schedule('mail.mail_activity_data_todo', date_deadline=self.date_deadline, summary=self.summary,
-                                     note=self.note or False, user_id=self.user_id.id)
+        if not self.env[RATE].with_user(self.user_id).has_access('read'):
+            raise UserError(calc.t('talk_user', calc.lang_of(self.env.lang)) % (self.user_id.name or ''))
+        act = rate.activity_schedule(TALK_TYPE, date_deadline=self.date_deadline, summary=self.summary, note=self.note or False,
+                                     user_id=self.user_id.id)
         return {'type': 'ir.actions.client', 'tag': 'display_notification',
                 'params': {'title': rate.display_name, 'message': act.summary or '', 'type': 'success', 'sticky': False,
                            'next': {'type': 'ir.actions.act_window_close'}}}

@@ -54,19 +54,21 @@
         </field>
     </record>
 
-    <!-- «Переговорити»: кому (за замовчуванням — сам), строк, назва задачі з цифрами людини (можна змінити), нотатка -->
+    <!-- «Переговорити»: кому (за замовчуванням — сам; у виборі — лише ті, хто читає ставки), строк, назва задачі з цифрами людини (можна
+         змінити), нотатка -->
     <record id="view_rate_talk_form" model="ir.ui.view">
         <field name="name">workset.rate.talk.form</field>
         <field name="model">workset.rate.talk</field>
         <field name="arch" type="xml">
             <form string="Переговорити">
+                <field name="reader_ids" invisible="1" widget="many2many_tags"/>
                 <div class="d-flex align-items-baseline gap-2 flex-wrap mb-2">
                     <field name="person_id" readonly="1" class="fw-semibold fs-5 w-auto"/>
                     <field name="customer_id" readonly="1" class="text-muted w-auto"/>
                 </div>
                 <group>
                     <field name="summary"/>
-                    <field name="user_id" options="{'no_create': True}"/>
+                    <field name="user_id" options="{'no_create': True}" domain="[('id', 'in', reader_ids)]"/>
                     <field name="date_deadline" options="{'numeric': True}"/>
                     <field name="note" placeholder="Що з'ясувати, з ким говорити"/>
                 </group>

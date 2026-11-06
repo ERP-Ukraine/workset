@@ -14,7 +14,7 @@ from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 from . import calc
-from .workset_rate import INTERNAL, RAISE, cust_of
+from .workset_rate import INTERNAL, RAISE, TALK_TYPE, cust_of
 
 CHECK = 'workset.rate.check'
 GANTT_CTX = 'workset_rates_gantt'                    # контекст дії «Стрічка»: підпис смуги
@@ -228,16 +228,24 @@ class WorksetRateOverview(models.Model):
         pairs = [p for p in self._norate_pairs(today) if custs is None or p['cust'] in custs]
         Partner = self.env['res.partner'].sudo()
         Emp = self.env['hr.employee'].sudo().with_context(active_test=False)
+        aal_ids = [p['aal'] for p in pairs][:ALERT_IDS]
+        # без права читати ці табелі (немає прав на табелі) — заголовок не посилання; рядок — нова ставка пари (лише тим, хто створює ставки),
+        # інакше — табель, а не можна й його — рядок без кліку (клік не дає помилки доступу)
+        can_aal = self.env['account.analytic.line'].browse(aal_ids).has_access('read')
+        can_new = self.has_access('create')
         rows = []
         for p in pairs[:ALERT_ROWS]:
             who = Partner.browse(p['person']).name if p['person'] else Emp.browse(p['cards'][0][0]).name
+            new = {'default_person_id': p['person'], 'default_customer_id': p['cust']} if (p['person'] and can_new) else False
             rows.append({'id': p['aal'], 'title': who or '',
                          'sub': calc.t('ov_norate_sub', lang) % (Partner.browse(p['cust']).name or '', calc.num(p['hours']), calc.RECENT_DAYS),
-                         'new': {'default_person_id': p['person'], 'default_customer_id': p['cust']} if p['person'] else False})
-        out.append({'key': 'no_rate', 'model': 'account.analytic.line', 'count': len(pairs), 'ids': [p['aal'] for p in pairs][:ALERT_IDS], 'rows': rows})
-        # «Переговорити»: відкриті задачі на ставках фільтра (кнопка рядка списку «Працюють зараз»); рядок — ставка
-        acts = self.env['mail.activity'].search([('res_model', '=', self._name)] + ([('res_id', 'in', self.search(base).ids)] if base else []),
-                                                order='date_deadline, id')
+                         'new': new, 'click': bool(new or can_aal)})
+        out.append({'key': 'no_rate', 'model': 'account.analytic.line', 'count': len(pairs), 'ids': aal_ids, 'link': can_aal, 'rows': rows})
+        # «Переговорити»: відкриті задачі типу «Переговорити» (кнопка рядка списку «Працюють зараз») на ставках фільтра; інші задачі на ставці
+        # (поставлені з чаттера іншого типу) — ні. Рядок — ставка
+        talk = self.env.ref(TALK_TYPE, raise_if_not_found=False)
+        acts = self.env['mail.activity'].search([('res_model', '=', self._name), ('activity_type_id', '=', talk.id if talk else 0)]
+                                                + ([('res_id', 'in', self.search(base).ids)] if base else []), order='date_deadline, id')
         rates = self.browse(list(dict.fromkeys(acts.mapped('res_id')))).exists()
         out.append({'key': 'talk', 'model': self._name, 'count': len(acts), 'ids': rates.ids[:ALERT_IDS],
                     'rows': [{'id': a.res_id, 'title': self.browse(a.res_id).person_id.display_name or '',

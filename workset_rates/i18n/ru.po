@@ -42,6 +42,7 @@ msgstr "Действующих ставок"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_res_partner__workset_is_worker
+#: model:ir.model.fields,field_description:workset_rates.field_workset_office_bonus__has_card
 msgid "Є картка працівника"
 msgstr "Есть карточка работника"
 
@@ -597,15 +598,24 @@ msgstr "Бонус офиса"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_office_bonus__employee_id
-#: model_terms:ir.ui.view,arch_db:workset_rates.view_bonus_list
+msgid "Картка працівника"
+msgstr "Карточка работника"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_office_bonus__employee_id
+msgid "Картка того, хто отримує. Немає картки — порожньо, ім'я — у «Хто отримує»"
+msgstr "Карточка того, кто получает. Нет карточки — пусто, имя — в «Кто получает»"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_office_bonus__employee_label
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_bonus_search
 msgid "Хто отримує"
 msgstr "Кто получает"
 
 #. module: workset_rates
-#: model:ir.model.fields,field_description:workset_rates.field_workset_office_bonus__employee_label
-msgid "Хто отримує (ім'я)"
-msgstr "Кто получает (имя)"
+#: model:ir.model.fields,help:workset_rates.field_workset_office_bonus__employee_label
+msgid "Ім'я того, хто отримує бонус: з картки працівника, а без картки — вписане вручну"
+msgstr "Имя того, кто получает бонус: из карточки работника, а без карточки — вписанное вручную"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_office_bonus__kind
@@ -1668,9 +1678,15 @@ msgstr "Договорённость можно править"
 #: model:ir.model,name:workset_rates.model_workset_rate_talk
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_list
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_talk_form
+#: model:mail.activity.type,name:workset_rates.mail_activity_talk
 #: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 msgid "Переговорити"
 msgstr "Переговорить"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_talk__reader_ids
+msgid "Читають ставки"
+msgstr "Читают ставки"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate_talk__date_deadline
@@ -2588,6 +2604,11 @@ msgstr "Бонусы офиса"
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_bonus_list
 msgid "усі"
 msgstr "все"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_bonus_search
+msgid "Без картки працівника"
+msgstr "Без карточки работника"
 
 #. module: workset_rates
 #: model_terms:ir.actions.act_window,help:workset_rates.action_bonuses
