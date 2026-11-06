@@ -13,18 +13,19 @@
                 <!-- «Хто отримує» — ім'я (з картки, прочитане sudo, або вписане, коли картки немає) — бачать усі; картку працівника обирають
                      «правила ліній» (поле hr.employee): є картка — ім'я з неї, тож вписати його можна лише без картки (has_card — без
                      поля hr.employee у виді «перегляду») -->
-                <!-- розбір вигляду 06.11: «Картка працівника» дублює «Хто отримує», «Люди» й «До» майже завжди порожні — у додаткових стовпцях;
-                     «Лише оплачені» — з шириною, без обрізання -->
+                <!-- розбір вигляду 06.11: «Картка працівника» дублює «Хто отримує» — у додаткових стовпцях; «Лише оплачені» — з шириною.
+                     Форми в моделі немає, правка лише в рядку: «Люди» (без них бонус «за своїх людей» нікому не нараховується) — лише
+                     в рядках цього виду, «До» (ним закривають бонус) — видно завжди -->
                 <field name="employee_label" readonly="has_card"/>
                 <field name="employee_id" options="{'no_create': True}" optional="hide" groups="workset_rates.group_rule_editor,base.group_system"/>
                 <field name="kind"/>
                 <field name="amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                 <field name="customer_ids" widget="many2many_tags" options="{'no_create': True}" placeholder="усі"/>
                 <field name="line_ids" widget="many2many_tags" options="{'no_create': True}" placeholder="усі"/>
-                <field name="person_ids" widget="many2many_tags" options="{'no_create': True}" optional="hide" invisible="kind != 'own_worker_month'"/>
+                <field name="person_ids" widget="many2many_tags" options="{'no_create': True}" invisible="kind != 'own_worker_month'"/>
                 <field name="paid_only" width="120px"/>
                 <field name="date_from" options="{'numeric': True}" width="90px"/>
-                <field name="date_to" options="{'numeric': True}" optional="hide" width="90px"/>
+                <field name="date_to" options="{'numeric': True}" optional="show" width="90px"/>
                 <field name="source"/>
                 <field name="note" optional="hide"/>
             </list>

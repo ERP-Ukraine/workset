@@ -107,7 +107,8 @@
                         <field name="rule_note" placeholder="Правило словами: зарплата працівника + частка WorkSET, якщо людину знайшла лінія; інша частка, якщо знайшли ми"/>
                     </div>
                     <!-- М2c (розділ 3.13): житло лінії — правка на місці; правлять «Ставки: правила ліній» (іншим Odoo ховає правку за правами моделі).
-                         Заголовки — короткі; джерело й «звідки саме» — у додаткових стовпцях (обрізались) -->
+                         Заголовки — короткі; «Джерело» й «Звідки саме» обов'язкові й правляться лише тут — видно завжди, «звідки саме»
+                         вузьким стовпцем із переносом -->
                     <notebook>
                         <page name="housing" string="Житло" invisible="not id">
                             <div class="text-muted mb-2">Як лінія рахує житло людей: правило всієї лінії та правила замовників (об'єктів) з датами — одне на дату.</div>
@@ -122,8 +123,8 @@
                                     <field name="payer" string="Платить"/>
                                     <field name="date_from" options="{'numeric': True}" width="90px"/>
                                     <field name="date_to" options="{'numeric': True}" width="90px"/>
-                                    <field name="source" optional="hide"/>
-                                    <field name="source_note" optional="hide"/>
+                                    <field name="source" optional="show"/>
+                                    <field name="source_note" optional="show" class="text-wrap" width="160px"/>
                                 </list>
                             </field>
                         </page>

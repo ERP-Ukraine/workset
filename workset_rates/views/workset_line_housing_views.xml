@@ -4,7 +4,8 @@
          правило лінії. Правка на місці — групі «Ставки: правила ліній» (іншим Odoo сам ховає «Новий» і правку за правами моделі). Розбір
          вигляду 06.11: без групування за замовчуванням (сортування за лінією) — одне «Додати рядок» унизу, а не в кожній групі; підсумків
          групи немає (сума складала €/год і €/міс — aggregator у моделі вимкнено); суми й одиниці там, де житло не наше або вираховує замовник,
-         — порожньо; «Звідки саме» (шляхи файлів) — у додаткових стовпцях -->
+         — порожньо; «Джерело» й «Звідки саме» обов'язкові (правка в рядку) — видно завжди, «звідки саме» (шляхи файлів) — вузьким
+         стовпцем із переносом -->
     <record id="view_housing_list" model="ir.ui.view">
         <field name="name">workset.line.housing.list</field>
         <field name="model">workset.line.housing</field>
@@ -21,8 +22,8 @@
                 <field name="payer" string="Платить"/>
                 <field name="date_from" options="{'numeric': True}" width="90px"/>
                 <field name="date_to" options="{'numeric': True}" width="90px"/>
-                <field name="source"/>
-                <field name="source_note" optional="hide"/>
+                <field name="source" optional="show"/>
+                <field name="source_note" optional="show" class="text-wrap" width="160px"/>
                 <field name="note" optional="hide"/>
             </list>
         </field>
