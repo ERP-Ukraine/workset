@@ -1506,6 +1506,13 @@ class TestWorksetRates(TransactionCase):
         self.assertEqual(H._housing_at(lt, ct, DAY), mine, 'правило замовника перекриває правило лінії')
         self.assertEqual(H._housing_at(lt, ct, DAY).payer, 'worker_fund', '«Хто платить» — «З фонду працівників» (М3 читає через _housing_at)')
         self.assertEqual(H._housing_at(lt, other, DAY), later)
+        # «€ за місяць за особу» (300 з людини вираховує замовник) — звичайна одиниця: створюється, назва з підписом, _housing_at віддає її
+        lt2 = self.env['workset.line'].create({'name': 'Тест лінія житло за особу'})
+        mp = H.create({'line_id': lt2.id, 'source': 'owner', 'source_note': 'тест', 'kind': 'customer_deducts', 'amount': 300,
+                       'amount_unit': 'month_person', 'payer': 'customer', 'date_from': OLD})
+        self.assertEqual(H._housing_at(lt2, False, DAY), mp)
+        self.assertEqual(H._housing_at(lt2, False, DAY).amount_unit, 'month_person')
+        self.assertIn('/міс за особу', mp.name)
         self.assertEqual(H._housing_at(lt, other, calc.add_days(DAY, -5)), base, 'на минулу дату — правило, що діяло тоді')
         self.assertFalse(H._housing_at(lt, other, '2020-01-01'))
         mine.active = False

@@ -139,7 +139,7 @@
   вказано»; «Лінія з посередником, домовленості немає» — М1; «Лінія з надбавкою без правила житла» (М2c: линия с якорем «надбавка» и
   действующими ставками, а правила жилья на сегодня нет; тарифные молчат).
 - **Житло лінії** `workset.line.housing` (М2c, раздел 3.13) — как линия считает жильё людей: `kind` (`hour_deduction` «години житла × €»,
-  `payment_buffer`, `invoice_buffer`, `customer_deducts`, `none`), `amount` + `amount_unit` (`hour`, `month`, `day_person`, `pct`),
+  `payment_buffer`, `invoice_buffer`, `customer_deducts`, `none`), `amount` + `amount_unit` (`hour`, `month`, `month_person`, `day_person`, `pct`),
   `hours_per_person` (только для `hour_deduction`), `payer`, `date_from` / `date_to`, `source` / `source_note`. Правило линии (заказчик пуст)
   или заказчика / объекта; одно на пару «лінія × замовник» на дату (пересечение — `ValidationError`), правило заказчика перекрывает правило
   линии — `_housing_at(line, customer, day)` для М3 / М4 (`calc.housing_pick`). Права — как у правил линий: правит «Правила ліній»,

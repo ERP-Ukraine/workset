@@ -368,6 +368,11 @@ msgid "€ за місяць (об'єкт)"
 msgstr "€ в месяц (объект)"
 
 #. module: workset_rates
+#: model:ir.model.fields.selection,name:workset_rates.selection__workset_line_housing__amount_unit__month_person
+msgid "€ за місяць за особу"
+msgstr "€ в месяц за человека"
+
+#. module: workset_rates
 #: model:ir.model.fields.selection,name:workset_rates.selection__workset_line_housing__amount_unit__day_person
 msgid "€ за добу за особу"
 msgstr "€ в сутки за человека"
