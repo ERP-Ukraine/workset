@@ -1,10 +1,41 @@
-// Плитки підсумків «Ставок» (рівень A, 6б): штатні кольори теми (світла й темна), без власних заливок. Плитки тягнуться на всю ширину ряду
-// (без порожніх місць праворуч); на телефоні — дві колонки. Лише змінні й міксини Bootstrap (є в web.assets_backend): невідома змінна
-// зламала б увесь бандл бекенду
-.o_workset_rates_tiles .o_workset_rates_tile {
-    flex: 1 1 9rem;
+// Плитки підсумків «Ставок» (рівень A, 6б): штатні кольори теми (світла й темна), без власних заливок. Лише змінні й міксини Bootstrap
+// (є в web.assets_backend): невідома змінна зламала б увесь бандл бекенду.
+//
+// Обгортка списку / дошки — стовпець: зверху ряд плиток (висота за вмістом), під ним штатний рендерер займає решту й гортається сам.
+// У .o_content з лівою панеллю (рядок flex) обгортка — один елемент поруч із панеллю (копія 20, 06.11: без неї плитки стояли колонкою
+// між панеллю й таблицею, розтягнуті на всю висоту)
+.o_workset_rates_stack {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
     min-width: 0;
-    white-space: nowrap;
+    min-height: 0;
+    height: 100%;
+    overflow: auto;
+
+    > .o_workset_rates_tiles {
+        flex: 0 0 auto;
+    }
+
+    > .o_renderer {
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+}
+
+// Ряд плиток: переноситься, без розтягування по висоті; плитка 140–180 px за вмістом
+.o_workset_rates_tiles {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    align-content: flex-start;
+
+    .o_workset_rates_tile {
+        flex: 0 0 auto;
+        align-self: flex-start;
+        min-width: 140px;
+        max-width: 180px;
+        overflow: hidden;
+    }
 }
 
 @include media-breakpoint-down(md) {
@@ -12,8 +43,10 @@
         padding-top: map-get($spacers, 1) !important;
         padding-bottom: map-get($spacers, 1) !important;
     }
+    // телефон — по дві плитки в ряд
     .o_workset_rates_tiles .o_workset_rates_tile {
-        flex: 1 1 calc(50% - #{map-get($spacers, 2)});
+        flex: 0 0 calc(50% - #{map-get($spacers, 1)});
+        min-width: 0;
         max-width: calc(50% - #{map-get($spacers, 1)});
     }
 }
