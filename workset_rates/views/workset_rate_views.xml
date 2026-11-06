@@ -2,8 +2,10 @@
 <odoo>
     <!-- Список ставок: гроші — хранимі поля з усередненням (у рядку групи — середнє, у підвалі — середнє по списку); над списком — полоса
          підсумків (js_class). Минула — сірим; частка WorkSET або «Після бонусів офісу» нижче мінімуму — червоним; «Добра частка» — зелена
-         комірка частки. М2: «Після бонусів офісу» видно завжди, «Посередник» — теж, між «Платять нам» і «Частка WorkSET» (видно, що
-         віднімається: платять нам − зарплата − посередник = частка); решта ланцюжка — у «Додаткових стовпцях» (optional="hide") -->
+         комірка частки. Гроші — ланцюжком зліва направо: Зарплата працівника · Платять нам · Посередник · Фонд працівників · Частка WorkSET ·
+         Після бонусів офісу (видно, що віднімається); решта ланцюжка — у «Додаткових стовпцях» (optional="hide"). Олівець біля зарплати, ціни
+         й посередника — майстер правки (нова ставка з дати або виправлення помилки з причиною), «Переговорити» — задача на ставці; лише тим, хто
+         пише ставки. Рядок списку відкриває картку, як і раніше: кнопки — окремі стовпці, правка в самому рядку не вмикається -->
     <record id="view_rate_list" model="ir.ui.view">
         <field name="name">workset.rate.list</field>
         <field name="model">workset.rate</field>
@@ -14,9 +16,10 @@
                 <field name="currency_id" column_invisible="1"/>
                 <field name="share_level" column_invisible="1"/>
                 <field name="net_level" column_invisible="1"/>
-                <field name="person_id"/>
-                <field name="others_note" optional="show"/>
-                <field name="customer_id"/>
+                <field name="active" column_invisible="1"/>
+                <field name="person_id" width="220px"/>
+                <field name="others_note" optional="show" width="80px"/>
+                <field name="customer_id" width="190px"/>
                 <field name="line_id"/>
                 <field name="work" widget="badge" decoration-success="work == 'work'" decoration-info="work == 'work_new'" decoration-warning="work == 'z_none'" decoration-muted="work == 'z_idle'" optional="show"/>
                 <field name="last_hours" options="{'numeric': True}" optional="show"/>
@@ -28,16 +31,26 @@
                 <field name="client_price" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" avg="Середнє"/>
                 <field name="line_share" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" avg="Середнє"/>
                 <field name="wage" widget="monetary" options="{'currency_field': 'currency_id'}" avg="Середнє"/>
+                <button name="action_edit_wage" type="object" icon="fa-pencil" title="Змінити зарплату працівника" class="btn-link text-muted p-0"
+                        invisible="state == 'past' or not active" groups="workset_rates.group_editor,base.group_system"/>
                 <field name="price" widget="monetary" options="{'currency_field': 'currency_id'}" avg="Середнє"/>
+                <button name="action_edit_price" type="object" icon="fa-pencil" title="Змінити «Платять нам»" class="btn-link text-muted p-0"
+                        invisible="state == 'past' or not active" groups="workset_rates.group_editor,base.group_system"/>
                 <field name="agent_client_share" widget="monetary" options="{'currency_field': 'currency_id'}" optional="show" avg="Середнє"/>
+                <button name="action_edit_agent" type="object" icon="fa-pencil" title="Змінити посередника" class="btn-link text-muted p-0"
+                        invisible="state == 'past' or not active" groups="workset_rates.group_editor,base.group_system"/>
+                <field name="worker_fund_share" widget="monetary" options="{'currency_field': 'currency_id'}" optional="show" avg="Середнє"/>
+                <field name="car_rent_share" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" avg="Середнє"/>
                 <field name="our_share" widget="monetary" options="{'currency_field': 'currency_id'}" class="fw-semibold" decoration-success="share_level == 'good'" avg="Середнє"/>
-                <field name="office_bonus" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" avg="Середнє"/>
                 <field name="net_share" widget="monetary" options="{'currency_field': 'currency_id'}" class="fw-semibold" decoration-danger="net_level == 'low'" avg="Середнє"/>
+                <field name="office_bonus" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" avg="Середнє"/>
                 <field name="date_from" options="{'numeric': True}"/>
                 <field name="date_to" options="{'numeric': True}" optional="show"/>
                 <field name="state" widget="badge" decoration-success="state == 'current'" decoration-info="state == 'future'" decoration-muted="state == 'past'"/>
                 <field name="issues" string="Перевірити" decoration-warning="issues" optional="show"/>
                 <field name="to_check" optional="hide"/>
+                <button name="action_talk" type="object" icon="fa-phone" string="Переговорити" title="Поставити задачу «Переговорити» з цифрами людини"
+                        class="btn-link p-0" invisible="state == 'past' or not active" groups="workset_rates.group_editor,base.group_system"/>
             </list>
         </field>
     </record>
@@ -163,13 +176,27 @@
                             </div>
                             <!-- «Домовленість» — до домовленостей посередника із замовником ставки (модель модуля посередників — лише через
                                  адаптер agent_deals.py; моделі немає, як на проді, — кнопки не видно, форма відкривається) -->
-                            <div class="o_form_label" invisible="not agent_client_share">Посередник</div>
-                            <div class="d-flex align-items-baseline gap-2 flex-wrap" invisible="not agent_client_share">
+                            <field name="agent_own" invisible="1"/>
+                            <div class="o_form_label" invisible="not agent_client_share and not agent_own">Посередник</div>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap" invisible="not agent_client_share and not agent_own">
                                 <field name="agent_client_share" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
                                 <div class="text-muted">€/год</div>
                                 <field name="agent_client_note" nolabel="1" readonly="1" class="w-auto text-muted"/>
                                 <button name="action_open_agent_deal" type="object" string="Домовленість" icon="fa-handshake-o" class="btn-link p-0"
                                         invisible="not agent_deal_ok"/>
+                                <button name="action_agent_by_deal" type="object" string="За домовленістю" icon="fa-undo" class="btn-link p-0"
+                                        invisible="not agent_own" groups="workset_rates.group_editor,base.group_system"
+                                        confirm="Посередник цієї людини знову рахуватиметься з домовленостей. Продовжити?"/>
+                            </div>
+                            <div class="o_form_label" invisible="not worker_fund_share">Фонд працівників</div>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap" invisible="not worker_fund_share">
+                                <field name="worker_fund_share" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
+                                <div class="text-muted">€/год · житло, паливо, інструмент, спецодяг</div>
+                            </div>
+                            <div class="o_form_label" invisible="not car_rent_share">Оренда авто</div>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap" invisible="not car_rent_share">
+                                <field name="car_rent_share" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
+                                <div class="text-muted">€/год</div>
                             </div>
                             <div class="o_form_label" invisible="not agent_people_share">Агент людей</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap" invisible="not agent_people_share">

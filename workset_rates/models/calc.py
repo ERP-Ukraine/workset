@@ -82,8 +82,9 @@ TX = {
     'h_mism': ['Рядок карти правили вручну: кнопка «Застосувати зараз» на ставці поверне ставку в усі проєкти.',
                'Строку карты правили вручную: кнопка «Применить сейчас» на ставке вернёт ставку во все проекты.'],
     's_nomap': ['Проєкти без ставки (табелі за %d днів)', 'Проекты без ставки (табели за %d дней)'],
-    'h_nomap': ['Працівник у проєкті, а діючої ставки пари «працівник × замовник» немає — заведіть ставку. Вартість години зараз — з картки працівника або введена вручну (стовпчик «Примітка»). Ще %d рядків без табелів за %d днів — у меню «Звірка → Проєкти без ставки», фільтр «Без табелів %d днів».',
-                'Работник в проекте, а действующей ставки пары «работник × заказчик» нет — заведите ставку. Стоимость часа сейчас — с карточки работника или введена вручную (столбец «Примечание»). Ещё %d строк без табелей за %d дней — в меню «Сверка → Проекты без ставки», фильтр «Без табелей %d дней».'],
+    'h_nomap': ['Працівник у проєкті або з табелями в замовника, а діючої ставки пари «працівник × замовник» немає — заведіть ставку. Вартість години зараз — з картки працівника або введена вручну (стовпчик «Примітка»); «немає в карті проєкту» — табелі є, а рядка карти немає. Ще %d рядків без табелів за %d днів — у меню «Звірка → Проєкти без ставки», фільтр «Без табелів %d днів».',
+                'Работник в проекте или с табелями у заказчика, а действующей ставки пары «работник × заказчик» нет — заведите ставку. Стоимость часа сейчас — с карточки работника или введена вручную (столбец «Примечание»); «нет в карте проекта» — табели есть, а строки карты нет. Ещё %d строк без табелей за %d дней — в меню «Сверка → Проекты без ставки», фильтр «Без табелей %d дней».'],
+    'not_in_map': ['немає в карті проєкту · %s год у замовника', 'нет в карте проекта · %s ч у заказчика'],
     's_nocust': ['Проєкти без замовника (табелі за %d днів)', 'Проекты без заказчика (табели за %d дней)'],
     'h_nocust': ['У проєкті не вказано замовника: ставку не знайти — укажіть замовника в проєкті.', 'В проекте не указан заказчик: ставку не найти — укажите заказчика в проекте.'],
     's_cur': ['Рядки в іншій валюті', 'Строки в другой валюте'],
@@ -384,6 +385,28 @@ def parse_float(text, default=0.0):
         return default
 
 
+def is_many(value):
+    """Набір значень умови пошуку: список, кортеж, множина або OrderedSet Odoo 19 (рядок — одне значення)."""
+    return not isinstance(value, (str, bytes)) and hasattr(value, '__iter__')
+
+
+def bool_search(operator, value, ids):
+    """Пошук за нехранимим Boolean (has_raise ставки, workset_is_worker контакту) → домен за id. Odoo 19 нормалізує умову до виклику
+    методу пошуку: «= True» приходить як «in» з OrderedSet — його не можна класти в множину (unhashable, перша збірка Odoo.sh 06.11);
+    тут однаково приймаються =, != з одним значенням і in, not in з будь-яким набором. ids — id записів, де поле True. Інший оператор —
+    ValueError."""
+    values = {bool(v) for v in value} if is_many(value) else {bool(value)}
+    if operator in ('!=', 'not in'):
+        values = {True, False} - values
+    elif operator not in ('=', 'in'):
+        raise ValueError('bool_search: %s' % operator)
+    if values == {True, False}:
+        return []
+    if not values:
+        return [('id', '=', 0)]
+    return [('id', 'in' if True in values else 'not in', list(ids))]
+
+
 def pair_plan(rates, today):
     """rates — діючі (не в архіві) ставки однієї пари: [{'id', 'date_from'}]; today — «РРРР-ММ-ДД» за Києвом.
     «Ставка до» — день перед «Ставка з» наступної ставки пари (в останньої — порожньо); чинна — остання зі «Ставка з» ≤ сьогодні,
@@ -613,10 +636,12 @@ def share_level(share, rule, line_min, line_good, min_default, good_default):
 
 
 def formula(wage, share, agent, price, lang):
-    """«на руки + частка = ціна €/год» (з часткою посередника — три доданки)."""
+    """«на руки + частка = ціна €/год» (з часткою посередника — три доданки). agent — число або список (посередник, фонд працівників, оренда
+    авто): кожен ненульовий — окремий доданок, «Р + W + А + Ф + О = Ц €/год»."""
     vals = [wage or 0.0, share or 0.0]
-    if agent:
-        vals.append(agent)
+    for x in (agent if isinstance(agent, (list, tuple)) else [agent]):
+        if x:
+            vals.append(x)
     return '%s = %s %s' % (' + '.join([num(v) for v in vals]), num(price), t('unit', lang))
 
 
@@ -648,23 +673,51 @@ def agent_share_for(deals, cust_id, line_id, day):
     стосуються ставки: домовленість із замовниками — лише коли замовник ставки серед них (лінія домовленості тоді не важить); без замовників —
     коли лінія ставки — лінія домовленості. Так дві домовленості одного посередника на одній лінії з різними замовниками не додаються
     одна до одної (копія 20, 06.11: лінія з домовленостями 3 і 1 давала кожній ставці 4).
-    deals — [{'id', 'rate', 'state', 'customer_ids', 'line_id', 'date_from', 'date_to'}] → (сума, id домовленостей)."""
+    Лише вид «hour»: фіксована сума (fixed) — не погодинна частка; «фонд працівників» (worker_fund) — гроші працівників, не посередник
+    (worker_fund_for). deals — [{'id', 'rate', 'state', 'kind', 'customer_ids', 'line_id', 'date_from', 'date_to'}] → (сума, id домовленостей)."""
     total = 0.0
     used = []
     for d in deals:
-        if d['state'] not in LIVE_DEAL_STATES:
-            continue
-        if (d.get('kind') or 'hour') != 'hour':
-            continue  # фіксована сума (fixed) — не погодинна частка
-
-        if d.get('date_from') and day and d['date_from'] > day:
-            continue
-        if d.get('date_to') and day and d['date_to'] < day:
-            continue
-        custs = d.get('customer_ids') or []
-        if (cust_id in custs) if custs else bool(line_id and d.get('line_id') == line_id):
+        if deal_fits(d, 'hour', cust_id, line_id, day):
             total += float(d.get('rate') or 0.0)
             used.append(d['id'])
+    return round(total, 2), used
+
+
+def deal_fits(d, kind, cust_id, line_id, day):
+    """Домовленість стосується ставки — одне правило для посередника й фонду працівників: вид kind (порожній — «hour»), стан діючий, day
+    у межах «з – по»; із замовниками — лише коли замовник ставки серед них (лінія тоді не важить), без замовників — коли лінія ставки — її лінія."""
+    if d.get('state') not in LIVE_DEAL_STATES or (d.get('kind') or 'hour') != kind:
+        return False
+    if d.get('date_from') and day and d['date_from'] > day:
+        return False
+    if d.get('date_to') and day and d['date_to'] < day:
+        return False
+    custs = d.get('customer_ids') or []
+    return (cust_id in custs) if custs else bool(line_id and d.get('line_id') == line_id)
+
+
+FUND_KIND = 'worker_fund'  # вид домовленості «фонд працівників» (модуль посередників): гроші працівників — житло, паливо, інструмент, спецодяг
+
+
+def fund_needs_full(deals, cust_id, line_id, day):
+    """Чи треба знати «Повну ставку» людини: серед домовленостей фонду, що стосуються ставки, є своя сума на повну ставку (rate_full > 0).
+    Ні — картку й версію договору не читаємо (нічний ланцюжок не дорожчає для ставок без фонду)."""
+    return any(deal_fits(d, FUND_KIND, cust_id, line_id, day) and float(d.get('rate_full') or 0.0) > 0 for d in deals or [])
+
+
+def worker_fund_for(deals, cust_id, line_id, day, full_rate=False):
+    """«Фонд працівників», €/год: сума домовленостей виду worker_fund, що стосуються ставки (deal_fits — те саме правило, що в посередника).
+    Сума людини: повна ставка зайнятості в договорі (full_rate) і в домовленості задано rate_full > 0 — rate_full; інакше rate (поля rate_full
+    немає — None — теж rate). → (сума, id домовленостей)."""
+    total = 0.0
+    used = []
+    for d in deals or []:
+        if not deal_fits(d, FUND_KIND, cust_id, line_id, day):
+            continue
+        full = float(d.get('rate_full') or 0.0)
+        total += full if (full_rate and full > 0) else float(d.get('rate') or 0.0)
+        used.append(d['id'])
     return round(total, 2), used
 
 
@@ -732,7 +785,7 @@ def rule_pick(rules, line_id, cust_id, day):
     return hit[1] if hit else 0
 
 
-RULE_PROTECTED = ('anchor', 'share_line_found', 'share_we_found', 'min_share', 'price_mode', 'fixed_month')
+RULE_PROTECTED = ('anchor', 'share_line_found', 'share_we_found', 'min_share', 'price_mode', 'fixed_month', 'car_rent')
 
 
 def rule_guard(level, have, want):
@@ -807,14 +860,16 @@ def hours_or_norm(month_hours, default_hours):
     return float(default_hours or MONTH_HOURS_DEFAULT), True
 
 
-def shares(price_mode, wage, price, fixed_month, month_hours, default_hours, agent_client, agent_people, payer, bonus):
-    """W і Ч за годину (до ZUS і податків на зарплату). «За годину»: W = Ц − Р − А_з − (А_л, якщо агенту людей платить WorkSET);
-    «Фікс за місяць»: W = фікс ÷ години місяця (Ц = Р). Ч = W − Б."""
+def shares(price_mode, wage, price, fixed_month, month_hours, default_hours, agent_client, agent_people, payer, bonus, fund=0.0, car_rent=0.0):
+    """W і Ч за годину (до ZUS і податків на зарплату). «За годину»: W = Ц − Р − А_з − (А_л, якщо агенту людей платить WorkSET) − фонд
+    працівників − оренда авто; «Фікс за місяць»: W = фікс ÷ години місяця (Ц = Р; як і посередник,
+    фонд і оренда тут не віднімаються). Ч = W − Б."""
     if price_mode == 'fixed_month':
         hours, _norm = hours_or_norm(month_hours, default_hours)
         w = float(fixed_month or 0.0) / hours if hours else 0.0
     else:
-        w = float(price or 0.0) - float(wage or 0.0) - float(agent_client or 0.0) - (float(agent_people or 0.0) if payer == 'workset' else 0.0)
+        w = float(price or 0.0) - float(wage or 0.0) - float(agent_client or 0.0) - (float(agent_people or 0.0) if payer == 'workset' else 0.0) \
+            - float(fund or 0.0) - float(car_rent or 0.0)
     w = round(w, 2)
     return {'our_share': w, 'net_share': round(w - float(bonus or 0.0), 2)}
 
@@ -1386,6 +1441,29 @@ TX.update({
     'agent_deal': ['Домовленості посередника', 'Договорённости посредника'],
     'agent_deal_none': ['Домовленості посередника із замовником цієї ставки немає (або модуль посередників не встановлено).',
                         'Договорённости посредника с заказчиком этой ставки нет (или модуль посредников не установлен).'],
+    # посередник лише цій людині, фонд працівників, оренда авто (круг 06.11)
+    'agent_own_note': ['своє для цієї людини: %s', 'своё для этого человека: %s'],
+    'agent_own_reason': ['«Посередник — своє»: вкажіть причину (чому для цієї людини інша сума, ніж у домовленості).',
+                         '«Посредник — своё»: укажите причину (почему для этого человека другая сумма, чем в договорённости).'],
+    'ov_fund': ['Фонд', 'Фонд'],
+    'ov_norate_sub': ['%s · %s год за %d днів', '%s · %s ч за %d дней'],
+    # майстер правки з рядка списку («Нова ставка з дати» / «Виправити помилку») і «Переговорити»
+    'e_wage': ['Зарплата працівника', 'Зарплата работника'], 'e_price': ['Платять нам', 'Платят нам'], 'e_agent': ['Посередник', 'Посредник'],
+    'e_title': ['%s: нове значення', '%s: новое значение'],
+    'e_reason': ['«Виправити помилку»: вкажіть причину — вона піде в історію ставки.',
+                 '«Исправить ошибку»: укажите причину — она уйдёт в историю ставки.'],
+    'e_same_day': ['Ставка цієї пари з %s уже є — це вона. Нова ставка з тієї самої дати не потрібна: «Виправити помилку» змінить число в ній.',
+                   'Ставка этой пары с %s уже есть — это она. Новая ставка с той же даты не нужна: «Исправить ошибку» изменит число в ней.'],
+    'e_zero': ['«Зарплата працівника» має бути більше 0 €/год.', '«Зарплата работника» должна быть больше 0 €/час.'],
+    'e_negative': ['Сума не може бути менша за 0.', 'Сумма не может быть меньше 0.'],
+    'e_new_note': ['Нова ставка з %s (майстер правки): %s %s → %s. %s', 'Новая ставка с %s (мастер правки): %s %s → %s. %s'],
+    'e_fix_note': ['Виправлено помилку: %s %s → %s. Причина: %s', 'Исправлена ошибка: %s %s → %s. Причина: %s'],
+    'e_done_new': ['Нова ставка з %s: %s → %s; частка WorkSET %s → %s.', 'Новая ставка с %s: %s → %s; доля WorkSET %s → %s.'],
+    'e_done_fix': ['Виправлено: %s → %s; частка WorkSET %s → %s.', 'Исправлено: %s → %s; доля WorkSET %s → %s.'],
+    'e_agent_back': ['Посередник знову з домовленостей (було своє: %s).', 'Посредник снова из договорённостей (было своё: %s).'],
+    'talk_summary': ['Переговорити: %s', 'Переговорить: %s'],
+    'talk_wage': ['зарплата %s', 'зарплата %s'], 'talk_price': ['платять %s', 'платят %s'], 'talk_agent': ['посередник %s', 'посредник %s'],
+    'talk_fund': ['фонд %s', 'фонд %s'], 'talk_car': ['авто %s', 'авто %s'], 'talk_share': ['частка %s', 'доля %s'],
     # «Стрічка»: перенос смуги
     'gantt_move': ['У «Стрічці» минулі та чинні ставки не пересуваються: нова ціна з дати — «Нова ставка з дати», помилкову дату виправте в картці '
                    'ставки через «Ставки → Усі ставки».',
@@ -1396,6 +1474,53 @@ TX.update({
     'gantt_row': ['У «Стрічці» смугу можна лише пересунути в часі: працівника, замовника й лінію змінюють у картці ставки.',
                   'В «Ленте» полосу можно только передвинуть во времени: работника, заказчика и линию меняют в карточке ставки.'],
 })
+
+
+def talk_text(nums, lang):
+    """Цифри людини одним рядком для задачі «Переговорити»: «зарплата Р, платять Ц, посередник А, частка W» (нульові посередник, фонд і
+    оренда авто — без них). nums — {'wage', 'price', 'agent', 'fund', 'car', 'share'}."""
+    parts = [t('talk_wage', lang) % money(nums.get('wage')), t('talk_price', lang) % money(nums.get('price'))]
+    for key in ('agent', 'fund', 'car'):
+        if abs(float(nums.get(key) or 0.0)) >= 0.005:
+            parts.append(t('talk_' + key, lang) % money(nums[key]))
+    parts.append(t('talk_share', lang) % money(nums.get('share')))
+    return ', '.join(parts)
+
+
+def contract_raise_price(kind, old_price, old_wage, new_wage):
+    """«Платять нам» нової ставки «зарплата за договором» (інструмент штабу --wage-from-contract): kind — calc.contract_kind ставки, але для
+    «Своєї» — якір її загальної ставки ('own_markup' / 'own_tariff' / 'own'). Фікс за місяць — = нова зарплата; надбавка (і «Своя» на
+    надбавці) — стара ціна + різниця зарплат (частка та сама); тариф, «Своя» на тарифі або без правила, загальної ставки немає — ціна та сама."""
+    if kind == 'fixed':
+        return round(float(new_wage or 0.0), 2)
+    if kind in ('markup', 'own_markup'):
+        return round(float(old_price or 0.0) + float(new_wage or 0.0) - float(old_wage or 0.0), 2)
+    return round(float(old_price or 0.0), 2)
+
+
+def norate_rows(groups, have, persons, custs):
+    """«Працюють без ставки»: табелі за вікно, згруповані по (картка, проєкт) → пари «людина × замовник» без діючої ставки.
+    groups — [{'employee', 'project', 'hours', 'last', 'aal'}]; have — множина (людина, замовник) діючих ставок; persons — {картка: робочий
+    контакт або 0}; custs — {проєкт: комерційний замовник або 0}. Проєкт без замовника — не тут (розділ «Проєкти без замовника»). Картка без
+    контакту — своя пара (ставку не знайти, поки контакту немає). → [{'person', 'cust', 'hours', 'last', 'aal', 'cards': [(картка, проєкт)]}]
+    за годинами, найбільші — першими. Словники можна дати й списками пар, have — і списками (дані з JSON)."""
+    persons, custs = dict(persons), dict(custs)
+    have = {tuple(h) for h in have}
+    pairs = {}
+    for g in groups:
+        cust = custs.get(g['project']) or 0
+        if not cust:
+            continue
+        person = persons.get(g['employee']) or 0
+        if person and (person, cust) in have:
+            continue
+        key = (person or -g['employee'], cust)
+        p = pairs.setdefault(key, {'person': person, 'cust': cust, 'hours': 0.0, 'last': '', 'aal': 0, 'cards': []})
+        p['hours'] = round(p['hours'] + float(g['hours'] or 0.0), 2)
+        if (g['last'] or '') > p['last'] or (g['last'] == p['last'] and g['aal'] > p['aal']):
+            p['last'], p['aal'] = g['last'] or '', g['aal']
+        p['cards'].append((g['employee'], g['project']))
+    return sorted(pairs.values(), key=lambda p: (-p['hours'], p['cust'], p['person']))
 
 
 def overview_months(months):
@@ -1510,9 +1635,14 @@ def agent_items(pairs):
     (agent_client_note) дає ім'я й суму кожної домовленості. У межах ставки суми одного імені додаються, нульові частини пропускаються; сума
     частин ≠ частці ставки (нотатку не розібрати або вона застаріла) — один запис без імені з часткою ставки: показуємо те, що справді
     віднято. → [{'name', 'min', 'max'}] за ім'ям (без імені — останнім): найменша й найбільша сума серед ставок лінії (різні — діапазон);
-    ставки з нульовою часткою не входять."""
+    ставки з нульовою часткою не входять. Елемент pairs може мати третім замовника ставки: суми різні — ще 'main' (сума більшості ставок)
+    і 'except' [{'customer', 'amount'}] — замовники з іншою сумою («−А € · Замовник −Б €» замість «від −Б €», правка вигляду 06.11)."""
     by = {}
-    for amount, note in pairs:
+    seen = {}
+    named = all(len(p) > 2 for p in pairs)
+    for p in pairs:
+        amount, note = p[0], p[1]
+        customer = p[2] if len(p) > 2 else ''
         share = round(float(amount or 0), 2)
         if share <= 0:
             continue
@@ -1533,7 +1663,29 @@ def agent_items(pairs):
             v = round(v, 2)
             lo, hi = by.get(name, (v, v))
             by[name] = (min(lo, v), max(hi, v))
-    return [{'name': n, 'min': lo, 'max': hi} for n, (lo, hi) in sorted(by.items(), key=lambda x: (x[0] == '', x[0]))]
+            seen.setdefault(name, []).append((v, customer or ''))
+    out = []
+    for n, (lo, hi) in sorted(by.items(), key=lambda x: (x[0] == '', x[0])):
+        item = {'name': n, 'min': lo, 'max': hi}
+        if named and not same_money(lo, hi):
+            counts = {}
+            for v, _c in seen[n]:
+                counts[v] = counts.get(v, 0) + 1
+            main = max(counts, key=lambda v: (counts[v], v))
+            exc = []
+            for v, c in seen[n]:
+                if not same_money(v, main) and {'customer': c, 'amount': v} not in exc:
+                    exc.append({'customer': c, 'amount': v})
+            item.update({'main': main, 'except': sorted(exc, key=lambda e: (e['customer'], e['amount']))})
+        out.append(item)
+    return out
+
+
+def fund_badge(values):
+    """Бейдж «Фонд» картки лінії: values — «Фонд працівників» діючих ставок лінії → {'min', 'max'} серед ненульових (різні — діапазон
+    «−А…Б €»); фонду немає ні в кого — False."""
+    vals = [round(float(v or 0), 2) for v in values if abs(float(v or 0)) >= 0.005]
+    return {'min': min(vals), 'max': max(vals)} if vals else False
 
 
 def gantt_groups_last(groups, field):
@@ -1662,7 +1814,10 @@ def gantt_stop_domain(op, value, today, days=GANTT_OPEN_DAYS):
 
 def gantt_search(op, value, today, days=GANTT_OPEN_DAYS):
     """Будь-який пошук за «Смуга до» без помилки: <, <=, >, >= — gantt_stop_domain; = / != порожньо — за «Ставка з» (смуга порожня лише
-    без «Ставка з»); = / != дата — через >= і <= (або < і >); інше (in, like…) — наближено за «Ставка з» тим самим оператором."""
+    без «Ставка з»); = / != дата — через >= і <= (або < і >); інше (in, like…) — наближено за «Ставка з» тим самим оператором.
+    Odoo 19 приносить «=» / «!=» як «in» / «not in» з одним значенням (OrderedSet) — це те саме, що «=» / «!=»."""
+    if op in ('in', 'not in') and is_many(value) and len(list(value)) == 1:
+        op, value = ('=' if op == 'in' else '!='), list(value)[0]
     if op in GANTT_OPS:
         return gantt_stop_domain(op, value, today, days)
     if op in ('=', '!=') and not value:

@@ -17,7 +17,9 @@ NEED_PEOPLE = ('x_rate', 'x_state', 'x_date_from', 'x_date_to')
 
 
 def read_deals(env):
-    """→ [{'id', 'rate', 'state', 'kind', 'customer_ids', 'line_id', 'date_from', 'date_to', 'agent'}] діючих домовленостей або None."""
+    """→ [{'id', 'rate', 'rate_full', 'state', 'kind', 'customer_ids', 'line_id', 'date_from', 'date_to', 'agent'}] діючих домовленостей або None.
+    kind — вид домовленості: 'hour' (посередник, €/год), 'fixed', 'worker_fund' (фонд працівників — calc.worker_fund_for); поля виду немає —
+    'hour'. rate_full — сума фонду на повну ставку зайнятості (x_rate_full); поля немає — None (тоді для всіх rate)."""
     if DEAL not in env:
         return None
     Deal = env[DEAL].sudo()
@@ -26,13 +28,19 @@ def read_deals(env):
     by_line = 'x_line_id' in Deal._fields and Deal._fields['x_line_id'].comodel_name == 'workset.line'
     has_kind = 'x_kind' in Deal._fields
     has_agent = 'x_agent_id' in Deal._fields
+    has_full = 'x_rate_full' in Deal._fields
     out = []
     for d in Deal.search([('x_state', 'in', list(calc.LIVE_DEAL_STATES))]):
-        out.append({'id': d.id, 'rate': d.x_rate, 'state': d.x_state, 'kind': d.x_kind if has_kind else 'hour',
-                    'customer_ids': d.x_customer_ids.ids, 'line_id': d.x_line_id.id if by_line else 0,
+        out.append({'id': d.id, 'rate': d.x_rate, 'rate_full': d.x_rate_full if has_full else None, 'state': d.x_state,
+                    'kind': d.x_kind if has_kind else 'hour', 'customer_ids': d.x_customer_ids.ids, 'line_id': d.x_line_id.id if by_line else 0,
                     'date_from': calc.iso(d.x_date_from), 'date_to': calc.iso(d.x_date_to),
                     'agent': (d.x_agent_id.name or '') if has_agent else ''})
     return out
+
+
+def deal_writable(env):
+    """Користувач може правити домовленості посередників (майстер правки «Посередник» → «для всієї домовленості»): модель є і право запису є."""
+    return DEAL in env and env[DEAL].has_access('write')
 
 
 def deal_ids(env, cust_id, line_id):

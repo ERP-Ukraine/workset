@@ -47,9 +47,11 @@
         </field>
     </record>
 
-    <!-- «Огляд ставок»: один виклик workset.rate.rates_overview; фільтр сторінки зберігається в браузері користувача -->
+    <!-- «Огляд ставок»: один виклик workset.rate.rates_overview; фільтр сторінки зберігається в браузері користувача. path — постійна адреса
+         сторінки (/odoo/workset-rates-overview): посилання на неї не залежить від номера дії в базі -->
     <record id="action_overview" model="ir.actions.client">
         <field name="name">Огляд ставок</field>
         <field name="tag">workset_rates.overview</field>
+        <field name="path">workset-rates-overview</field>
     </record>
 </odoo>

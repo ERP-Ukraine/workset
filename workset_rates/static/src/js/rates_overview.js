@@ -23,7 +23,8 @@ const RATE = "workset.rate";
 const MONTHS = [6, 12, 24];
 const STORE = "workset_rates.overview.";
 const ALL = "workset_rates.action_rates_all";
-const ALERT_ACTIONS = { "workset.rate": ALL, "workset.rate.raise": "workset_rates.action_raises" };
+// «Працюють без ставки» — останні табелі пар без діючої ставки (штатний список табелів)
+const ALERT_ACTIONS = { "workset.rate": ALL, "workset.rate.raise": "workset_rates.action_raises", "account.analytic.line": "hr_timesheet.timesheet_action_all" };
 
 export function defaultFilter() {
     return { lines: [], customer: 0, months: 12, working: true };
@@ -206,15 +207,32 @@ export class RatesOverview extends Component {
         return formatFloat(value || 0, { digits: [16, 2], trailingZeros: false });
     }
 
-    /** Посередники картки лінії одним рядком: «Ім'я −сума €»; суми різні — «Ім'я від −найменша €». Порожньо, якщо посередників немає. */
+    /** Посередники картки лінії одним рядком: «Ім'я −сума €»; суми різні — сума більшості ставок і замовники з іншою сумою
+     *  («Ім'я −А € · Замовник −Б €»), а замовників сервер не знає — діапазон «Ім'я −Б…А €». Порожньо, якщо посередників немає. */
     agentText(line) {
-        const from = this.data.labels.agent_from;
         return (line.agents || [])
             .map((a) => {
-                const sum = a.min === a.max ? `−${this.plain(a.max)} €` : `${from} −${this.plain(a.min)} €`;
+                let sum;
+                if (a.min === a.max) {
+                    sum = `−${this.plain(a.max)} €`;
+                } else if (a.except && a.except.length) {
+                    sum = [`−${this.plain(a.main)} €`, ...a.except.map((e) => `${e.customer} −${this.plain(e.amount)} €`)].join(" · ");
+                } else {
+                    sum = `−${this.plain(a.min)}…${this.plain(a.max)} €`;
+                }
                 return a.name ? `${a.name} ${sum}` : sum;
             })
             .join(", ");
+    }
+
+    /** Фонд працівників картки лінії: «Фонд −А €»; суми різні (повна / неповна ставка) — «Фонд −Б…А €». */
+    fundText(line) {
+        const f = line.fund;
+        if (!f) {
+            return "";
+        }
+        const sum = f.min === f.max ? `−${this.plain(f.max)} €` : `−${this.plain(f.min)}…${this.plain(f.max)} €`;
+        return `${this.data.labels.fund} ${sum}`;
     }
 
     /** Підпис із сервера з підстановкою %s по черзі: підпис("Частка %s", "5–6") */
@@ -259,8 +277,13 @@ export class RatesOverview extends Component {
         this.action.doAction({ ...action, domain: [["id", "in", alert.ids]], context: {} });
     }
 
-    openRecord(model, id) {
-        this.action.doAction({ type: "ir.actions.act_window", res_model: model, res_id: id, views: [[false, "form"]], target: "current" });
+    /** Рядок тривоги: запис; у «Працюють без ставки» — нова ставка цієї пари (форма з працівником і замовником). */
+    openRow(alert, row) {
+        return row.new ? this.openRecord("workset.rate", false, row.new) : this.openRecord(alert.model, row.id);
+    }
+
+    openRecord(model, id, context = {}) {
+        this.action.doAction({ type: "ir.actions.act_window", res_model: model, res_id: id, views: [[false, "form"]], target: "current", context });
     }
 
     openCheck() {

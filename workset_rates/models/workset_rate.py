@@ -39,7 +39,8 @@ RAISE = 'workset.rate.raise'
 INTERNAL = 'workset_rates_internal'  # запис службових полів ланцюжка — без автоматики
 # А1 М1: пара заново й карта проєктів; CHAIN_TRIGGERS — ще й ланцюжок цін (М2)
 TRIGGERS = frozenset(['person_id', 'customer_id', 'date_from', 'wage', 'price', 'active'])
-CHAIN_TRIGGERS = TRIGGERS | frozenset(['price_mode', 'fixed_month', 'client_price', 'is_own', 'found_by', 'line_id', 'people_agent_payer'])
+CHAIN_TRIGGERS = TRIGGERS | frozenset(['price_mode', 'fixed_month', 'client_price', 'is_own', 'found_by', 'line_id', 'people_agent_payer',
+                                       'agent_own', 'agent_own_value'])
 
 FOUND_BY = [('line', 'Лінія'), ('us', 'Ми')]
 STATES = [('future', 'Майбутня'), ('current', 'Діє'), ('past', 'Минула')]
@@ -63,7 +64,8 @@ def cust_of(partner):
 class WorksetRate(models.Model):
     _name = RATE
     _description = 'Ставка'
-    _inherit = ['mail.thread']
+    # задачі «Переговорити» (кнопка рядка списку) — на самій ставці
+    _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'date_from desc, id desc'
 
     name = fields.Char(string='Назва', compute='_compute_name', store=True)
@@ -108,16 +110,29 @@ class WorksetRate(models.Model):
     line_share = fields.Monetary(string='Частка лінії', currency_field='currency_id', readonly=True, aggregator='avg',
                                  help='Ціна клієнта − «Платять нам», €/год. 0 — ціна клієнта невідома.')
     agent_client_share = fields.Monetary(string='Посередник', currency_field='currency_id', readonly=True, aggregator='avg',
-                                         help='Сума «€/год» діючих погодинних домовленостей з посередниками цього замовника або лінії (модуль посередників)')
+                                         help='Сума «€/год» діючих погодинних домовленостей з посередниками (модуль посередників): домовленість із '
+                                              'замовниками — коли замовник ставки серед них; без замовників — за лінією ставки. Своє значення '
+                                              'для цієї людини («Посередник — своє») — замість домовленостей.')
     agent_client_note = fields.Char(string='Хто посередник', readonly=True)
+    # посередник лише цій людині: своє значення з причиною (майстер правки «Посередник» → «лише цій людині»); інакше — з домовленостей
+    agent_own = fields.Boolean(string='Посередник — своє', tracking=17,
+                               help='Для цієї людини посередник — своє значення, а не сума домовленостей замовника або лінії')
+    agent_own_value = fields.Monetary(string='Посередник (своє)', currency_field='currency_id', tracking=18, aggregator='avg')
+    agent_own_reason = fields.Char(string='Чому посередник свій', tracking=19)
+    worker_fund_share = fields.Monetary(string='Фонд працівників', currency_field='currency_id', readonly=True, aggregator='avg',
+                                        help='€/год у фонд працівників (житло, паливо, інструмент, спецодяг) за домовленістю «фонд працівників» '
+                                             'замовника або лінії; повна ставка зайнятості в договорі — своя сума домовленості. Гроші працівників: '
+                                             'віднімається від частки WorkSET, але це не посередник.')
+    car_rent_share = fields.Monetary(string='Оренда авто', currency_field='currency_id', readonly=True, aggregator='avg',
+                                     help='€/год під оренду авто — із загальної ставки. Віднімається від частки WorkSET.')
     agent_people_share = fields.Monetary(string='Агент людей', currency_field='currency_id', readonly=True, aggregator='avg',
                                          help='€/год агента, що дав цю людину (модуль посередників). Частку WorkSET зменшує, лише коли платить WorkSET.')
     people_agent_payer = fields.Selection(PAYERS, string='Хто платить агенту', tracking=16, help='З загальної ставки (порожньо там — лінія); можна змінити')
     people_agent_payer_manual = fields.Boolean(string='Хто платить агенту вручну', readonly=True,
                                                help='Змінили в цій ставці й не так, як у загальній ставці; інакше — із загальної ставки')
     our_share = fields.Monetary(string='Частка WorkSET', currency_field='currency_id', aggregator='avg', readonly=True,
-                                help='За годину, до ZUS і податків на зарплату: платять нам − зарплата працівника − посередник (− агент людей, якщо платить WorkSET); '
-                                     'у «Фікс за місяць» — фікс ÷ годин місяця.')
+                                help='За годину, до ZUS і податків на зарплату: платять нам − зарплата працівника − посередник − фонд працівників − '
+                                     'оренда авто (− агент людей, якщо платить WorkSET); у «Фікс за місяць» — фікс ÷ годин місяця.')
     month_hours = fields.Float(string='Годин за місяць', readonly=True, help='Години пари в табелях за минулий повний місяць (усі фірми периметра)')
     office_bonus = fields.Monetary(string='Бонус офісу', currency_field='currency_id', readonly=True, aggregator='avg',
                                    help='€/год за правилами бонусів офісу: € за годину + € за працівника на місяць ÷ годин за місяць')
@@ -126,7 +141,7 @@ class WorksetRate(models.Model):
                                 help='Частка WorkSET − бонус офісу, €/год. Не «після податків»: ZUS і податки на зарплату — у «Прибутковості».')
     net_level = fields.Selection(SHARE_LEVELS, string='Рівень після бонусів', readonly=True, index=True)
     found_missing = fields.Boolean(string='Хто знайшов не вказано', readonly=True,
-                                   help='Надбавка, а «Хто знайшов» порожньо: ціна — за часткою «Знайшла лінія»')
+                                   help='Надбавка, а «Хто знайшов» порожньо: «Платять нам» — за правилом «Знайшла лінія»')
     wage_source = fields.Selection(WAGE_SOURCES, string='Зарплата з', default='manual')
     contract_version_id = fields.Many2one('hr.version', string='Версія договору', readonly=True, ondelete='set null',
                                           help='Версія договору, з якої взято «Зарплата працівника»')
@@ -192,8 +207,9 @@ class WorksetRate(models.Model):
     control_sig = fields.Char(string='Відбиток контролю', readonly=True)
     active = fields.Boolean(string='Активна', default=True, tracking=10)
     # нехранимі зв'язки — з явними іменами таблиць (таблиць немає; без імен Odoo не вивів би назву для зв'язку моделі з собою)
-    employee_ids = fields.Many2many('hr.employee', 'workset_rate_employee_rel', 'rate_id', 'employee_id', string='Картки у фірмах', compute='_compute_employees')
-    employee_summary = fields.Char(string='Картки у фірмах (стисло)', compute='_compute_employees')
+    employee_ids = fields.Many2many('hr.employee', 'workset_rate_employee_rel', 'rate_id', 'employee_id', string='Картки у фірмах', compute='_compute_employees',
+                                    groups='hr.group_hr_user')
+    employee_summary = fields.Char(string='Картки у фірмах (стисло)', compute='_compute_employee_summary')
     pair_rate_ids = fields.Many2many(RATE, 'workset_rate_pair_rel', 'rate_id', 'other_id', string='Інші ставки пари', compute='_compute_pair')
     others_count = fields.Integer(string='Інших ставок', readonly=True)
     others_note = fields.Char(string='Інші ставки', compute='_compute_others_note',
@@ -362,16 +378,27 @@ class WorksetRate(models.Model):
         cust = cust_of(self.customer_id)
         line = self.line_id
         deals = data['deals']
-        a_c, used = calc.agent_share_for(deals or [], cust, line.id, day)
+        if self.agent_own:
+            # посередник лише цій людині — своє значення з причиною замість домовленостей
+            a_c, a_note = round(float(self.agent_own_value or 0.0), 2), calc.t('agent_own_note', lang) % (self.agent_own_reason or '—')
+        else:
+            a_c, used = calc.agent_share_for(deals or [], cust, line.id, day)
+            a_note = calc.agent_client_note(deals, used, lang)
+        # фонд працівників: сума «на повну ставку» — лише якщо така є в домовленості (тоді читаємо версію договору людини на day)
+        full = self._full_rate_on(person, cust, day) if calc.fund_needs_full(deals or [], cust, line.id, day) else False
+        fund, _fund_ids = calc.worker_fund_for(deals or [], cust, line.id, day, full)
+        rule = nums['rule']
+        car = round(float(rule.sudo().car_rent or 0.0), 2) if rule else 0.0
         a_p, _ppl = calc.people_share_for(data['people'], person, day)
         hours = self._month_hours(person, cust, day)
         bonus = calc.office_bonus(data['bonuses'], cust, line.id, person, day, hours, data['hours_default'])
         payer = nums['people_agent_payer'] or 'line'
-        sh = calc.shares(nums['price_mode'], self.wage, nums['price'], nums['fixed_month'], hours, data['hours_default'], a_c, a_p, payer, bonus['value'])
-        rule = nums['rule']
+        sh = calc.shares(nums['price_mode'], self.wage, nums['price'], nums['fixed_month'], hours, data['hours_default'], a_c, a_p, payer, bonus['value'],
+                         fund, car)
         low = calc.min_share_of(rule.sudo().min_share if rule else 0.0, line.min_share, data['min_default'])
         good = line.good_share or data['good_default']
-        return {'agent_client_share': a_c, 'agent_client_note': calc.agent_client_note(deals, used, lang), 'agent_people_share': a_p,
+        return {'agent_client_share': a_c, 'agent_client_note': a_note, 'agent_people_share': a_p,
+                'worker_fund_share': fund, 'car_rent_share': car,
                 'month_hours': hours, 'office_bonus': bonus['value'], 'bonus_norm': bonus['norm'], 'our_share': sh['our_share'], 'net_share': sh['net_share'],
                 'line_share': calc.line_share(nums['client_price'], nums['price']),
                 'share_level': calc.share_level(sh['our_share'], 0.0, low, good, 0.0, 0.0), 'net_level': calc.share_level(sh['net_share'], 0.0, low, good, 0.0, 0.0)}
@@ -470,9 +497,11 @@ class WorksetRate(models.Model):
             nums = {'price': rate.price, 'price_mode': rate.price_mode or 'hour', 'fixed_month': rate.fixed_month, 'client_price': rate.client_price,
                     'people_agent_payer': rate.people_agent_payer, 'rule': rate.rule_id}
             v = rate._chain_light(day, data, nums)
+            # фонд працівників і оренда авто — поруч із частками (частка й чиста — уже без них): «Прибутковість» показує їх окремими рядками
             out[(person, cust)] = {'rate_id': rate.id, 'wage': rate.wage, 'price': rate.price, 'client_price': rate.client_price, 'line_share': v['line_share'],
                                    'agent_client': v['agent_client_share'], 'agent_people': v['agent_people_share'],
-                                   'people_agent_payer': rate.people_agent_payer or 'line', 'office_bonus': v['office_bonus'], 'our_share': v['our_share'],
+                                   'people_agent_payer': rate.people_agent_payer or 'line', 'office_bonus': v['office_bonus'],
+                                   'worker_fund_share': v['worker_fund_share'], 'car_rent_share': v['car_rent_share'], 'our_share': v['our_share'],
                                    'net_share': v['net_share'], 'price_mode': rate.price_mode or 'hour', 'fixed_month': rate.fixed_month,
                                    'month_hours': v['month_hours']}
         return out
@@ -510,24 +539,13 @@ class WorksetRate(models.Model):
 
     def _search_has_raise(self, operator, value):
         # фільтр «Є тимчасова зміна»: пари, у яких сьогодні діє не скасована зміна (як «Тимчасових» полоси підсумків).
-        # Odoo 19 може передати і «=» / «!=» з True / False, і «in» / «not in» зі списком — обидва варіанти
-        values = set(value) if isinstance(value, (list, tuple, set, frozenset)) else {value}
-        if operator in ('!=', 'not in'):
-            values = {True, False} - {bool(v) for v in values}
-        elif operator in ('=', 'in'):
-            values = {bool(v) for v in values}
-        else:
-            raise ValueError('has_raise: %s' % operator)
+        # Оператор і значення в будь-якому вигляді Odoo 19 (in / not in з OrderedSet) — calc.bool_search
         today = calc.iso(self._today())
         ids = []
         for x in self.env[RAISE].sudo().search([('state', '!=', 'cancel'), ('date_from', '<=', today), ('date_to', '>=', today)]):
             ids += self.env[RATE].sudo().search([('person_id', '=', x.person_id.id),
                                                  ('customer_id.commercial_partner_id', '=', cust_of(x.customer_id))]).ids
-        if values == {True, False}:
-            return []
-        if not values:
-            return [('id', '=', 0)]
-        return [('id', 'in' if True in values else 'not in', ids)]
+        return calc.bool_search(operator, value, ids)
 
     @api.depends('active', 'state', 'rule_ok', 'rule_share', 'our_share', 'contract_ok', 'map_mismatch', 'order_price_ok', 'to_check', 'check_reason',
                  'is_own', 'own_reason', 'found_missing')
@@ -541,7 +559,7 @@ class WorksetRate(models.Model):
                                     'found_missing': r.found_missing}, lang)
 
     @api.depends('customer_id', 'line_id', 'wage', 'our_share', 'agent_client_share', 'agent_people_share', 'people_agent_payer', 'price', 'price_mode',
-                 'fixed_month', 'month_hours', 'net_share')
+                 'fixed_month', 'month_hours', 'net_share', 'worker_fund_share', 'car_rent_share')
     @api.depends_context('lang')
     def _compute_texts(self):
         lang = self._lang()
@@ -554,7 +572,7 @@ class WorksetRate(models.Model):
                 r.fixed_note = calc.fixed_note(r.fixed_month, r.month_hours, hours_default, lang)
             else:
                 agents = (r.agent_client_share or 0.0) + ((r.agent_people_share or 0.0) if r.people_agent_payer == 'workset' else 0.0)
-                r.formula = calc.formula(r.wage, r.our_share, agents, r.price, lang)
+                r.formula = calc.formula(r.wage, r.our_share, [agents, r.worker_fund_share, r.car_rent_share], r.price, lang)
                 r.fixed_note = ''
             r.card_line = calc.card_line(r.formula, r.net_share, lang)
 
@@ -578,11 +596,11 @@ class WorksetRate(models.Model):
                 if (v and r.wage_source == 'contract') else ''
 
     @api.depends('person_id')
-    @api.depends_context('lang', 'allowed_company_ids')
+    @api.depends_context('allowed_company_ids')
     def _compute_employees(self):
         # картки — ті, що бачить користувач (його фірми; з архівними): чужа фірма в тегах дала б помилку доступу на всю форму.
-        # Повний список усіх фірм — у вкладці «Контроль»
-        lang = self._lang()
+        # Поле — лише кадрам (groups): Odoo 19 перевіряє право читання hr.employee навіть при записі порожнього значення в обчислюване
+        # поле x2many, і форма ставки в редактора без прав кадрів падала (AccessError, перша збірка Odoo.sh 06.11)
         Emp = self.env['hr.employee'].with_context(active_test=False)
         for r in self:
             cards = Emp.browse()
@@ -592,6 +610,18 @@ class WorksetRate(models.Model):
             except AccessError:
                 cards = Emp.browse()
             r.employee_ids = cards
+
+    @api.depends('person_id')
+    @api.depends_context('lang', 'allowed_company_ids')
+    def _compute_employee_summary(self):
+        # «Фірма · діє / архів» карток людини у фірмах користувача (фірми контексту — як правило доступу карток), без поля hr.employee:
+        # рядок бачить і редактор ставок без прав кадрів. Повний список усіх фірм — у вкладці «Контроль»
+        lang = self._lang()
+        Emp = self.env['hr.employee'].sudo().with_context(active_test=False)
+        firms = self.env.companies.ids
+        for r in self:
+            cards = Emp.search([('work_contact_id', '=', r.person_id.id), ('company_id', 'in', firms)], order='company_id, id') \
+                if r.person_id else Emp.browse()
             r.employee_summary = ', '.join(['%s · %s' % (c.company_id.name or '—', calc.t('card_active' if c.active else 'card_archived', lang)) for c in cards])
 
     @api.depends('person_id', 'customer_id', 'state', 'active')
@@ -646,11 +676,18 @@ class WorksetRate(models.Model):
             if r.is_own and not (r.own_reason or '').strip():
                 raise ValidationError(calc.t('own_reason', lang) % calc.money(r.rule_price))
 
-    @api.constrains('client_price', 'client_price_source', 'client_price_date', 'price', 'fixed_month')
+    @api.constrains('agent_own', 'agent_own_reason')
+    def _check_agent_own(self):
+        lang = self._lang()
+        for r in self:
+            if r.agent_own and not (r.agent_own_reason or '').strip():
+                raise ValidationError(calc.t('agent_own_reason', lang))
+
+    @api.constrains('client_price', 'client_price_source', 'client_price_date', 'price', 'fixed_month', 'agent_own_value')
     def _check_chain_money(self):
         lang = self._lang()
         for r in self:
-            neg = [r._fields[f].string for f in ('price', 'fixed_month', 'client_price') if (r[f] or 0) < 0]
+            neg = [r._fields[f].string for f in ('price', 'fixed_month', 'client_price', 'agent_own_value') if (r[f] or 0) < 0]
             if neg:
                 raise ValidationError(calc.t('negative', lang) % ', '.join(neg))
             if r.client_price and not ((r.client_price_source or '').strip() and r.client_price_date):
@@ -1028,10 +1065,11 @@ class WorksetRate(models.Model):
         return {(r.person_id.id, cust_of(r.customer_id)): True for r in self.env[RATE].sudo().search([('state', '=', 'current')])}
 
     def _recent_ids(self, maps, today):
-        # рядки, де за RECENT_DAYS днів є табелі цієї картки в будь-якому проєкті цього замовника
+        # рядки, де за RECENT_DAYS днів є табелі цієї картки в будь-якому проєкті цього замовника. Вікно — від опорної дати «Працює»
+        # (на нейтралізованій копії табелі обриваються на даті вивантаження — як і «Працює», інакше копія через 60 днів показала б порожньо)
         if not maps:
             return []
-        cutoff = calc.add_days(calc.iso(today), -calc.RECENT_DAYS)
+        cutoff = calc.add_days(self._work_ref(today), -calc.RECENT_DAYS)
         rows = self.env['account.analytic.line'].sudo().search_read([('date', '>=', cutoff), ('employee_id', 'in', maps.employee_id.ids), ('project_id', '!=', False)],
                                                                    ['employee_id', 'project_id'])
         projects = self.env['project.project'].sudo().with_context(active_test=False).browse(list({r['project_id'][0] for r in rows}))
@@ -1052,6 +1090,21 @@ class WorksetRate(models.Model):
             if not person or (person, cust_of(m.project_id.partner_id)) not in have:
                 with_cust.append(m.id)
         return Map.browse(with_cust), Map.browse(no_cust)
+
+    def _norate_pairs(self, today, have=None):
+        """«Працюють без ставки» (звірка «Проєкти без ставки» і тривога «Огляду»): людина з табелями за RECENT_DAYS днів (від опорної дати
+        «Працює») у проєктах периметра із замовником, а діючої ставки пари «людина × замовник» немає — незалежно від того, чи є вона в карті
+        проєкту. Раніше звірка дивилась лише на рядки карти й людину, яку не внесли в карту проєкту, не бачила.
+        → calc.norate_rows: [{'person', 'cust', 'hours', 'last', 'aal', 'cards': [(картка, проєкт)]}]."""
+        have = self._current_keys() if have is None else have
+        cutoff = calc.add_days(self._work_ref(today), -calc.RECENT_DAYS)
+        AAL = self.env['account.analytic.line'].sudo().with_context(active_test=False)
+        groups = AAL._read_group([('date', '>=', cutoff), ('employee_id', '!=', False)] + self._perimeter_domain(), ['employee_id', 'project_id'],
+                                 ['unit_amount:sum', 'date:max', 'id:max'])
+        rows = [{'employee': emp.id, 'project': proj.id, 'hours': hours, 'last': calc.iso(last), 'aal': aal} for emp, proj, hours, last, aal in groups if emp and proj]
+        emps = self.env['hr.employee'].sudo().with_context(active_test=False).browse(sorted({r['employee'] for r in rows}))
+        projects = self.env['project.project'].sudo().with_context(active_test=False).browse(sorted({r['project'] for r in rows}))
+        return calc.norate_rows(rows, set(have), {e.id: e.work_contact_id.id for e in emps}, {p.id: cust_of(p.partner_id) for p in projects})
 
     @api.model
     def _rates_action(self, name, domain, ctx):
@@ -1079,6 +1132,8 @@ class WorksetRate(models.Model):
                                                  'default_price_mode': r.price_mode or 'hour', 'default_fixed_month': r.fixed_month,
                                                  'default_is_own': r.is_own, 'default_own_reason': r.own_reason or False,
                                                  'default_people_agent_payer': (r.people_agent_payer if r.people_agent_payer_manual else False) or False,
+                                                 'default_agent_own': r.agent_own, 'default_agent_own_value': r.agent_own_value,
+                                                 'default_agent_own_reason': r.agent_own_reason or False,
                                                  'default_date_from': calc.iso(self._today())}}
 
     def action_apply_now(self):
@@ -1176,6 +1231,16 @@ class WorksetRate(models.Model):
         card = calc.pick_card(self._card_infos(person_id, cust_id, maps))
         return self.env['hr.employee'].sudo().with_context(active_test=False).browse(card['id'] if card else [])
 
+    def _full_rate_on(self, person_id, cust_id, day):
+        """«Повна ставка» зайнятості людини на day: версія договору картки договору пари (та сама, що «У договорі»), що діє на day
+        («Дата версії» ≤ day, найпізніша), позначена workset_full_rate. Картки або версії немає — неповна (False)."""
+        card = self._contract_card(person_id, cust_id)
+        if not card:
+            return False
+        ver = self.env['hr.version'].sudo().search([('employee_id', '=', card.id), ('date_version', '<=', calc.iso(day))],
+                                                   order='date_version desc, id desc', limit=1)
+        return bool(ver.workset_full_rate)
+
     def _pairs_of_card(self, emp):
         """Пари «людина × замовник» (є ставки), де ця картка — картка договору → [(контакт, комерційний замовник)]."""
         person = emp.work_contact_id.id
@@ -1210,6 +1275,29 @@ class WorksetRate(models.Model):
             vals.update({'client_price': prev.client_price, 'client_price_source': prev.client_price_source, 'client_price_date': prev.client_price_date})
         if prev.people_agent_payer_manual:
             vals['people_agent_payer'] = prev.people_agent_payer
+        return vals
+
+    def _successor_vals(self, day, wage):
+        """Нова ставка пари з day — копія цієї (як «Нова ставка з дати»), «Зарплата працівника» — wage. Ціна, тип і фікс — лише в «Своєї»
+        (і «Своя» лишається з причиною) та коли загальної ставки на day немає (фікс за місяць — ціна = зарплата); інакше ціну поставить
+        ланцюжок за правилом (надбавка — зарплата + частка, тариф — та сама). Ціна клієнта, «Хто платить агенту» й посередник — лише ручні.
+        Джерела ставки тут немає — дописує той, хто створює. → vals для create."""
+        self.ensure_one()
+        prev = self
+        vals = {'person_id': prev.person_id.id, 'customer_id': prev.customer_id.id, 'line_id': prev.line_id.id or False, 'found_by': prev.found_by or False,
+                'wage': wage, 'date_from': day}
+        rid = calc.rule_pick(self._rules_index(), prev.line_id.id, cust_of(prev.customer_id), day)
+        mode = prev.price_mode or 'hour'
+        if prev.is_own:
+            vals.update({'price': prev.price, 'price_mode': mode, 'fixed_month': prev.fixed_month, 'is_own': True, 'own_reason': prev.own_reason})
+        elif not rid:
+            vals.update({'price': wage if mode == 'fixed_month' else prev.price, 'price_mode': mode, 'fixed_month': prev.fixed_month})
+        if prev.client_price_manual:
+            vals.update({'client_price': prev.client_price, 'client_price_source': prev.client_price_source, 'client_price_date': prev.client_price_date})
+        if prev.people_agent_payer_manual:
+            vals['people_agent_payer'] = prev.people_agent_payer
+        if prev.agent_own:
+            vals.update({'agent_own': True, 'agent_own_value': prev.agent_own_value, 'agent_own_reason': prev.agent_own_reason})
         return vals
 
     def _link_temporary(self, version, pairs, firm, dry):
@@ -1362,6 +1450,76 @@ class WorksetRate(models.Model):
                 target.message_post(body=body, message_type='comment', subtype_xmlid='mail.mt_note')
                 res['rates'].append(target.id)
         return res
+
+    @api.model
+    def rates_wage_from_contract(self, ids=None, apply=False):
+        """«Зарплата за договором» (слово власника 06.11; інструмент штабу --wage-from-contract — і після переносу на прод: перенос бере
+        «Зарплата працівника» з підпису рядка замовлення й повторює помилку там, де договір підвищили): діючі ставки (ids — лише ці), у яких
+        погодинна ставка поточної версії договору картки договору пари (та сама, що «У договорі»; не «Тимчасово», погодинна й ≤ поріг) ≠
+        «Зарплата працівника», а дата версії пізніше за «Ставка з». План — «людина, замовник, було → стало, з дати версії»; apply — нова ставка
+        з дати версії (на ту саму дату ставка вже є — «Зарплата працівника» в ній), «На руки з» — «Договір»; «Платять нам» за якорем
+        (calc.contract_raise_price: тариф — та сама, надбавка — + різниця зарплат, і в «Своєї» на надбавці теж). А6 (вимикач) тут не потрібен.
+        Лише адміністратор; без модуля зарплат — порожньо. → {'rows': [...], 'created', 'updated', 'dry', 'has_contract'}."""
+        self._check_admin()
+        out = {'rows': [], 'created': 0, 'updated': 0, 'dry': not apply, 'has_contract': self._has_contract()}
+        if not out['has_contract']:
+            return out
+        lang = self._lang()
+        skip = self._skip_companies()
+        max_wage = self._max_wage()
+        R = self.env[RATE].sudo()
+        dom = [('state', '=', 'current')] + ([('id', 'in', [int(i) for i in ids])] if ids else [])
+        rules = self._rules_index()
+        for r in R.search(dom, order='customer_id, person_id, id'):
+            person, cust = r.person_id.id, cust_of(r.customer_id)
+            card = self._contract_card(person, cust)
+            ver = card.current_version_id if card else self.env['hr.version']
+            if not ver or card.company_id.id in skip or ver.workset_temporary:
+                continue
+            info = self._contract_of(ver)
+            day = calc.iso(ver.date_version)
+            if not calc.wage_ok(info['hourly'], info['wage'], max_wage) or not day or day <= calc.iso(r.date_from) or calc.same_money(info['wage'], r.wage):
+                continue
+            act = calc.contract_action([{'id': x.id, 'date_from': calc.iso(x.date_from), 'wage': x.wage} for x in self._pair_rates(person, cust)],
+                                       day, info['wage'])
+            if act['kind'] not in ('create', 'update'):
+                continue
+            prev = R.browse(act['rate'])
+            rid = calc.rule_pick(rules, prev.line_id.id, cust, day)
+            anchor = self.env[RULE].sudo().browse(rid).anchor if rid else ''
+            kind = calc.contract_kind(prev.is_own, prev.price_mode, anchor)
+            if kind == 'own' and anchor:
+                kind = 'own_' + anchor
+            price = calc.contract_raise_price(kind, prev.price, prev.wage, info['wage'])
+            firm = card.company_id.name or ''
+            row = {'rate_id': prev.id, 'person': r.person_id.name or '', 'customer': r.customer_id.name or '', 'firm': firm, 'date': day,
+                   'wage_was': prev.wage, 'wage_new': info['wage'], 'price_was': prev.price, 'price_new': price, 'kind': act['kind'],
+                   'version_id': ver.id, 'own': bool(prev.is_own)}
+            out['rows'].append(row)
+            if not apply:
+                continue
+            old = {'wage': prev.wage, 'price': prev.price, 'share': prev.our_share}
+            contract = {'wage_source': 'contract', 'contract_version_id': ver.id}
+            if act['kind'] == 'update':
+                vals = dict(contract, wage=info['wage'])
+                if prev.is_own or not rid:
+                    vals['price'] = price
+                prev.write(vals)
+                target = prev
+                out['updated'] += 1
+            else:
+                vals = prev._successor_vals(day, info['wage'])
+                vals.update(contract, source='contract', source_note=calc.t('a6_src', lang) % (calc.fmt_date(day), firm or '—'))
+                if 'price' in vals:
+                    vals['price'] = price  # «Своя» або без правила — ціна за якорем; інакше ціну ставить ланцюжок за правилом
+                target = R.create(vals)
+                out['created'] += 1
+            new = {'wage': target.wage, 'price': target.price, 'share': target.our_share, 'low': 'low' in (target.share_level, target.net_level)}
+            # «Своя» на надбавці теж отримала + різницю — в історії так і пишемо («надбавка», не «платять нам те саме»)
+            note_kind = 'markup' if kind == 'own_markup' else calc.contract_kind(target.is_own, target.price_mode, target.anchor)
+            target.message_post(body=calc.contract_note(old, new, day, firm, note_kind, lang), message_type='comment', subtype_xmlid='mail.mt_note')
+            row.update({'new_rate_id': target.id, 'share_new': target.our_share})
+        return out
 
     @api.model
     def _contract_catchup(self):
@@ -1676,7 +1834,8 @@ class WorksetRate(models.Model):
             text = calc.t('ra_' + alert, lang) % calc.fmt_date(x.date_to) if alert == 'ending' else calc.t('ra_' + alert, lang)
             raise_rows.append([{'text': x.person_id.name or '', 'href': calc.link(RAISE, x.id)}, x.customer_id.name or '',
                                '%s – %s' % (calc.fmt_date(x.date_from), calc.fmt_date(x.date_to)), text, payers.get(x.payer, '')])
-        nomap, nocust = me._nomap_lines(me._current_keys())
+        have = me._current_keys()
+        nomap, nocust = me._nomap_lines(have)
         recent = set(me._recent_ids(nomap | nocust, today))
         nomap_rows, nocust_rows = [], []
         stale = 0
@@ -1689,6 +1848,21 @@ class WorksetRate(models.Model):
         for m in nocust:
             if m.id in recent:
                 nocust_rows.append(map_row(m, ''))
+        # табелі є, а рядка карти в проєкті немає (людину не внесли в карту) — та сама пара без ставки, рядок «немає в карті проєкту · N год»
+        in_map = {(m.employee_id.id, m.project_id.id) for m in nomap}
+        Emp = self.env['hr.employee'].sudo().with_context(active_test=False)
+        Project = self.env['project.project'].sudo().with_context(active_test=False)
+        hours_of = {}
+        for p in me._norate_pairs(today, have):
+            for emp_id, proj_id in p['cards']:
+                if (emp_id, proj_id) not in in_map:
+                    hours_of[(emp_id, proj_id)] = p
+        for (emp_id, proj_id), p in sorted(hours_of.items(), key=lambda x: (-x[1]['hours'], x[0])):
+            emp, proj = Emp.browse(emp_id), Project.browse(proj_id)
+            note = calc.t('no_contact', lang) if not emp.work_contact_id else calc.t('not_in_map', lang) % calc.num(p['hours'])
+            nomap_rows.append([{'text': proj.display_name or '', 'href': calc.link('project.project', proj.id)}, proj.company_id.name or '',
+                               proj.partner_id.commercial_partner_id.name or '—', {'text': emp.name or '', 'href': calc.link('hr.employee', emp.id)},
+                               '—', note])
         # позначені стражем — у своєму розділі «Вгору і назад», не тут
         check_rows = [[rate_cell(r), r.customer_id.name or '', r.check_reason or ''] for r in R.search([('to_check', '=', True)], order='customer_id, person_id, id')
                       if r.id not in updown_ids and not (r.check_reason or '').startswith(me._updown_prefixes())]

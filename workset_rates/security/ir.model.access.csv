@@ -45,3 +45,7 @@ access_workset_line_housing_hr,workset.line.housing hr,model_workset_line_housin
 access_workset_line_housing_account,workset.line.housing account,model_workset_line_housing,account.group_account_user,1,0,0,0
 access_workset_line_housing_project,workset.line.housing project,model_workset_line_housing,project.group_project_manager,1,0,0,0
 access_workset_line_housing_system,workset.line.housing system,model_workset_line_housing,base.group_system,1,1,1,1
+access_workset_rate_edit_editor,workset.rate.edit editor,model_workset_rate_edit,workset_rates.group_editor,1,1,1,0
+access_workset_rate_edit_system,workset.rate.edit system,model_workset_rate_edit,base.group_system,1,1,1,1
+access_workset_rate_talk_editor,workset.rate.talk editor,model_workset_rate_talk,workset_rates.group_editor,1,1,1,0
+access_workset_rate_talk_system,workset.rate.talk system,model_workset_rate_talk,base.group_system,1,1,1,1

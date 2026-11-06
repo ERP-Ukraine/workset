@@ -20,7 +20,8 @@ CHECK = 'workset.rate.check'
 GANTT_CTX = 'workset_rates_gantt'                    # контекст дії «Стрічка»: підпис смуги
 GANTT_ROW_FIELDS = frozenset(['line_id', 'person_id', 'customer_id'])  # рядок «Стрічки»: смугу в інший рядок не переносять
 GANTT_MOVE_FIELDS = GANTT_ROW_FIELDS | {'date_from'}                   # у контексті «Стрічки» — це перенос смуги
-LABELS = ('count', 'wage', 'price', 'share', 'net', 'people', 'found_us', 'found_line', 'found_none', 'found_empty', 'agent_from')  # calc.TX: ov_<ключ>
+LABELS = ('count', 'wage', 'price', 'share', 'net', 'people', 'found_us', 'found_line', 'found_none', 'found_empty', 'agent_from',
+          'fund')  # calc.TX: ov_<ключ>
 ALERT_ROWS = 5     # рядків у тривозі «Огляду»; решта — списком за кліком на заголовок
 ALERT_IDS = 1000    # id для списку тривоги не більше
 
@@ -110,8 +111,8 @@ class WorksetRateOverview(models.Model):
         today = calc.iso(self._today())
         base = list(domain or [])
         scope = base + [('state', '=', 'current')] + ([('work_group', '=', 'g1_work')] if only_working else [])
-        rows = self.search_read(scope, ['line_id', 'work', 'wage', 'price', 'our_share', 'net_share', 'share_level', 'net_level',
-                                        'agent_client_share', 'agent_client_note', 'found_by', 'contract_ok'])
+        rows = self.search_read(scope, ['line_id', 'customer_id', 'work', 'wage', 'price', 'our_share', 'net_share', 'share_level', 'net_level',
+                                        'agent_client_share', 'agent_client_note', 'worker_fund_share', 'found_by', 'contract_ok'])
         if only_working:
             tiles = self.rates_summary(scope)  # ті самі числа, що полоса підсумків над «Працюють зараз» (і «Договір ≠ база» — з неї)
         else:
@@ -184,7 +185,9 @@ class WorksetRateOverview(models.Model):
                         'avg_wage': s['avg_wage'], 'avg_price': s['avg_price'], 'avg_share': s['avg_share'], 'avg_net': s['avg_net'],
                         'below_min': s['below_min'],
                         'agent': calc.agent_status(any((r['agent_client_share'] or 0) > 0 for r in mine), line.agent_expected),
-                        'agents': calc.agent_items([(r['agent_client_share'], r['agent_client_note']) for r in mine]),
+                        'agents': calc.agent_items([(r['agent_client_share'], r['agent_client_note'], r['customer_id'][1] if r['customer_id'] else '')
+                                                    for r in mine]),
+                        'fund': calc.fund_badge([r['worker_fund_share'] for r in mine]),
                         'spark': calc.spark_path(spark), 'spark_values': spark, '_share': share[-months:]})
         out.sort(key=lambda c: (-c['working'], -c['total'], c['name']))
         return out
@@ -219,7 +222,48 @@ class WorksetRateOverview(models.Model):
         check = self.search(scope + [('to_check', '=', True)], order='customer_id, person_id, id')
         out.append({'key': 'to_check', 'model': self._name, 'count': len(check), 'ids': check.ids[:ALERT_IDS],
                     'rows': self._rate_rows(check, lambda r: ' · '.join([p for p in [cust(r), r.check_reason or ''] if p]))})
+        # «Працюють без ставки»: табелі за 60 днів, а діючої ставки пари немає (ті самі пари, що в звірці «Проєкти без ставки»). Рядок — нова
+        # ставка цієї пари (форма з працівником і замовником), заголовок — останні табелі пар
+        custs = self._base_customers(base)
+        pairs = [p for p in self._norate_pairs(today) if custs is None or p['cust'] in custs]
+        Partner = self.env['res.partner'].sudo()
+        Emp = self.env['hr.employee'].sudo().with_context(active_test=False)
+        rows = []
+        for p in pairs[:ALERT_ROWS]:
+            who = Partner.browse(p['person']).name if p['person'] else Emp.browse(p['cards'][0][0]).name
+            rows.append({'id': p['aal'], 'title': who or '',
+                         'sub': calc.t('ov_norate_sub', lang) % (Partner.browse(p['cust']).name or '', calc.num(p['hours']), calc.RECENT_DAYS),
+                         'new': {'default_person_id': p['person'], 'default_customer_id': p['cust']} if p['person'] else False})
+        out.append({'key': 'no_rate', 'model': 'account.analytic.line', 'count': len(pairs), 'ids': [p['aal'] for p in pairs][:ALERT_IDS], 'rows': rows})
+        # «Переговорити»: відкриті задачі на ставках фільтра (кнопка рядка списку «Працюють зараз»); рядок — ставка
+        acts = self.env['mail.activity'].search([('res_model', '=', self._name)] + ([('res_id', 'in', self.search(base).ids)] if base else []),
+                                                order='date_deadline, id')
+        rates = self.browse(list(dict.fromkeys(acts.mapped('res_id')))).exists()
+        out.append({'key': 'talk', 'model': self._name, 'count': len(acts), 'ids': rates.ids[:ALERT_IDS],
+                    'rows': [{'id': a.res_id, 'title': self.browse(a.res_id).person_id.display_name or '',
+                              'sub': ' · '.join([x for x in [a.user_id.name or '', calc.fmt_date(a.date_deadline), a.summary or ''] if x])}
+                             for a in acts[:ALERT_ROWS]]})
         return out
+
+    def _base_customers(self, base):
+        """Фільтр сторінки «Огляду» (лінії, замовник — так його складає JS) → комерційні замовники, яких він стосується; фільтра немає — None.
+        Для тривоги «Працюють без ставки»: пари без ставки в ставки фільтра не потрапляють, тож замовники лінії — з самої лінії."""
+        if not base:
+            return None
+        out = None
+        for cond in base:
+            if not isinstance(cond, (list, tuple)) or len(cond) != 3:
+                continue
+            field, op, value = cond
+            ids = value if isinstance(value, (list, tuple)) else [value]
+            if field == 'line_id' and op in ('in', '='):
+                found = {cust_of(c) for c in self.env['workset.line'].browse(ids).customer_ids}
+            elif field == 'customer_id' and op in ('in', '='):
+                found = {cust_of(c) for c in self.env['res.partner'].browse(ids)}
+            else:
+                continue
+            out = found if out is None else out & found
+        return out if out is not None else None
 
     def _overview_check(self):
         # остання «Звірка ставок»: розділи й число ставок у кожному (з її запису; розділи пише А4)

@@ -142,12 +142,13 @@
                                             <t t-else="">посередник є</t>
                                         </span>
                                         <span t-elif="line.agent === 'expected'" class="badge rounded-pill bg-warning-subtle text-warning-emphasis text-truncate">посередника очікується</span>
+                                        <span t-if="line.fund" class="badge rounded-pill o_workset_rates_ov_count text-truncate flex-shrink-0" t-att-title="fundText(line)" t-esc="fundText(line)"/>
                                         <span t-if="line.below_min" class="badge rounded-pill bg-danger-subtle text-danger-emphasis flex-shrink-0">нижче мінімуму <t t-esc="line.below_min"/></span>
                                     </div>
                                     <div class="o_workset_rates_ov_line_nums">
                                         <div class="o_workset_rates_ov_line_col">
                                             <div class="small text-muted text-truncate">
-                                                <t t-if="filter.working">працюють</t>
+                                                <t t-if="filter.working">людей</t>
                                                 <t t-else="">ставок</t>
                                             </div>
                                             <div class="o_workset_rates_ov_line_num" t-esc="line.count"/>
@@ -216,11 +217,13 @@
                                             <span t-if="a.key === 'raise_soon'">Тимчасові зміни закінчуються ≤ 3 дні</span>
                                             <span t-elif="a.key === 'future'">Майбутні ставки на 7 днів</span>
                                             <span t-elif="a.key === 'no_line'">Лінію не вказано</span>
+                                            <span t-elif="a.key === 'no_rate'">Працюють без ставки</span>
+                                            <span t-elif="a.key === 'talk'">Переговорити</span>
                                             <span t-else="">Перевірити</span>
                                             <span class="badge rounded-pill text-bg-warning" t-esc="a.count"/>
                                         </button>
-                                        <t t-foreach="a.rows" t-as="row" t-key="row.id">
-                                            <button type="button" class="list-group-item list-group-item-action ps-4" t-on-click="() => this.openRecord(a.model, row.id)">
+                                        <t t-foreach="a.rows" t-as="row" t-key="row_index">
+                                            <button type="button" class="list-group-item list-group-item-action ps-4" t-on-click="() => this.openRow(a, row)">
                                                 <div t-esc="row.title"/>
                                                 <div class="small text-muted" t-esc="row.sub"/>
                                             </button>

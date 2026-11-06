@@ -58,6 +58,9 @@ class WorksetRateRule(models.Model):
     client_price_date = fields.Date(string='Дата ціни')
     people_agent_payer = fields.Selection(PAYERS, string='Хто платить агенту',
                                           help='Хто платить агенту людей. Порожньо — лінія. Частку WorkSET зменшує лише «WorkSET».')
+    # оренда авто — частина «Платять нам» під машину (окремий рядок у розкладі власника); ставка бере її з правила щоразу й щоночі
+    car_rent = fields.Monetary(string='Оренда авто', currency_field='currency_id', tracking=14, aggregator='avg',
+                               help='€/год з «Платять нам» під оренду авто: віднімається від частки WorkSET кожної ставки цього правила. Змінює власник.')
     date_from = fields.Date(string='Ставка з', required=True, index=True, tracking=11)
     date_to = fields.Date(string='Ставка до', readonly=True, help='День перед «Ставка з» наступного правила тієї самої пари «лінія × замовник»')
     state = fields.Selection(STATES, string='Статус', readonly=True, index=True)
@@ -134,11 +137,12 @@ class WorksetRateRule(models.Model):
 
     # ——— перевірки ———
     @api.constrains('line_id', 'customer_id', 'date_from', 'active', 'anchor', 'price_mode', 'share_line_found', 'share_we_found', 'price',
-                    'fixed_month', 'min_share', 'client_price', 'client_price_source', 'client_price_date')
+                    'fixed_month', 'min_share', 'client_price', 'client_price_source', 'client_price_date', 'car_rent')
     def _check_rule(self):
         lang = calc.lang_of(self.env.lang)
         for r in self:
-            neg = [r._fields[f].string for f in ('share_line_found', 'share_we_found', 'price', 'fixed_month', 'min_share', 'client_price') if (r[f] or 0) < 0]
+            neg = [r._fields[f].string for f in ('share_line_found', 'share_we_found', 'price', 'fixed_month', 'min_share', 'client_price', 'car_rent')
+                   if (r[f] or 0) < 0]
             if neg:
                 raise ValidationError(calc.t('negative', lang) % ', '.join(neg))
             if r.price_mode == 'fixed_month':
@@ -193,6 +197,14 @@ class WorksetRateRule(models.Model):
                 if 'customer_id' in vals:
                     level = 'line' if (r.level == 'line' or not vals['customer_id']) else 'customer'
                 self._guard(calc.rule_guard(level, {f: r[f] for f in calc.RULE_PROTECTED}, want))
+        if 'car_rent' in vals:
+            # оренда авто не змінює ціну — лише частку: діючі й майбутні ставки правила перераховують ланцюжок одразу, не чекаючи ночі
+            res = self._write_rule(vals)
+            self.env[RATE].sudo().search([('rule_id', 'in', self.ids), ('state', 'in', ['current', 'future'])])._chain(full=False)
+            return res
+        return self._write_rule(vals)
+
+    def _write_rule(self, vals):
         if not (RULE_TRIGGERS & set(vals)):
             return super().write(vals)
         keys = {rule_key(r) for r in self}
@@ -251,7 +263,7 @@ class WorksetRateRule(models.Model):
         self.check_access('write')
         r = self
         ctx = {'default_%s' % f: r[f] for f in ('anchor', 'price_mode', 'share_line_found', 'share_we_found', 'price', 'fixed_month', 'min_share',
-                                                 'client_price', 'client_price_source', 'people_agent_payer')}
+                                                 'client_price', 'client_price_source', 'people_agent_payer', 'car_rent')}
         ctx.update({'default_line_id': r.line_id.id, 'default_customer_id': r.customer_id.id or False,
                     'default_client_price_date': calc.iso(r.client_price_date) or False, 'default_date_from': calc.iso(self.env[RATE]._today())})
         return {'type': 'ir.actions.act_window', 'name': self._description, 'res_model': RULE, 'view_mode': 'form', 'views': [[False, 'form']],
@@ -313,7 +325,7 @@ class WorksetRateRuleApply(models.TransientModel):
                 continue
             payer = (r.people_agent_payer if r.people_agent_payer_manual else rule.people_agent_payer) or 'line'
             sh = calc.shares(new['price_mode'], r.wage, new['price'], new['fixed_month'], r.month_hours, hours_default, r.agent_client_share,
-                             r.agent_people_share, payer, r.office_bonus)
+                             r.agent_people_share, payer, r.office_bonus, r.worker_fund_share, rule.car_rent)
             (here if in_place else todo).append((r, dict(new, our_share=sh['our_share'])))
         return todo, here, same, own
 
