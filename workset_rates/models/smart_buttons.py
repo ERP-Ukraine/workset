@@ -61,8 +61,8 @@ class ResPartner(models.Model):
 class HrEmployee(models.Model):
     _inherit = 'hr.employee'
 
-    # groups: поле hr.employee, якого немає на hr.employee.public, — лише кадрам (тест hr test_employee_fields_groups); форму працівника
-    # і так бачать лише кадри, решта — публічний профіль без кнопки
+    # groups: поле hr.employee, якого немає на hr.employee.public, — лише кадрам (тест hr test_employee_fields_groups; сборка Odoo.sh
+    # 41352965, 06.11.2026); форму працівника і так бачать лише кадри, решта — публічний профіль без кнопки
     workset_rate_count = fields.Integer(string='Діючих ставок', compute='_compute_workset_rate_count', groups='hr.group_hr_user')
 
     def _compute_workset_rate_count(self):

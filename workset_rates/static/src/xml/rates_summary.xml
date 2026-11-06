@@ -1,63 +1,63 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
-    <!-- Ряд плиток (уровень A, 6б): крупне число, підпис дрібно; плитки тягнуться на всю ширину ряду (flex-grow), на телефоні — по дві в ряд
-         (SCSS). «Нижче мінімуму», «Договір ≠ база» — червоним, «Тимчасових» — жовтим, коли > 0; «Без частки» — лише коли > 0 -->
+    <!-- Ряд плиток (уровень A, 6б) НАД списком / дошкою на всю ширину області: число fs-4 і підпис дрібно в один рядок, висота — за вмістом,
+         плитка 140–180 px, ряд переноситься; на телефоні — по дві в ряд (SCSS). «Нижче мінімуму», «Договір ≠ база» — червоним, «Тимчасових» —
+         жовтим, коли > 0; «Без частки» — лише коли > 0 -->
     <t t-name="workset_rates.RatesSummary">
-        <div class="o_workset_rates_tiles d-flex flex-wrap gap-2 px-3 py-2 border-bottom" t-if="state.data">
-            <div class="o_workset_rates_tile border rounded px-3 py-2">
-                <div class="fs-3 fw-semibold lh-1"><t t-esc="state.data.working"/><span class="fs-6 fw-normal text-muted ms-1">з <t t-esc="state.data.total"/></span></div>
-                <div class="text-muted small">Працюють</div>
+        <div class="o_workset_rates_tiles d-flex flex-wrap align-items-start gap-2 px-3 py-2 border-bottom" t-if="state.data">
+            <div class="o_workset_rates_tile border rounded px-3 py-1">
+                <div class="fs-4 fw-semibold lh-sm text-nowrap"><t t-esc="state.data.working"/><span class="fs-6 fw-normal text-muted ms-1">з <t t-esc="state.data.total"/></span></div>
+                <div class="text-muted small text-nowrap">Працюють</div>
             </div>
-            <div class="o_workset_rates_tile border rounded px-3 py-2">
-                <div class="fs-3 fw-semibold lh-1"><t t-esc="money(state.data.avg_wage)"/><span class="fs-6 fw-normal text-muted ms-1">€/год</span></div>
-                <div class="text-muted small">Сер. на руки</div>
+            <div class="o_workset_rates_tile border rounded px-3 py-1">
+                <div class="fs-4 fw-semibold lh-sm text-nowrap"><t t-esc="money(state.data.avg_wage)"/><span class="fs-6 fw-normal text-muted ms-1">€/год</span></div>
+                <div class="text-muted small text-nowrap">Сер. на руки</div>
             </div>
-            <div class="o_workset_rates_tile border rounded px-3 py-2">
-                <div class="fs-3 fw-semibold lh-1"><t t-esc="money(state.data.avg_price)"/><span class="fs-6 fw-normal text-muted ms-1">€/год</span></div>
-                <div class="text-muted small">Сер. ціна</div>
+            <div class="o_workset_rates_tile border rounded px-3 py-1">
+                <div class="fs-4 fw-semibold lh-sm text-nowrap"><t t-esc="money(state.data.avg_price)"/><span class="fs-6 fw-normal text-muted ms-1">€/год</span></div>
+                <div class="text-muted small text-nowrap">Сер. ціна</div>
             </div>
-            <div class="o_workset_rates_tile border rounded px-3 py-2">
-                <div class="fs-3 fw-semibold lh-1"><t t-esc="money(state.data.avg_share)"/><span class="fs-6 fw-normal text-muted ms-1">€/год</span></div>
-                <div class="text-muted small">Сер. частка WorkSET</div>
+            <div class="o_workset_rates_tile border rounded px-3 py-1">
+                <div class="fs-4 fw-semibold lh-sm text-nowrap"><t t-esc="money(state.data.avg_share)"/><span class="fs-6 fw-normal text-muted ms-1">€/год</span></div>
+                <div class="text-muted small text-nowrap">Сер. частка WorkSET</div>
             </div>
-            <div class="o_workset_rates_tile border rounded px-3 py-2">
-                <div class="fs-3 fw-semibold lh-1"><t t-esc="money(state.data.avg_net)"/><span class="fs-6 fw-normal text-muted ms-1">€/год</span></div>
-                <div class="text-muted small">Сер. чиста частка</div>
+            <div class="o_workset_rates_tile border rounded px-3 py-1">
+                <div class="fs-4 fw-semibold lh-sm text-nowrap"><t t-esc="money(state.data.avg_net)"/><span class="fs-6 fw-normal text-muted ms-1">€/год</span></div>
+                <div class="text-muted small text-nowrap">Сер. чиста частка</div>
             </div>
-            <div class="o_workset_rates_tile border rounded px-3 py-2">
-                <div class="fs-3 fw-semibold lh-1" t-att-class="state.data.below_min ? 'text-danger' : ''" t-esc="state.data.below_min"/>
-                <div class="text-muted small">Нижче мінімуму</div>
+            <div class="o_workset_rates_tile border rounded px-3 py-1">
+                <div class="fs-4 fw-semibold lh-sm" t-att-class="state.data.below_min ? 'text-danger' : ''" t-esc="state.data.below_min"/>
+                <div class="text-muted small text-nowrap">Нижче мінімуму</div>
             </div>
-            <div class="o_workset_rates_tile border rounded px-3 py-2">
-                <div class="fs-3 fw-semibold lh-1" t-att-class="state.data.raises ? 'text-warning' : ''" t-esc="state.data.raises"/>
-                <div class="text-muted small">Тимчасових</div>
+            <div class="o_workset_rates_tile border rounded px-3 py-1">
+                <div class="fs-4 fw-semibold lh-sm" t-att-class="state.data.raises ? 'text-warning' : ''" t-esc="state.data.raises"/>
+                <div class="text-muted small text-nowrap">Тимчасових</div>
             </div>
-            <div class="o_workset_rates_tile border rounded px-3 py-2">
-                <div class="fs-3 fw-semibold lh-1" t-att-class="state.data.contract_diff ? 'text-danger' : ''" t-esc="state.data.contract_diff or 0"/>
-                <div class="text-muted small">Договір ≠ база</div>
+            <div class="o_workset_rates_tile border rounded px-3 py-1">
+                <div class="fs-4 fw-semibold lh-sm" t-att-class="state.data.contract_diff ? 'text-danger' : ''" t-esc="state.data.contract_diff or 0"/>
+                <div class="text-muted small text-nowrap">Договір ≠ база</div>
             </div>
-            <div class="o_workset_rates_tile border rounded px-3 py-2" t-if="state.data.zero_share">
-                <div class="fs-3 fw-semibold lh-1 text-danger" t-esc="state.data.zero_share"/>
-                <div class="text-muted small">Без частки</div>
+            <div class="o_workset_rates_tile border rounded px-3 py-1" t-if="state.data.zero_share">
+                <div class="fs-4 fw-semibold lh-sm text-danger" t-esc="state.data.zero_share"/>
+                <div class="text-muted small text-nowrap">Без частки</div>
             </div>
         </div>
     </t>
 
-    <t t-name="workset_rates.ListRenderer" t-inherit="web.ListRenderer" t-inherit-mode="primary">
-        <xpath expr="//div[hasclass('o_list_renderer')]" position="before">
+    <!-- Плитки — блоком ПЕРЕД списком у власній обгортці-стовпці (flex-direction: column): у .o_content з лівою панеллю (рядок flex) обгортка —
+         один елемент поруч із панеллю, а не плитки окремою колонкою між панеллю й таблицею (копія 20, 06.11: колонка на всю висоту).
+         Сам список / дошка — штатний шаблон Odoo (t-call), без змін -->
+    <t t-name="workset_rates.ListRenderer">
+        <div class="o_workset_rates_stack">
             <RatesSummary model="props.list.model"/>
-        </xpath>
-        <xpath expr="//div[hasclass('o_list_renderer')]" position="attributes">
-            <attribute name="class" add="h-auto" separator=" "/>
-        </xpath>
+            <t t-call="web.ListRenderer"/>
+        </div>
     </t>
 
-    <t t-name="workset_rates.KanbanRenderer" t-inherit="web.KanbanRenderer" t-inherit-mode="primary">
-        <xpath expr="//div[hasclass('o_kanban_renderer')]" position="before">
+    <t t-name="workset_rates.KanbanRenderer">
+        <div class="o_workset_rates_stack">
             <RatesSummary model="props.list.model"/>
-        </xpath>
-        <xpath expr="//div[hasclass('o_kanban_renderer')]" position="attributes">
-            <attribute name="class" add="h-auto" separator=" "/>
-        </xpath>
+            <t t-call="web.KanbanRenderer"/>
+        </div>
     </t>
 </templates>
