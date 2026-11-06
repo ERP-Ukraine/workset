@@ -173,35 +173,33 @@
                     </t>
                     <div t-elif="!tiles.total" class="alert alert-info">За цим фільтром діючих ставок немає.</div>
 
-                    <!-- графіки й тривоги (слово власника 06.11): зліва зверху вниз — «по місяцях» (головне), «Розподіл частки», «Хто знайшов»
-                         (дивляться рідко — останнім); тривоги — справа, як було -->
+                    <!-- графіки й тривоги (слово власника 06.11 ~18:1x): сітка 2 × 2 — рядок 1: «по місяцях» | «Розподіл частки», рядок 2:
+                         «Хто знайшов» | «Тривоги»; висоти — за рядком сітки. Вузько — одна колонка в тому самому порядку -->
                     <div class="o_workset_rates_ov_panels">
-                        <div class="o_workset_rates_ov_panels_main">
-                            <div class="card o_workset_rates_ov_panel">
-                                <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
-                                    <span class="fw-semibold">Зарплата, платять нам, частка по місяцях</span>
-                                    <div class="btn-group btn-group-sm" role="group" aria-label="Ряди">
-                                        <button type="button" class="btn" t-att-class="state.byLine ? 'btn-secondary' : 'btn-primary'" t-on-click="() => this.setByLine(false)">Загалом</button>
-                                        <button type="button" class="btn" t-att-class="state.byLine ? 'btn-primary' : 'btn-secondary'" t-on-click="() => this.setByLine(true)">По лініях</button>
-                                    </div>
-                                </div>
-                                <div class="card-body">
-                                    <div class="o_workset_rates_ov_chart"><canvas t-ref="history"/></div>
-                                    <div class="small text-muted mt-2">Середні по ставках, що діяли на 1-ше число місяця; по лініях — сер. частка WorkSET.</div>
+                        <div class="card o_workset_rates_ov_panel">
+                            <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                <span class="fw-semibold">Зарплата, платять нам, частка по місяцях</span>
+                                <div class="btn-group btn-group-sm" role="group" aria-label="Ряди">
+                                    <button type="button" class="btn" t-att-class="state.byLine ? 'btn-secondary' : 'btn-primary'" t-on-click="() => this.setByLine(false)">Загалом</button>
+                                    <button type="button" class="btn" t-att-class="state.byLine ? 'btn-primary' : 'btn-secondary'" t-on-click="() => this.setByLine(true)">По лініях</button>
                                 </div>
                             </div>
-                            <div class="card o_workset_rates_ov_panel">
-                                <div class="card-header fw-semibold">Розподіл частки WorkSET</div>
-                                <div class="card-body">
-                                    <div class="o_workset_rates_ov_chart"><canvas t-ref="buckets"/></div>
-                                    <div class="small text-muted mt-2">Діючі ставки за часткою, €/год.</div>
-                                </div>
+                            <div class="card-body">
+                                <div class="o_workset_rates_ov_chart"><canvas t-ref="history"/></div>
+                                <div class="small text-muted mt-2">Середні по ставках, що діяли на 1-ше число місяця; по лініях — сер. частка WorkSET.</div>
                             </div>
-                            <div class="card o_workset_rates_ov_panel">
-                                <div class="card-header fw-semibold">Хто знайшов</div>
-                                <div class="card-body">
-                                    <div class="o_workset_rates_ov_chart o_workset_rates_ov_chart_tall"><canvas t-ref="found"/></div>
-                                </div>
+                        </div>
+                        <div class="card o_workset_rates_ov_panel">
+                            <div class="card-header fw-semibold">Розподіл частки WorkSET</div>
+                            <div class="card-body">
+                                <div class="o_workset_rates_ov_chart"><canvas t-ref="buckets"/></div>
+                                <div class="small text-muted mt-2">Діючі ставки за часткою, €/год.</div>
+                            </div>
+                        </div>
+                        <div class="card o_workset_rates_ov_panel">
+                            <div class="card-header fw-semibold">Хто знайшов</div>
+                            <div class="card-body">
+                                <div class="o_workset_rates_ov_chart o_workset_rates_ov_chart_tall"><canvas t-ref="found"/></div>
                             </div>
                         </div>
                         <div class="card o_workset_rates_ov_panel o_workset_rates_ov_panel_alerts">

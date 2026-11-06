@@ -52,8 +52,12 @@
 }
 
 // «Огляд ставок» (рівень B, макет C 06.11): смуга п'яти головних чисел, «пігулки» тривог, картки ліній і панелі графіків — сітки на всю
-// ширину без порожніх полів (auto-fit: стільки колонок, скільки влазить, решта розтягується). Кольори — лише класи й змінні Bootstrap
-// теми (світла й темна тема Odoo), без своїх. Класи — у своєму просторі .o_workset_rates_ov_*: плитки полоси підсумків сюди не дістають
+// ширину без порожніх полів (auto-fit: стільки колонок, скільки влазить, решта розтягується). Кольори — лише класи Bootstrap і SCSS-змінні
+// Odoo, без своїх. НЕ CSS-змінні Bootstrap через var(): Odoo 19 їх на сторінці не задає (копія 20, 06.11: primary, border-color,
+// secondary-bg порожні — рамки й капсули були без кольору). SCSS-змінні бандл темної теми компілює зі своїми значеннями; лінії й
+// капсули — напівпрозорі від $body-color, тож видно і на світлому, і на темному тлі. Класи — у своєму просторі .o_workset_rates_ov_*
+$o-ws-ov-line: rgba($body-color, 0.2);   // рамка, риска, роздільник
+$o-ws-ov-chip: rgba($body-color, 0.1);   // тло сірої капсули лічильника
 .o_workset_rates_ov {
     // кліком відкривається список: вказівник і видимий відгук при наведенні (без нових кольорів — рамка в колір теми)
     .o_workset_rates_ov_pill,
@@ -63,8 +67,8 @@
 
         &:hover,
         &:focus-visible {
-            border-color: var(--bs-primary);
-            box-shadow: 0 0 0 1px var(--bs-primary);
+            border-color: $o-brand-primary;
+            box-shadow: 0 0 0 1px $o-brand-primary;
         }
     }
     // смуга: п'ять відсіків — кожне число в своїй картці з рамкою, між відсіками проміжок (слово власника 06.11: тонка лінія в одній
@@ -86,7 +90,7 @@
         }
         &:hover,
         &:focus-visible {
-            border-color: var(--bs-primary);
+            border-color: $o-brand-primary;
         }
         &:hover .o_workset_rates_ov_num,
         &:focus-visible .o_workset_rates_ov_num {
@@ -115,8 +119,8 @@
         min-width: 0;
     }
     .o_workset_rates_ov_count {
-        background-color: var(--bs-secondary-bg, var(--bs-gray-200));
-        color: var(--bs-body-color);
+        background-color: $o-ws-ov-chip;
+        color: $body-color;
         font-weight: 500;
         font-variant-numeric: tabular-nums;
         min-width: 2rem;
@@ -149,7 +153,7 @@
     .o_workset_rates_ov_line_head {
         min-height: 2.5rem;
         padding-bottom: map-get($spacers, 2);
-        border-bottom: 1px solid var(--bs-border-color);
+        border-bottom: 1px solid $o-ws-ov-line;
     }
     .o_workset_rates_ov_line_badges {
         min-height: 1.5rem;
@@ -173,7 +177,7 @@
         text-align: center;
 
         + .o_workset_rates_ov_line_col {
-            border-left: 1px solid var(--bs-border-color);
+            border-left: 1px solid $o-ws-ov-line;
         }
     }
     // 1.5rem і три крапки: сума з «€/год» не вилазить за колонку навіть у найвужчій картці (20rem)
@@ -186,18 +190,14 @@
         overflow: hidden;
         text-overflow: ellipsis;
     }
-    // панелі: зліва стовпцем графіки («по місяцях», «Розподіл», «Хто знайшов»), справа тривоги (широко — дві колонки, вузько — одна;
-    // тривоги не розтягуються на висоту графіків)
+    // панелі (слово власника 06.11 ~18:1x): сітка 2 × 2 — «по місяцях» | «Розподіл», «Хто знайшов» | «Тривоги»; блоки рядка — однієї
+    // висоти (типове вирівнювання сітки — розтяг на висоту рядка; align-items не задаємо). Вузько — одна колонка в тому самому порядку
     .o_workset_rates_ov_panels {
         display: grid;
         gap: map-get($spacers, 3);
         grid-template-columns: minmax(0, 1fr);
-        align-items: start;
     }
-    .o_workset_rates_ov_panels_main {
-        display: flex;
-        flex-direction: column;
-        gap: map-get($spacers, 3);
+    .o_workset_rates_ov_panel {
         min-width: 0;
     }
     .o_workset_rates_ov_chart {
@@ -216,9 +216,9 @@
         .o_workset_rates_ov_band_cell:first-child {
             grid-column: auto;
         }
-        // графіки ширше, тривоги — вужчим стовпцем справа
+        // дві рівні колонки (від lg, ≥ 992px)
         .o_workset_rates_ov_panels {
-            grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+            grid-template-columns: repeat(2, minmax(0, 1fr));
         }
     }
     // телефон: картка лінії — майже на ширину екрана, сусідня видно краєм (ряд гортається)
