@@ -227,8 +227,13 @@ class ProfitScreen extends Component {
      *  анімації; підказка — найближча точка без точного влучання (тонкі лінії без крапок). */
     chartBase() {
         const el = this.chartRef.el;
-        const pal = PALETTE[isDark(backdrop(el)) ? "dark" : "light"];
+        const bg = backdrop(el);
+        const pal = PALETTE[isDark(bg) ? "dark" : "light"];
         const c = { ...pal, brand: brandOf(el.closest(".o_workset_profit"), pal.brand), font: getComputedStyle(el).fontFamily };
+        // підкладка під підпис на графіку — фон картки напівпрозоро (круг 3б: підпис викиду не зливається з лініями)
+        c.veil = `rgba(${bg.join(", ")}, 0.85)`;
+        // розмір підписів осей Chart.js (за замовчуванням 12 px) — від нього міряються власні підписи
+        c.tick = (window.Chart && Chart.defaults.font && Chart.defaults.font.size) || 12;
         c.axis = { ticks: { color: c.text }, grid: { color: c.grid } };
         c.yAxis = { ticks: { color: c.text }, grid: { color: (ctx) => (ctx.tick && ctx.tick.value === 0 ? c.zero : c.grid) } };
         c.options = { responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: "nearest", intersect: false } };
@@ -301,15 +306,9 @@ export class ProfitOverview extends ProfitScreen {
         return (alert.parts || []).map((p) => `${p.code} ${euros(p.amount)}`).join(" · ");
     }
 
-    /** «Куди йде частка»: пункти легенди — лише частини, що є хоч в одній лінії. */
+    /** «Куди йде частка»: пункти легенди — лише частини з помітним сегментом хоч в одній лінії (сервер: calc.split_legend, круг 3б). */
     get splitKeys() {
-        const keys = new Set();
-        for (const line of (this.data && this.data.lines) || []) {
-            for (const p of line.split) {
-                keys.add(p.key);
-            }
-        }
-        return keys;
+        return new Set((this.data && this.data.split_keys) || []);
     }
 
     /** Частка «чисто» в частці лінії, ціле число %: смуги без «чисто» (чисто ≤ 0) — 0. */
@@ -353,31 +352,43 @@ export class ProfitOverview extends ProfitScreen {
             raw: s.total,
             borderColor: c.brand,
             backgroundColor: c.brand,
-            borderWidth: 3,
+            borderWidth: 4,
             pointRadius: 2,
             pointHitRadius: 6,
             tension: 0,
             order: 0,
         });
+        // підпис викиду (круг 3б): шрифт підписів осі + 1 px, на напівпрозорій підкладці, усередині поля графіка — від верхнього краю
+        // вниз, від нижнього вгору (не наїжджає на підписи місяців під віссю), біля правого краю — ліворуч від точки
         const outliers = {
             id: "wsProfitOutliers",
             afterDatasetsDraw: (chart) => {
                 const ctx = chart.ctx;
                 const area = chart.chartArea;
+                const size = c.tick + 1;
+                const h = size + 6;
                 ctx.save();
-                ctx.font = `11px ${c.font}`;
+                ctx.font = `${size}px ${c.font}`;
+                ctx.textAlign = "left";
+                ctx.textBaseline = "middle";
                 for (const o of ax.out) {
                     const pt = chart.getDatasetMeta(o.s).data[o.i];
                     if (!pt) {
                         continue;
                     }
                     const up = o.value > ax.max;
-                    ctx.fillStyle = o.value < 0 ? c.danger : c.text;
+                    const color = o.value < 0 ? c.danger : c.text;
+                    ctx.fillStyle = color;
                     ctx.beginPath();
                     ctx.arc(pt.x, pt.y, 3, 0, 2 * Math.PI);
                     ctx.fill();
-                    ctx.textAlign = pt.x > area.right - 140 ? "right" : "left";
-                    ctx.fillText(o.text, pt.x + (ctx.textAlign === "left" ? 6 : -6), up ? pt.y + 14 : pt.y - 6);
+                    const w = ctx.measureText(o.text).width;
+                    const x = Math.max(area.left + 3, pt.x + 8 + w > area.right ? pt.x - 8 - w : pt.x + 8);
+                    const y = Math.min(area.bottom - h / 2 - 3, Math.max(area.top + h / 2 + 3, up ? pt.y + 8 + h / 2 : pt.y - 8 - h / 2));
+                    ctx.fillStyle = c.veil;
+                    ctx.fillRect(x - 4, y - h / 2, w + 8, h);
+                    ctx.fillStyle = color;
+                    ctx.fillText(o.text, x, y);
                 }
                 ctx.restore();
             },
@@ -391,7 +402,7 @@ export class ProfitOverview extends ProfitScreen {
                     ...c.options,
                     plugins: {
                         legend: this.legend(c, [
-                            { text: s.total_label, color: c.brand, width: 3 },
+                            { text: s.total_label, color: c.brand, width: 4 },
                             { text: s.each_label, color: c.line, width: 1 },
                         ]),
                         tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label || ""}: ${perHour(ctx.dataset.raw[ctx.dataIndex])}` } },
@@ -456,8 +467,9 @@ export class ProfitLineCard extends ProfitScreen {
         }
     }
 
+    /** Тонкий крок (calc.waterfall: < 2 % частки, круг 3б) — не менше 4 px, щоб було видно; підпис — той самий. */
     barStyle(b) {
-        return `bottom: ${b.bottom}%; height: ${Math.max(b.height, 0.6)}%;`;
+        return `bottom: ${b.bottom}%; height: ${Math.max(b.height, 0.6)}%;` + (b.thin ? " min-height: 4px;" : "");
     }
 
     /** Підпис суми в одному місці в усіх стовпців: плюс — над верхом, мінус — під низом (і «Чисто» нижче нуля теж). */
@@ -500,21 +512,21 @@ export class ProfitLineCard extends ProfitScreen {
         }
         const c = this.chartBase();
         // «Чисто по місяцях» (лише місяці з даними лінії): стовпці — чисто €/год кольором бренду, мінус — червоним; тонка сіра лінія —
-        // частка; число — поза стовпцем (над плюсом, під мінусом), місце під нього — запас осі (grace)
+        // частка; число — поза стовпцем (над плюсом, під мінусом з відступом — не на краю стовпця, круг 3б), місце під нього — запас осі (grace)
         const values = {
             id: "wsProfitValues",
             afterDatasetsDraw: (chart) => {
                 const meta = chart.getDatasetMeta(0);
                 const ctx = chart.ctx;
                 ctx.save();
-                ctx.font = `600 11px ${c.font}`;
+                ctx.font = `600 12px ${c.font}`;
                 ctx.textAlign = "center";
                 meta.data.forEach((bar, i) => {
                     const v = chart.data.datasets[0].data[i];
                     if (v !== null && v !== undefined) {
                         ctx.fillStyle = v < 0 ? c.danger : c.text;
                         ctx.textBaseline = v < 0 ? "top" : "bottom";
-                        ctx.fillText(plain(Math.round(v * 10) / 10), bar.x, v < 0 ? bar.y + 3 : bar.y - 3);
+                        ctx.fillText(plain(Math.round(v * 10) / 10), bar.x, v < 0 ? bar.y + 6 : bar.y - 3);
                     }
                 });
                 ctx.restore();

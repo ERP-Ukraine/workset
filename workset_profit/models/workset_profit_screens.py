@@ -70,7 +70,7 @@ class WorksetProfitScreens(models.Model):
         рядках ліній (calc.totals), тривоги з описом списку для кліку, плитки ліній (рядок лінії як є: чисто, €/год, частка, стрілка до
         минулого місяця, житло не з наших грошей, «Куди йде частка»), ряди «Чисто по місяцях» (усі лінії разом і кожна) від MIN_MONTH до
         останнього закритого місяця з віссю без викидів (calc.chart_axis); плитки — за «чисто € год» від збиткових (calc.tile_order). Лише
-        читання. → {'month', 'months', 'has', 'totals', 'alerts', 'lines', 'series'}."""
+        читання. → {'month', 'months', 'has', 'totals', 'alerts', 'lines', 'series', 'split_keys'}."""
         self._check_screen()
         lang = self._lang()
         today = calc.iso(self._today())
@@ -118,6 +118,8 @@ class WorksetProfitScreens(models.Model):
             'months': [calc.month_info(m, lang) for m in sorted({r['month'] for r in line_rows} | {month}, reverse=True)],
             'has': bool(now), 'totals': calc.totals(now), 'alerts': self._overview_alerts(month, mine, line_rows, lang),
             'lines': calc.tile_order(lines), 'series': series,
+            # легенда «Куди йде частка» — лише частини з помітним сегментом хоч в одній лінії (calc.split_legend, круг 3б)
+            'split_keys': calc.split_legend([x['split'] for x in lines]),
         }
 
     def _housing_from(self, line_id, day, hr):
@@ -142,13 +144,14 @@ class WorksetProfitScreens(models.Model):
         if un_c:
             out.append({'key': 'unallocated', 'amount': calc.eur(un_c), 'tone': 'danger',
                         'open': self._open(calc.t('t_unalloc', lang) % label, [('month', '=', month), ('row_kind', '=', 'unallocated')])})
+        # години на чипах — цілі, як скрізь (calc.whole_hours, круг 3б); чип — коли годин є хоч якісь (0,3 год — «0», але чип є)
         no_rate = round(sum(r['hours_no_rate'] for r in mine if r['row_kind'] in ('line', 'noline')), 2)
         if no_rate:
-            out.append({'key': 'no_rate', 'hours': no_rate, 'tone': 'warning',
+            out.append({'key': 'no_rate', 'hours': calc.whole_hours(no_rate), 'tone': 'warning',
                         'open': self._open(calc.t('t_no_rate', lang) % label, [('month', '=', month), ('hours_no_rate', '>', 0)])})
         noline = round(sum(r['hours_total'] for r in mine if r['row_kind'] == 'noline'), 2)
         if noline:
-            out.append({'key': 'noline', 'hours': noline, 'tone': 'warning',
+            out.append({'key': 'noline', 'hours': calc.whole_hours(noline), 'tone': 'warning',
                         'open': self._open(calc.t('t_noline', lang) % label, [('month', '=', month), ('row_kind', '=', 'noline')])})
         ratio = calc.parse_num(self._param(calc.P_HOUSING_SHIFT), calc.HOUSING_SHIFT_DEFAULT)
         shift = calc.housing_shift([{'line': r['line'], 'month': r['month'], 'housing': r['housing'], 'hours': r['hours_total']}
@@ -215,12 +218,12 @@ class WorksetProfitScreens(models.Model):
         # години без ставки лінії — жовтим чипом у підсумках; клік — рядки місяця лінії з такими годинами (як чип «Огляду», лише ця лінія)
         no_rate = False
         if row['hours_no_rate']:
-            no_rate = {'hours': row['hours_no_rate'],
+            no_rate = {'hours': calc.whole_hours(row['hours_no_rate']),
                        'open': self._open(calc.t('t_no_rate_line', lang) % (line.sudo().display_name, calc.month_info(month, lang)['title']),
                                           [('month', '=', month), ('line_id', '=', line.id), ('hours_no_rate', '>', 0)])}
         out.update({'has': True, 'row_id': row['id'], 'totals': calc.totals([row]), 'waterfall': calc.waterfall(steps),
                     'pays': pays, 'pays_fold': calc.pays_fold(pays, lang), 'no_rate': no_rate,
-                    'aside': [{'key': f, 'label': calc.t('a_' + f, lang), 'amount': row[f]} for f in calc.ASIDE if calc.cents(row[f])],
+                    'aside': [{'key': f, 'label': calc.aside_label(f, lang), 'amount': row[f]} for f in calc.ASIDE if calc.cents(row[f])],
                     'recomputed': self._stamp(row.get('write_date'))})
         out.update(self._card_rows(line, month, row, lang))
         return out
@@ -393,8 +396,10 @@ class WorksetProfitScreens(models.Model):
                               'tone': calc.cell_tone(r['net'], net_ph, prev_ph, threshold),
                               'chain': steps})
             tot = calc.totals([mine[m] for m in months if m in mine])
+            # підсумок періоду нижче нуля — червоним, як клітинки (круг 3б)
             lines.append({'id': lid, 'name': names[lid], 'cells': cells,
-                          'total': {'net': tot['net'], 'net_ph': tot['net_ph'] if tot['hours_rate'] else None}})
+                          'total': {'net': tot['net'], 'net_ph': tot['net_ph'] if tot['hours_rate'] else None,
+                                    'tone': 'neg' if calc.cents(tot['net']) < 0 else ''}})
 
         def company(rows_of):
             cells = [calc.eur(sum(calc.cents(r['net']) for r in rows_of if r['month'] == m)) for m in months]

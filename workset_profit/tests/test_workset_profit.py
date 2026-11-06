@@ -523,6 +523,8 @@ class TestWorksetProfit(TransactionCase):
         split = tiles[self.line_a.id]['split']
         self.assertAlmostEqual(sum(p['pct'] for p in split), 100, places=6)
         self.assertEqual([p['key'] for p in split], ['net', 'housing', 'tool', 'transport'])
+        self.assertEqual(data['split_keys'], calc.split_legend([t['split'] for t in data['lines']]), 'легенда — частини з помітним сегментом (круг 3б)')
+        self.assertIsInstance(alerts['no_rate']['hours'], int, 'години на чипі — цілі')
         self.assertEqual(data['series']['months'][0]['value'], '2026-01-01', 'ряди — з січня 2026')
         i = [m['value'] for m in data['series']['months']].index(M)
         self.assertAlmostEqual(data['series']['total'][i], round(sum(rows.mapped('net')) / sum(rows.mapped('hours_rate')), 2))
@@ -564,6 +566,11 @@ class TestWorksetProfit(TransactionCase):
         self.assertEqual(card['no_rate']['hours'], 4, 'години без ставки лінії A')
         self.assertEqual(self.Month.search(card['no_rate']['open']['domain']), row, 'клік — рядок лінії з годинами без ставки')
         self.assertEqual({x['key'] for x in card['aside']}, {'fund_in', 'fund_paid', 'fund_left', 'housing_buffer'})
+        # круг 3б: місяць усередині фрази («Рядки за березень 2030») — зі строчної, кнопка — з заглавної; буфер у правому блоці — свій підпис
+        self.assertEqual(card['month']['title_in'], calc.month_info(M, lang)['label'])
+        self.assertTrue(card['month']['title_in'][0].islower() and card['month']['title'][0].isupper(), card['month'])
+        self.assertEqual(card['month']['title_in'][1:], card['month']['title'][1:])
+        self.assertEqual([x['label'] for x in card['aside'] if x['key'] == 'housing_buffer'], [calc.t('b_housing_buffer', lang)])
         self.assertEqual((card['prev']['value'], card['next']['value']), ('2030-02-01', APR))
         self.assertFalse(card['stale'], 'одразу після перерахунку рядки = ланцюжку: попередження немає')
         self.assertTrue(card['recomputed'])
@@ -586,6 +593,7 @@ class TestWorksetProfit(TransactionCase):
         self.assertEqual([c['tone'] for c in cells], ['', 'drop', 'neg'], 'падіння на 3 за годину > порогу 1,5 — жовте; чисто < 0 — червоне')
         self.assertEqual(data['lines'][0]['total']['net'], 150)
         self.assertEqual(data['lines'][0]['total']['net_ph'], 5)
+        self.assertEqual(data['lines'][0]['total']['tone'], '', 'підсумок періоду вище нуля — без кольору (круг 3б)')
         self.env['ir.config_parameter'].sudo().set_param(calc.P_DROP, '3')
         with self._deals():
             relaxed = Month.profit_matrix('2030-05-01', '2030-07-31')
@@ -638,6 +646,12 @@ class TestWorksetProfit(TransactionCase):
             data = Screen.profit_matrix('2030-05-01', '2030-06-30')
         cells = [x for x in data['lines'] if x['id'] == self.line_b.id][0]['cells']
         self.assertEqual([(c['net_ph'], c['tone']) for c in cells], [(5, ''), (None, 'neg_text')], 'без годин зі ставкою — без заливки, не «neg»')
+        # круг 3б: підсумок періоду нижче нуля (лише червень: −20) — червоним, як клітинки; травень + червень (+30) — без кольору
+        with self._deals():
+            june = Screen.profit_matrix('2030-06-01', '2030-06-30')
+        total = [x for x in june['lines'] if x['id'] == self.line_b.id][0]['total']
+        self.assertEqual((total['net'], total['net_ph'], total['tone']), (-20, None, 'neg'))
+        self.assertEqual([x['total']['tone'] for x in data['lines'] if x['id'] == self.line_b.id], [''])
 
     def test_check_one_per_month(self):
         # «Звірка місяця»: плановий перерахунок і «Звірити» за той самий місяць — один запис (оновити, якщо є); другий запис база не пустить

@@ -57,6 +57,8 @@ HOUSING_SHIFT_DEFAULT = 2.0
 CHAIN = ('share', 'car_rent', 'housing', 'housing_customer', 'auto', 'fuel', 'tool', 'transport')  # ланцюжок лінії до «чисто»
 SPLIT = ('net', 'housing', 'auto', 'fuel', 'tool', 'transport')   # «Куди йде частка»: частини смуги лінії
 ASIDE = ('partner_paid', 'fund_in', 'fund_paid', 'fund_left', 'housing_buffer')  # «Не в нашому чисто» картки лінії
+SPLIT_LEGEND_MIN = 0.5     # «Куди йде частка»: пункт легенди — лише частина, що хоч в одній лінії місяця займає ≥ стільки % смуги (круг 3б)
+FALL_THIN_PCT = 2          # водоспад: крок, менший за стільки % першого стовпця (частки), — тонкий: екран дає йому мінімальну висоту (круг 3б)
 # вісь «Чисто по місяцях» «Огляду» (круг 3а): від min(AXIS_LOW, AXIS_PCT-й перцентиль) до max(AXIS_HIGH, (100 − AXIS_PCT)-й), кратно AXIS_STEP;
 # що поза віссю — викид: крапка біля краю з підписом «лінія місяць число» (один збитковий місяць не стискає решту в нитку)
 AXIS_LOW = -10
@@ -128,6 +130,8 @@ TX = {
     'a_partner_paid': ['З грошей лінії', 'Из денег линии'], 'a_fund_in': ['У фонд працівників', 'В фонд работников'],
     'a_fund_paid': ['З фонду працівників', 'Из фонда работников'], 'a_fund_left': ['Фонд: залишок місяця', 'Фонд: остаток месяца'],
     'a_housing_buffer': ['Буфер житла з оплати (довідково)', 'Буфер жилья из оплаты (справочно)'],
+    # круг 3б: правий блок «Не в нашому чисто» картки — свій підпис (calc.aside_label); у «Рядках» — як вище
+    'b_housing_buffer': ['Буфер житла з оплати людей — не в чисто', 'Буфер жилья из оплаты людей — не в чисто'],
     'r_timesheets': ['Табелі — %s год, людей: %d', 'Табели — %s ч, человек: %d'],
     'r_card': ['DKV %s — транзакцій: %d', 'DKV %s — транзакций: %d'],
     'r_pool': ['Перевезення людей — частка лінії за прибуттями', 'Перевозка людей — доля линии по прибытиям'],
@@ -139,8 +143,8 @@ TX = {
     't_noline': ['Години без лінії · %s', 'Часы без линии · %s'], 't_shift': ['Житло не в своєму місяці · %s', 'Жильё не в своём месяце · %s'],
     't_month': ['Рядки розрахунку · %s', 'Строки расчёта · %s'],
     'v_none_short': ['звірки ще не було', 'сверки ещё не было'],
-    'l_all': ['Усі лінії', 'Все линии'], 'l_net': ['Чисто, €/год', 'Чисто, €/ч'], 'l_share': ['Частка, €/год', 'Доля, €/ч'],
-    'l_hour': ['€/год', '€/ч'], 'l_month': ['€/міс', '€/мес'],
+    'l_all': ['Усі лінії', 'Все линии'], 'l_net': ['Чисто, € год', 'Чисто, € ч'], 'l_share': ['Частка, € год', 'Доля, € ч'],
+    'l_hour': ['€ год', '€ ч'], 'l_month': ['€/міс', '€/мес'],
     # круг 3а: легенда «Огляду», чип «Власники», згорнутий «Хто платить»
     'l_each': ['Кожна лінія', 'Каждая линия'], 't_owners': ['Власники · %s', 'Собственники · %s'],
     't_no_rate_line': ['Години без ставки · %s · %s', 'Часы без ставки · %s · %s'],
@@ -984,10 +988,11 @@ def months_text(n, lang='uk'):
 
 
 def month_info(day, lang='uk'):
-    """Місяць для екрана → {'value', 'label' («вересень 2026»), 'title' («Вересень 2026»), 'name' («вересень»), 'short' («Вер»)}."""
+    """Місяць для екрана → {'value', 'label' («вересень 2026»), 'title' («Вересень 2026» — кнопка, шапка), 'title_in' («вересень 2026» —
+    усередині фрази: «Рядки за вересень 2026», круг 3б), 'name' («вересень»), 'short' («Вер»)}."""
     label = month_label(day, lang)
-    return {'value': month_first(day), 'label': label, 'title': label[0:1].upper() + label[1:], 'name': label.split(' ')[0],
-            'short': month_label(day, lang, True)}
+    return {'value': month_first(day), 'label': label, 'title': label[0:1].upper() + label[1:], 'title_in': label[0:1].lower() + label[1:],
+            'name': label.split(' ')[0], 'short': month_label(day, lang, True)}
 
 
 def month_axis(days, lang='uk', short=True):
@@ -1083,9 +1088,11 @@ def chain_steps(row):
 def waterfall(steps):
     """Геометрія водоспаду картки лінії з кроків chain_steps: перший стовпець (частка) і «чисто» — від нуля, між ними — від поточного
     підсумку до наступного. Шкала — від min(0, підсумків) до max(0, підсумків). → {'bars': [крок + {'lo', 'hi', 'dir' ('total' / 'down' /
-    'up'), 'bottom', 'height', 'end'}], 'zero'}: bottom, height і zero (де нуль) — % висоти поля; end — рівень підсумку після кроку (%),
-    звідти пунктир до наступного стовпця (круг 3а)."""
+    'up'), 'bottom', 'height', 'end', 'thin'}], 'zero'}: bottom, height і zero (де нуль) — % висоти поля; end — рівень підсумку після кроку
+    (%), звідти пунктир до наступного стовпця (круг 3а); thin — крок (не частка й не «чисто») за модулем менший за FALL_THIN_PCT % першого
+    стовпця: екран малює його мінімальної висоти, щоб було видно (круг 3б)."""
     run = 0
+    first = 0
     raw = []
     for i, s in enumerate(steps or []):
         c = cents(s.get('amount'))
@@ -1093,18 +1100,20 @@ def waterfall(steps):
             lo, hi = min(0, c), max(0, c)
             run = c
             d = 'total'
+            if i == 0:
+                first = c
         else:
             lo, hi = min(run, run + c), max(run, run + c)
             d = 'down' if c < 0 else 'up'
             run += c
-        raw.append((s, lo, hi, d, run))
+        raw.append((s, lo, hi, d, run, d != 'total' and abs(c) * 100 < FALL_THIN_PCT * abs(first)))
     vals = [0] + [x[1] for x in raw] + [x[2] for x in raw]
     bottom, span = min(vals), max(vals) - min(vals)
 
     def pct(v):
         return round(v * 100.0 / span, 2) if span else 0.0
-    bars = [dict(s, lo=eur(lo), hi=eur(hi), dir=d, bottom=pct(lo - bottom), height=pct(hi - lo), end=pct(r - bottom))
-            for s, lo, hi, d, r in raw]
+    bars = [dict(s, lo=eur(lo), hi=eur(hi), dir=d, bottom=pct(lo - bottom), height=pct(hi - lo), end=pct(r - bottom), thin=thin)
+            for s, lo, hi, d, r, thin in raw]
     return {'bars': bars, 'zero': pct(-bottom)}
 
 
@@ -1119,6 +1128,25 @@ def share_split(row):
     parts = [(k, v) for k, v in parts if v > 0]
     pct = dict(split_cents(10000, parts))
     return [{'key': k, 'amount': eur(v), 'pct': pct.get(k, 0) / 100.0} for k, v in parts]
+
+
+def split_legend(splits, min_pct=SPLIT_LEGEND_MIN):
+    """Легенда «Куди йде частка» (круг 3б): splits — [share_split лінії] за місяць → ключі SPLIT (у їх порядку), що хоч в одній лінії
+    займають ≥ min_pct % смуги; частина без помітного сегмента (паливо 0,2 % в одній лінії) у легенду не йде."""
+    seen = {p.get('key') for s in splits or [] for p in s or [] if float(p.get('pct') or 0) >= min_pct}
+    return [k for k in SPLIT if k in seen]
+
+
+def whole_hours(x):
+    """Години на чипі — ціле, як години скрізь на екранах (круг 3б): 710.5 → 711, 12.49 → 12 (половина — від нуля, як cents)."""
+    v = float(x or 0)
+    return (-1 if v < 0 else 1) * int(abs(v) + 0.5 + 1e-7)
+
+
+def aside_label(field, lang='uk'):
+    """Підпис «Не в нашому чисто» у правому блоці картки лінії: свій ('b_<поле>', буфер житла — «… — не в чисто»), інакше — той самий,
+    що в «Рядках» ('a_<поле>')."""
+    return t('b_' + field if 'b_' + field in TX else 'a_' + field, lang)
 
 
 def cell_tone(net, net_ph, prev_ph, threshold=DROP_DEFAULT):

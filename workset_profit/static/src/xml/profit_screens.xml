@@ -3,7 +3,7 @@
     <!-- Екрани «Прибутковості» за макетами A, B, C (06.11): стиль «Огляду ставок» — підпис зверху, крупне число, «€ год» дрібно сірим;
          колір лише в тривог (червоне — чисто нижче нуля, жовте — тривога), решта — класи й змінні теми Bootstrap (світла й темна). Даних
          немає — один рядок «немає даних за <місяць>», без нулів і порожніх рамок. Сітки (scss) — без порожніх полів, на телефоні в один
-         стовпець; таблиця C гортається вбік із закріпленою колонкою «Лінія». Місяць — скрізь «Жовтень 2026» (month.title, круг 3а) -->
+         стовпець; таблиця C гортається вбік із закріпленою колонкою «Лінія». Місяць — «Жовтень 2026» (month.title, круг 3а) на кнопці й у шапці; усередині фрази — зі строчної (month.title_in, круг 3б) -->
 
     <!-- ——— A «Огляд» ——— -->
     <t t-name="workset_profit.Overview">
@@ -63,11 +63,11 @@
                                     </t>
                                     <t t-elif="a.key === 'no_rate'">
                                         <span class="flex-grow-1 text-truncate">Години без ставки</span>
-                                        <span class="badge rounded-pill o_workset_profit_count" t-esc="plain(a.hours)"/>
+                                        <span class="badge rounded-pill o_workset_profit_count" t-esc="whole(a.hours)"/>
                                     </t>
                                     <t t-elif="a.key === 'noline'">
                                         <span class="flex-grow-1 text-truncate">Години без лінії</span>
-                                        <span class="badge rounded-pill o_workset_profit_count" t-esc="plain(a.hours)"/>
+                                        <span class="badge rounded-pill o_workset_profit_count" t-esc="whole(a.hours)"/>
                                     </t>
                                     <t t-elif="a.key === 'housing_shift'">
                                         <span class="flex-grow-1 text-truncate">Житло не в своєму місяці</span>
@@ -76,7 +76,7 @@
                                     <t t-elif="a.key === 'owners'">
                                         <span class="flex-grow-1 o_workset_profit_min0">
                                             <span class="d-block text-truncate">Власники</span>
-                                            <span class="d-block small text-muted text-truncate" t-att-title="ownerParts(a)" t-esc="ownerParts(a)"/>
+                                            <span class="d-block text-wrap o_workset_profit_muted" t-esc="ownerParts(a)"/>
                                         </span>
                                         <span class="badge rounded-pill o_workset_profit_count"><t t-esc="euros(a.amount)"/> €</span>
                                     </t>
@@ -113,14 +113,15 @@
                             </t>
                         </div>
                     </t>
-                    <div t-else="" class="alert alert-info">немає даних за <t t-esc="data.month.title"/></div>
+                    <div t-else="" class="alert alert-info">немає даних за <t t-esc="data.month.title_in"/></div>
 
                     <div class="o_workset_profit_panels">
-                        <!-- «Чисто по місяцях»: лише закриті місяці, вісь без викидів (викид — біля краю з підписом), легенда під графіком -->
+                        <!-- «Чисто по місяцях»: лише закриті місяці, вісь без викидів (викид — біля краю з підписом), легенда під графіком;
+                             вище за графік картки лінії й тягнеться до висоти сусідньої «Куди йде частка» (круг 3б) -->
                         <div t-if="hasSeries" class="card">
                             <div class="card-header fw-semibold">Чисто по місяцях, <span class="text-muted fw-normal">€ год</span></div>
-                            <div class="card-body">
-                                <div class="o_workset_profit_chart"><canvas t-ref="chart"/></div>
+                            <div class="card-body d-flex flex-column">
+                                <div class="o_workset_profit_chart o_workset_profit_chart_a"><canvas t-ref="chart"/></div>
                             </div>
                         </div>
                         <!-- «Куди йде частка»: смуга на лінію — чисто, житло, авто, паливо, інструмент, перевезення (частки від суми); праворуч —
@@ -208,7 +209,7 @@
                             <!-- водоспад: лінія нуля, пунктир між кроками, сума — над плюсом і під мінусом (однаково в усіх), повернення (плюс між
                                  часткою й «чисто») — кольором частки з підписом «повернення»; назва й € год під полем; нульових кроків немає -->
                             <div class="card">
-                                <div class="card-header fw-semibold">Від частки до чистого, <t t-esc="data.month.title"/></div>
+                                <div class="card-header fw-semibold">Від частки до чистого, <t t-esc="data.month.title_in"/></div>
                                 <div class="card-body">
                                     <div class="o_workset_profit_fall">
                                         <t t-foreach="data.waterfall.bars" t-as="b" t-key="b.key">
@@ -246,7 +247,8 @@
                                     <ul class="list-group list-group-flush">
                                         <t t-foreach="data.aside" t-as="item" t-key="item.key">
                                             <li class="list-group-item bg-transparent d-flex justify-content-between gap-2">
-                                                <span t-esc="item.label"/><span class="text-nowrap"><t t-esc="euros(item.amount)"/> €</span>
+                                                <!-- буфер житла (той самий, що в «Рядках» нижче) — сума сірим, як заголовок групи (круг 3б) -->
+                                                <span t-esc="item.label"/><span class="text-nowrap" t-att-class="item.key === 'housing_buffer' ? 'text-muted' : ''"><t t-esc="euros(item.amount)"/> €</span>
                                             </li>
                                         </t>
                                     </ul>
@@ -254,7 +256,7 @@
                             </div>
                         </div>
                     </t>
-                    <div t-elif="data.line" class="alert alert-info">немає даних за <t t-esc="data.month.title"/></div>
+                    <div t-elif="data.line" class="alert alert-info">немає даних за <t t-esc="data.month.title_in"/></div>
 
                     <div class="o_workset_profit_panels">
                         <!-- лише місяці з даними лінії; легенда під графіком -->
@@ -265,7 +267,7 @@
                             </div>
                         </div>
                         <div t-if="data.has" class="card">
-                            <div class="card-header fw-semibold">Рядки за <t t-esc="data.month.title"/></div>
+                            <div class="card-header fw-semibold">Рядки за <t t-esc="data.month.title_in"/></div>
                             <div class="list-group list-group-flush">
                                 <!-- ланцюжок — збережений рядок, список — розклад наново: розійшлися — записи змінили після перерахунку -->
                                 <div t-if="data.recomputed or data.stale" class="list-group-item small text-muted d-flex flex-wrap align-items-center gap-2">
@@ -357,7 +359,8 @@
                                             </td>
                                             <td t-else="" class="text-end text-muted">—</td>
                                         </t>
-                                        <td class="text-end text-nowrap fw-semibold">
+                                        <!-- підсумок періоду нижче нуля — червоним, як клітинки (сервер: total.tone, круг 3б) -->
+                                        <td class="text-end text-nowrap fw-semibold" t-att-class="line.total.tone === 'neg' ? 'text-danger' : ''">
                                             <t t-if="view.unit === 'hour'"><t t-if="line.total.net_ph !== null" t-esc="perHour(line.total.net_ph)"/><t t-else="">—</t></t>
                                             <t t-else="" t-esc="euros(line.total.net)"/>
                                         </td>
@@ -366,7 +369,7 @@
                                 <!-- нижче: «Не розподілено», власники, звірка — завжди € за місяць (підпис групи), світліше за лінії, але читається й на темній -->
                                 <tbody class="o_workset_profit_company">
                                     <tr t-if="data.unallocated or data.owners.length">
-                                        <td t-att-colspan="data.months.length + 2" class="small text-muted py-1"><span class="o_workset_profit_sticky_text">Компанія, € за місяць</span></td>
+                                        <td t-att-colspan="data.months.length + 2" class="small o_workset_profit_muted py-1"><span class="o_workset_profit_sticky_text">Компанія, € за місяць</span></td>
                                     </tr>
                                     <tr t-if="data.unallocated">
                                         <th class="o_workset_profit_sticky fw-normal text-nowrap">Не розподілено</th>
@@ -394,12 +397,14 @@
                                 </tbody>
                             </table>
                         </div>
-                        <div class="small text-muted text-end mt-2">
+                        <div class="small o_workset_profit_muted text-end mt-2">
                             <span class="text-danger">червоний</span> — чисто нижче нуля, <span class="text-warning">жовтий</span> — упало більше ніж на
-                            <t t-esc="plain(data.threshold)"/> € год порівняно з минулим місяцем; клік по клітинці — ланцюжок місяця.
+                            <t t-esc="plain(data.threshold)"/> € год порівняно з минулим місяцем;
+                            <span class="text-danger">мінус червоним дрібно «€/міс»</span> — місяць без годин зі ставкою, але з витратами;
+                            клік по клітинці — ланцюжок місяця.
                         </div>
                     </t>
-                    <div t-else="" class="alert alert-info">немає даних за <t t-esc="data.months[0].title"/> — <t t-esc="data.months[data.months.length - 1].title"/></div>
+                    <div t-else="" class="alert alert-info">немає даних за <t t-esc="data.months[0].title_in"/> — <t t-esc="data.months[data.months.length - 1].title_in"/></div>
                 </div>
             </Layout>
         </div>
