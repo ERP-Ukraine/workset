@@ -19,3 +19,29 @@ access_workset_rate_avg_hr,workset.rate.avg hr,model_workset_rate_avg,hr.group_h
 access_workset_rate_avg_account,workset.rate.avg account,model_workset_rate_avg,account.group_account_user,1,0,0,0
 access_workset_rate_avg_project,workset.rate.avg project,model_workset_rate_avg,project.group_project_manager,1,0,0,0
 access_workset_rate_avg_system,workset.rate.avg system,model_workset_rate_avg,base.group_system,1,0,0,0
+access_workset_rate_rule_editor,workset.rate.rule editor,model_workset_rate_rule,workset_rates.group_editor,1,1,1,0
+access_workset_rate_rule_hr,workset.rate.rule hr,model_workset_rate_rule,hr.group_hr_user,1,0,0,0
+access_workset_rate_rule_account,workset.rate.rule account,model_workset_rate_rule,account.group_account_user,1,0,0,0
+access_workset_rate_rule_project,workset.rate.rule project,model_workset_rate_rule,project.group_project_manager,1,0,0,0
+access_workset_rate_rule_system,workset.rate.rule system,model_workset_rate_rule,base.group_system,1,1,1,1
+access_workset_rate_rule_apply_editor,workset.rate.rule.apply editor,model_workset_rate_rule_apply,workset_rates.group_editor,1,1,1,0
+access_workset_rate_rule_apply_system,workset.rate.rule.apply system,model_workset_rate_rule_apply,base.group_system,1,1,1,1
+access_workset_rate_raise_editor,workset.rate.raise editor,model_workset_rate_raise,workset_rates.group_editor,1,1,1,0
+access_workset_rate_raise_hr,workset.rate.raise hr,model_workset_rate_raise,hr.group_hr_user,1,0,0,0
+access_workset_rate_raise_account,workset.rate.raise account,model_workset_rate_raise,account.group_account_user,1,0,0,0
+access_workset_rate_raise_project,workset.rate.raise project,model_workset_rate_raise,project.group_project_manager,1,0,0,0
+access_workset_rate_raise_system,workset.rate.raise system,model_workset_rate_raise,base.group_system,1,1,1,1
+access_workset_rate_raise_month_editor,workset.rate.raise.month editor,model_workset_rate_raise_month,workset_rates.group_editor,1,0,0,0
+access_workset_rate_raise_month_hr,workset.rate.raise.month hr,model_workset_rate_raise_month,hr.group_hr_user,1,0,0,0
+access_workset_rate_raise_month_account,workset.rate.raise.month account,model_workset_rate_raise_month,account.group_account_user,1,0,0,0
+access_workset_rate_raise_month_project,workset.rate.raise.month project,model_workset_rate_raise_month,project.group_project_manager,1,0,0,0
+access_workset_rate_raise_month_system,workset.rate.raise.month system,model_workset_rate_raise_month,base.group_system,1,1,1,1
+access_workset_office_bonus_viewer,workset.office.bonus viewer,model_workset_office_bonus,workset_rates.group_bonus_viewer,1,0,0,0
+access_workset_office_bonus_rule_editor,workset.office.bonus rule editor,model_workset_office_bonus,workset_rates.group_rule_editor,1,1,1,0
+access_workset_office_bonus_system,workset.office.bonus system,model_workset_office_bonus,base.group_system,1,1,1,1
+access_workset_line_housing_editor,workset.line.housing editor,model_workset_line_housing,workset_rates.group_editor,1,0,0,0
+access_workset_line_housing_rule_editor,workset.line.housing rule editor,model_workset_line_housing,workset_rates.group_rule_editor,1,1,1,0
+access_workset_line_housing_hr,workset.line.housing hr,model_workset_line_housing,hr.group_hr_user,1,0,0,0
+access_workset_line_housing_account,workset.line.housing account,model_workset_line_housing,account.group_account_user,1,0,0,0
+access_workset_line_housing_project,workset.line.housing project,model_workset_line_housing,project.group_project_manager,1,0,0,0
+access_workset_line_housing_system,workset.line.housing system,model_workset_line_housing,base.group_system,1,1,1,1

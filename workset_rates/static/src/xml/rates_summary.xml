@@ -24,8 +24,22 @@
                 <span class="text-muted small ms-1">€/год</span>
             </div>
             <div class="o_workset_rates_summary_item">
+                <span class="text-muted small">Сер. чиста частка</span>
+                <span class="fw-semibold ms-1" t-esc="money(state.data.avg_net)"/>
+                <span class="text-muted small ms-1">€/год</span>
+            </div>
+            <div class="o_workset_rates_summary_item">
                 <span class="text-muted small">Без частки</span>
                 <span class="fw-semibold ms-1" t-att-class="state.data.zero_share ? 'text-danger' : ''" t-esc="state.data.zero_share"/>
+            </div>
+            <!-- М2: частка WorkSET або чиста нижче мінімуму — серед тих, хто працює; «Тимчасових» — лише коли такі є -->
+            <div class="o_workset_rates_summary_item">
+                <span class="text-muted small">Нижче мінімуму</span>
+                <span class="fw-semibold ms-1" t-att-class="state.data.below_min ? 'text-danger' : ''" t-esc="state.data.below_min"/>
+            </div>
+            <div class="o_workset_rates_summary_item" t-if="state.data.raises">
+                <span class="text-muted small">Тимчасових</span>
+                <span class="fw-semibold ms-1" t-esc="state.data.raises"/>
             </div>
         </div>
     </t>

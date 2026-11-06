@@ -1,15 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Додаток «Ставки» верхнього рівня зі своєю іконкою; бачать редактори, кадри, бухгалтерія, адміністратори проєктів -->
+    <!-- Додаток «Ставки» верхнього рівня зі своєю іконкою; бачать редактори, кадри, бухгалтерія, адміністратори проєктів.
+         М2: «Загальні ставки» після «Усі ставки», «Тимчасові зміни»; «Налаштування» — «Лінії», «Бонуси офісу» (лише «правила ліній» і «Бонуси
+         офісу — перегляд», відповідь власника 10.3), «Житло ліній» -->
     <menuitem id="menu_root" name="Ставки" sequence="186" web_icon="workset_rates,static/description/icon.png"
               groups="workset_rates.group_editor,hr.group_hr_user,account.group_account_user,project.group_project_manager,base.group_system"/>
     <menuitem id="menu_avg" name="Середні" parent="menu_root" action="action_avg" sequence="0"/>
     <menuitem id="menu_current" name="Працюють зараз" parent="menu_root" action="action_rates_current" sequence="1"/>
     <menuitem id="menu_all" name="Усі ставки" parent="menu_root" action="action_rates_all" sequence="2"/>
-    <menuitem id="menu_check" name="Звірка" parent="menu_root" sequence="3"/>
+    <menuitem id="menu_rules" name="Загальні ставки" parent="menu_root" action="action_rules" sequence="3"/>
+    <menuitem id="menu_raises" name="Тимчасові зміни" parent="menu_root" action="action_raises" sequence="4"/>
+    <menuitem id="menu_check" name="Звірка" parent="menu_root" sequence="5"/>
     <menuitem id="menu_review" name="Ставки з розбіжностями" parent="menu_check" action="action_rates_review" sequence="1"/>
     <menuitem id="menu_nomap" name="Проєкти без ставки" parent="menu_check" action="action_server_nomap" sequence="2"/>
     <menuitem id="menu_checks" name="Звіти звірки" parent="menu_check" action="action_checks" sequence="3"/>
-    <menuitem id="menu_lines" name="Лінії" parent="menu_root" action="action_lines" sequence="4"/>
-    <menuitem id="menu_analytics" name="Аналітика ставок" parent="menu_root" action="action_rates_analytics" sequence="5"/>
+    <menuitem id="menu_analytics" name="Аналітика ставок" parent="menu_root" action="action_rates_analytics" sequence="6"/>
+    <menuitem id="menu_settings" name="Налаштування" parent="menu_root" sequence="90"/>
+    <menuitem id="menu_lines" name="Лінії" parent="menu_settings" action="action_lines" sequence="1"/>
+    <menuitem id="menu_bonuses" name="Бонуси офісу" parent="menu_settings" action="action_bonuses" sequence="2"
+              groups="workset_rates.group_bonus_viewer,base.group_system"/>
+    <menuitem id="menu_housing" name="Житло ліній" parent="menu_settings" action="action_housing" sequence="3"/>
 </odoo>

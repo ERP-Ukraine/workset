@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Версія договору (Odoo 19 — у формі працівника, вкладка «Payroll»): одна строка «Тимчасово (не база)» — лише додавання, xpath за name
+         сторінки (вона є в hr і з модулем зарплат; рядки всередині модуль зарплат перебудовує). Позначена версія не змінює ставку (А6) -->
+    <record id="view_employee_form_rates_temporary" model="ir.ui.view">
+        <field name="name">hr.employee.form.workset.rates.temporary</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="priority">2000</field>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='payroll_information']" position="inside">
+                <group name="workset_rates_temporary" groups="hr.group_hr_user">
+                    <field name="workset_temporary"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

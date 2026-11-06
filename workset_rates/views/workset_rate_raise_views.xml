@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- «Тимчасові зміни» (розділ 6 спеціфікації М2): статус — бейдж (Діє — зелений, Майбутня — синій, до доплати — жовтий, закриті — сірі);
+         рядок жовтий, коли до «До» лишилось ≤ 3 днів (поле soon — та сама функція, що розділ звірки); фільтр «Діють» — за замовчуванням -->
+    <record id="view_raise_list" model="ir.ui.view">
+        <field name="name">workset.rate.raise.list</field>
+        <field name="model">workset.rate.raise</field>
+        <field name="arch" type="xml">
+            <list string="Тимчасові зміни" decoration-warning="soon" decoration-muted="state in ('paid', 'cancel', 'nothing', 'nohours')">
+                <field name="currency_id" column_invisible="1"/>
+                <field name="soon" column_invisible="1"/>
+                <field name="person_id"/>
+                <field name="customer_id"/>
+                <field name="date_from" options="{'numeric': True}"/>
+                <field name="date_to" options="{'numeric': True}"/>
+                <field name="amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                <field name="kind" optional="show"/>
+                <field name="payer"/>
+                <field name="hours" options="{'numeric': True}" optional="show"/>
+                <field name="total" widget="monetary" options="{'currency_field': 'currency_id'}" sum="Разом"/>
+                <field name="state" widget="badge" decoration-success="state == 'current'" decoration-info="state == 'future'"
+                       decoration-warning="state in ('due', 'task')" decoration-muted="state in ('paid', 'cancel', 'nothing', 'nohours')"/>
+                <field name="activity_ids" widget="list_activity" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Картка зміни за стандартом форми: шапка (скасувати + статус), працівник, цифри, блоки «Хто», «Гроші», «Умови», «Джерело», місяці.
+         «До» і «Хто платить» — напівжирні обов'язкові -->
+    <record id="view_raise_form" model="ir.ui.view">
+        <field name="name">workset.rate.raise.form</field>
+        <field name="model">workset.rate.raise</field>
+        <field name="arch" type="xml">
+            <form string="Тимчасова зміна">
+                <header>
+                    <button name="action_cancel" type="object" string="Скасувати зміну" class="btn-secondary" invisible="not id or state in ('cancel', 'paid')"
+                            groups="workset_rates.group_editor,base.group_system" confirm="Невиплачені місяці стануть «Нічого доплачувати». Скасувати зміну?"/>
+                    <field name="state" widget="statusbar" statusbar_visible="future,current,due,task,paid"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Скасовано" bg_color="text-bg-danger" invisible="state != 'cancel'"/>
+                    <field name="currency_id" invisible="1"/>
+                    <div class="oe_title">
+                        <h1><field name="person_id" placeholder="Працівник" options="{'no_create': True}" domain="[('employee_ids', '!=', False)]"/></h1>
+                        <div class="d-flex align-items-baseline gap-2 flex-wrap text-muted" invisible="not id">
+                            <field name="customer_id" readonly="1" class="w-auto"/>
+                            <field name="rate_id" readonly="1" class="w-auto" invisible="not rate_id"/>
+                        </div>
+                    </div>
+                    <div class="row g-3 my-2" name="figures" invisible="not id">
+                        <div class="col-6 col-lg-3">
+                            <div class="text-muted text-uppercase small">Сума</div>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
+                                <field name="amount" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="fs-1 fw-semibold o_input_5ch w-auto text-end"/>
+                                <div class="fs-6 fw-normal text-muted" invisible="kind != 'hour'">€/год</div>
+                                <div class="fs-6 fw-normal text-muted" invisible="kind == 'hour'">€</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg-3" invisible="kind != 'hour'">
+                            <div class="text-muted text-uppercase small">Годин</div>
+                            <div class="fs-1 fw-semibold lh-1"><field name="hours" nolabel="1" readonly="1" class="fs-1 fw-semibold o_input_5ch w-auto"/></div>
+                        </div>
+                        <div class="col-6 col-lg-3">
+                            <div class="text-muted text-uppercase small">До доплати</div>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
+                                <field name="total" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="fs-1 fw-semibold o_input_7ch w-auto text-end"/>
+                                <div class="fs-6 fw-normal text-muted">€</div>
+                            </div>
+                        </div>
+                    </div>
+                    <group>
+                        <group name="who" string="Хто">
+                            <label for="customer_id" string="Замовник" class="fw-semibold"/>
+                            <field name="customer_id" nolabel="1" options="{'no_create': True}" domain="['|', ('is_company', '=', True), ('customer_rank', '&gt;', 0)]"/>
+                            <field name="rate_id" string="Ставка" readonly="1" invisible="not rate_id"/>
+                            <field name="version_id" string="Версія договору" options="{'no_create': True}" groups="hr.group_hr_user"/>
+                        </group>
+                        <group name="money" string="Гроші">
+                            <field name="kind" string="Вид" widget="radio" options="{'horizontal': True}"/>
+                            <label for="amount" string="Сума" class="fw-semibold"/>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap">
+                                <field name="amount" nolabel="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
+                                <div class="text-muted" invisible="kind != 'hour'">€/год</div>
+                                <div class="text-muted" invisible="kind == 'hour'">€</div>
+                            </div>
+                            <label for="payer" string="Хто платить" class="fw-semibold"/>
+                            <field name="payer" nolabel="1" widget="radio" options="{'horizontal': True}"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group name="terms" string="Умови">
+                            <label for="date_from" string="З" class="fw-semibold"/>
+                            <field name="date_from" nolabel="1" options="{'numeric': True}"/>
+                            <label for="date_to" string="До" class="fw-semibold"/>
+                            <field name="date_to" nolabel="1" options="{'numeric': True}"/>
+                            <field name="reason" string="Причина"/>
+                            <field name="reason_note" string="Причина словами" invisible="reason != 'other'"/>
+                        </group>
+                        <group name="source" string="Джерело">
+                            <label for="source" string="Джерело" class="fw-semibold"/>
+                            <field name="source" nolabel="1"/>
+                            <label for="source_note" string="Звідки саме" class="fw-semibold"/>
+                            <field name="source_note" nolabel="1" placeholder="Напр.: група WhatsApp лінії, дата й час повідомлення"/>
+                        </group>
+                    </group>
+                    <separator string="По місяцях" invisible="not month_ids"/>
+                    <field name="month_ids" nolabel="1" readonly="1" invisible="not month_ids">
+                        <list create="0" delete="0" decoration-muted="state in ('paid', 'skip')" decoration-warning="state in ('due', 'task')">
+                            <field name="currency_id" column_invisible="1"/>
+                            <field name="month" options="{'numeric': True}"/>
+                            <field name="date_from" options="{'numeric': True}"/>
+                            <field name="date_to" options="{'numeric': True}"/>
+                            <field name="hours" options="{'numeric': True}"/>
+                            <field name="amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                            <field name="total" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                            <field name="state" widget="badge" decoration-warning="state in ('due', 'task')" decoration-success="state == 'paid'" decoration-muted="state == 'skip'"/>
+                            <button name="action_paid" type="object" string="Виплачено" icon="fa-check" invisible="state not in ('due', 'task')"
+                                    groups="workset_rates.group_editor,base.group_system"/>
+                        </list>
+                    </field>
+                    <div class="mb-3">
+                        <label for="note" string="Нотатка"/>
+                        <field name="note" placeholder="Що домовилися, хто підтвердив"/>
+                    </div>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_raise_search" model="ir.ui.view">
+        <field name="name">workset.rate.raise.search</field>
+        <field name="model">workset.rate.raise</field>
+        <field name="arch" type="xml">
+            <search string="Тимчасові зміни">
+                <field name="person_id"/>
+                <field name="customer_id"/>
+                <filter name="current" string="Діють" domain="[('state', '=', 'current')]"/>
+                <filter name="future" string="Майбутні" domain="[('state', '=', 'future')]"/>
+                <filter name="due" string="До доплати" domain="[('state', 'in', ['due', 'task'])]"/>
+                <filter name="closed" string="Закриті" domain="[('state', 'in', ['paid', 'cancel', 'nothing', 'nohours'])]"/>
+                <separator/>
+                <filter name="hour" string="+€ за годину" domain="[('kind', '=', 'hour')]"/>
+                <filter name="lump" string="Разова сума" domain="[('kind', '=', 'lump')]"/>
+                <group>
+                    <filter name="groupby_state" string="Статус" context="{'group_by': 'state'}"/>
+                    <filter name="groupby_payer" string="Хто платить" context="{'group_by': 'payer'}"/>
+                    <filter name="groupby_customer" string="Замовник" context="{'group_by': 'customer_id'}"/>
+                    <filter name="groupby_person" string="Працівник" context="{'group_by': 'person_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_raises" model="ir.actions.act_window">
+        <field name="name">Тимчасові зміни</field>
+        <field name="res_model">workset.rate.raise</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_raise_search"/>
+        <field name="context">{'search_default_current': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Тимчасових змін немає</p>
+            <p>Надбавка до «На руки» на час (мало годин, простій, спецодяг) — з датами «З» і «До». Базу ставки й частку вона не змінює.</p>
+        </field>
+    </record>
+</odoo>

@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """Тести «Ставок»: запускаються Odoo.sh на dev-збірці (і локально: odoo-bin -i workset_rates --test-enable --test-tags workset_rates).
 Усі дані — вигадані в самому тесті; «сьогодні» підміняється контекстом rates_today (лише адміністратору)."""
-from odoo.exceptions import AccessError, ValidationError
+from unittest.mock import patch
+
+from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tests.common import TransactionCase, new_test_user, tagged
 
 from ..models import agent_deals, calc
@@ -9,6 +11,8 @@ from ..models import agent_deals, calc
 DAY = '2026-03-02'   # понеділок
 NEXT = '2026-03-03'
 DAY3 = '2026-03-04'
+OLD = '2025-01-01'   # «Ставка з» загальної ставки лінії в тестах
+LATER = '2026-04-01'
 
 
 @tagged('post_install', '-at_install')
@@ -35,7 +39,14 @@ class TestWorksetRates(TransactionCase):
         env = cls.env
         cls.cust = env['res.partner'].create({'name': 'Тест замовник', 'is_company': True})
         cls.cust2 = env['res.partner'].create({'name': 'Тест замовник 2', 'is_company': True})
-        cls.line = env['workset.line'].create({'name': 'Тест лінія', 'code': 'TL', 'share_line_found': 6, 'share_we_found': 7, 'customer_ids': [(6, 0, [cls.cust.id])]})
+        cls.line = env['workset.line'].create({'name': 'Тест лінія', 'code': 'TL', 'customer_ids': [(6, 0, [cls.cust.id])]})
+        # частки лінії — із загальної ставки рівня лінії (М2): надбавка «знайшла лінія 4 / знайшли ми 5». Усі числа тестів — вигадані
+        # (публічний репозиторій: не збігаються з правилами й тарифами штабу)
+        cls.line_rule = env['workset.rate.rule'].create({'line_id': cls.line.id, 'anchor': 'markup', 'share_line_found': 4, 'share_we_found': 5,
+                                                         'date_from': OLD, 'source': 'owner', 'source_note': 'тест'})
+        # М2c: у лінії-надбавки є правило житла («житло не наше») — інакше кожна звірка мала б розділ «Лінія з надбавкою без правила житла»
+        cls.line_housing = env['workset.line.housing'].create({'line_id': cls.line.id, 'kind': 'none', 'date_from': OLD, 'source': 'owner',
+                                                               'source_note': 'тест'})
         Emp = env['hr.employee']
         cls.emp_a = Emp.with_company(cls.co_a).create({'name': 'Тест працівник', 'company_id': cls.co_a.id, 'hourly_cost': 10})
         cls.person = cls.emp_a.work_contact_id
@@ -62,7 +73,10 @@ class TestWorksetRates(TransactionCase):
     def _set_contract(self, wage):
         # без hr_payroll поля немає — договір не звіряється взагалі (contract_ok = True), тест іде далі
         if 'hourly_wage' in self.env['hr.version']._fields:
-            (self.emp_a | self.emp_b | self.emp_uah | self.emp_out).sudo().current_version_id.write({'hourly_wage': wage})
+            vals = {'hourly_wage': wage}
+            if 'wage_type' in self.env['hr.version']._fields:
+                vals['wage_type'] = 'hourly'  # М2b: не погодинний договір — окремий розділ звірки
+            (self.emp_a | self.emp_b | self.emp_uah | self.emp_out).sudo().current_version_id.write(vals)
 
     def _isolate(self, drop=False):
         """Справжні ставки бази (staging-копія з даними) — з поля зору тесту всередині транзакції: в архів (drop — видалити), без автоматики."""
@@ -78,8 +92,8 @@ class TestWorksetRates(TransactionCase):
     def test_a1_two_firms_eur_perimeter(self):
         r = self._rate()
         self.assertEqual(r.line_id, self.line, 'лінія сама за замовником')
-        self.assertAlmostEqual(r.price, 21, msg='ціна = на руки + правило лінії «знайшли ми»')
-        self.assertAlmostEqual(r.our_share, 7)
+        self.assertAlmostEqual(r.price, 19, msg='ціна = на руки + правило лінії «знайшли ми»')
+        self.assertAlmostEqual(r.our_share, 5)
         self.assertTrue(r.rule_ok)
         self.assertEqual(r.state, 'current')
         for m in (self.m_a, self.m_b):
@@ -159,7 +173,9 @@ class TestWorksetRates(TransactionCase):
         self._isolate()
         self._set_contract(14)
         self.m_uah.unlink()  # рядок у гривні — окремий розділ «інша валюта»; тут перевіряємо лише правило й задачі
-        r = self._rate(price=30)  # частка 16 ≠ правило 7 → «не за правилом»
+        # ціна ≠ правилу → «Своя»; частка ≤ 0 → «не за правилом» (М2b: «Своя» з додатною часткою без зміни загальної — не шум звірки)
+        r = self._rate(price=13, own_reason='тест: ціна з листа')
+        self.assertTrue(r.is_own)
         self.assertFalse(r.rule_ok)
         self.assertTrue(r.contract_ok, 'договір 14 = ставка або модуля зарплат немає — «Договір ≠ ставка» не горить')
         todo = self.env.ref('mail.mail_activity_data_todo')
@@ -168,7 +184,7 @@ class TestWorksetRates(TransactionCase):
         self.assertTrue(res1['created'])
         self.assertEqual(res1['sections']['rule'], 1)
         self.assertEqual(res1['sections']['contract'], 0)
-        self.assertEqual(res1['sections']['agent'], 0, 'у лінії немає агента — розділу посередників немає')
+        self.assertEqual(res1['sections']['agent'], 0, 'лінія не чекає посередника — розділу посередників немає')
         res1b = self.R.rates_check()
         self.assertEqual(res1b['reused'], res1['created'], 'повтор того ж дня — той самий запис')
         opened = Act.search([('res_model', '=', 'workset.rate.check'), ('activity_type_id', '=', todo.id)])
@@ -178,8 +194,8 @@ class TestWorksetRates(TransactionCase):
         self.assertEqual(res2['closed'], 1, 'минула задача закрита «замінено новою звіркою»')
         opened = Act.search([('res_model', '=', 'workset.rate.check'), ('activity_type_id', '=', todo.id)])
         self.assertEqual(opened.res_id, res2['created'])
-        r.price = 21
-        res3 = self.R.with_context(rates_today=DAY3).rates_check()
+        r.price = 19
+        res3 =self.R.with_context(rates_today=DAY3).rates_check()
         self.assertEqual(res3['issues'], 0)
         self.assertFalse(res3['created'], 'розбіжностей немає — запису немає')
         self.assertFalse(self.env['workset.rate.check'].search([('date', '=', DAY3)]))
@@ -267,65 +283,1000 @@ class TestWorksetRates(TransactionCase):
         ids = [v['id'] for v in res['values'] if v['id'] in (first.id, second.id)]
         self.assertEqual(ids, [second.id, first.id], 'лінія з тими, хто працює, — вище')
 
-    def test_agent_share_chain_without_deal_model(self):
-        if agent_deals.DEAL in self.env:
-            self.skipTest('модуль посередників встановлено — ланцюжок перевіряють чисті функції calc')
-        r = self._rate()
-        self.assertEqual(r.agent_share, 0.0, 'домовленостей немає, агента в лінії немає — 0')
-        self.assertEqual(r.agent_source, 'none')
-        self.assertIn('посередників немає', r.agent_note)
-        agent = self.env['res.partner'].create({'name': 'Тест посередник'})
-        self.line.write({'agent_id': agent.id, 'agent_share': 3})
-        r2 = self._rate(date_from=NEXT, wage=14)
-        self.assertAlmostEqual(r2.agent_share, 3, msg='запасне правило: частка агента з лінії')
-        self.assertEqual(r2.agent_source, 'line')
-        self.assertAlmostEqual(r2.price, 24, msg='ціна = на руки + правило 7 + посередник 3')
-        self.assertAlmostEqual(r2.our_share, 7)
+    # ——— М2: ланцюжок цін (розділ 8 спеціфікації М2; номери — пункти розділу) ———
+    def _person(self, name):
+        return self.env['res.partner'].create({'name': name})
 
-    def test_agent_manual_survives_night_and_resets_on_date(self):
-        agent = self.env['res.partner'].create({'name': 'Тест посередник'})
-        self.line.write({'agent_id': agent.id, 'agent_share': 3})
+    def _cust(self, name, line=None):
+        c = self.env['res.partner'].create({'name': name, 'is_company': True})
+        (line or self.line).customer_ids = [(4, c.id)]
+        return c
+
+    def _rule(self, **kw):
+        vals = {'line_id': self.line.id, 'anchor': 'markup', 'date_from': OLD, 'source': 'owner', 'source_note': 'тест'}
+        vals.update(kw)
+        return self.env['workset.rate.rule'].create(vals)
+
+    def _quiet_bonuses(self):
+        # правила бонусів бази (порожні «Замовники» — усі) дали б тестовим ставкам свій бонус
+        self.env['workset.office.bonus'].sudo().search([]).write({'active': False})
+
+    def _no_agents(self):
+        # домовленості бази тестових замовників не стосуються, але адаптер — підмінений, щоб тест не залежав від даних копії
+        return patch.object(agent_deals, 'read_deals', return_value=[]), patch.object(agent_deals, 'read_people', return_value=[])
+
+    def test_m2_01_markup_found_by(self):
+        a, b = self._no_agents()
+        with a, b:
+            us = self._rate()
+            line = self._rate(person_id=self._person('Тест П лінія').id, found_by='line')
+            none = self._rate(person_id=self._person('Тест П без').id, found_by=False)
+        self.assertEqual(us.rule_id, self.line_rule, 'загальна ставка лінії на «Ставка з»')
+        self.assertEqual(us.anchor, 'markup')
+        self.assertEqual((us.price, us.our_share), (19, 5), 'надбавка, «знайшли ми»: Р 14 + 5')
+        self.assertEqual((line.price, line.our_share), (18, 4), '«знайшла лінія»: Р 14 + 4')
+        self.assertEqual((none.price, none.our_share), (18, 4), '«Хто знайшов» порожньо — за «знайшла лінія»')
+        self.assertTrue(none.found_missing)
+        self.assertFalse(us.found_missing)
+        self.assertIn('хто знайшов не вказано', none.issues)
+        self.assertFalse(us.is_own)
+
+    def test_m2_02_tariff_and_start_price(self):
+        lt = self.env['workset.line'].create({'name': 'Тест лінія тариф'})
+        self._rule(line_id=lt.id, anchor='tariff', share_we_found=5)
+        ct = self._cust('Тест замовник тариф', lt)
+        cu = self._cust('Тест замовник без тарифу', lt)
+        self._rule(line_id=lt.id, customer_id=ct.id, anchor='tariff', price=31)
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_MIN_SHARE, '4.5')
+        self._quiet_bonuses()
+        a, b = self._no_agents()
+        with a, b:
+            r = self._rate(customer_id=ct.id)
+            s = self._rate(customer_id=cu.id)
+            s2 = self._rate(customer_id=cu.id, date_from=NEXT, wage=15)
+        self.assertEqual((r.price, r.our_share), (31, 17), 'тариф замовника: Ц 31, W = 31 − 14')
+        self.assertEqual((s.price, s.our_share), (19, 5), 'тарифу замовника немає — стартова Ц = Р + частка лінії')
+        self.assertEqual((s2.price, s2.our_share), (19, 4), 'тариф: росте на руки — ціна та сама (попередньої ставки), частка падає')
+        # поріг тарифу (мінімум — параметр 4,5): W 5 — не низька; W 4 — нижче мінімуму, і частка, і чиста (бонусів немає)
+        self.assertNotEqual(s.share_level, 'low', 'W 5 ≥ мінімуму 4,5')
+        self.assertNotEqual(r.share_level, 'low')
+        self.assertEqual((s2.share_level, s2.net_level), ('low', 'low'), 'W 4 < мінімуму 4,5 — червона')
+
+    def test_m2_03_inheritance_and_dates(self):
+        a, b = self._no_agents()
+        with a, b:
+            cust_rule = self._rule(customer_id=self.cust.id, share_line_found=5.75, share_we_found=7.5, date_from=NEXT)
+            self.assertEqual(cust_rule.state, 'future', 'А7: правило з майбутньою датою — «Майбутня»')
+            today = self._rate()
+            later = self._rate(date_from=NEXT, wage=14)
+            self.assertEqual(today.rule_id, self.line_rule, 'правило з майбутньою датою не впливає на сьогоднішню ставку')
+            self.assertEqual(later.rule_id, cust_rule, 'правило замовника перекриває правило лінії')
+            self.assertEqual(later.price, 21.5)
+            # А7: нове правило лінії з минулою датою — ставки самі не змінюються (лише «Застосувати з дати»)
+            newer = self._rule(share_line_found=4.5, share_we_found=5.5, date_from=calc.add_days(DAY, -1))
+            self.assertEqual(calc.iso(self.line_rule.date_to), calc.add_days(DAY, -2), '«Ставка до» попереднього правила пари')
+            self.assertEqual(self.line_rule.state, 'past')
+            self.assertEqual(newer.state, 'current')
+            self.assertEqual((today.price, today.rule_id), (19, self.line_rule), 'ставка сама не змінилась')
+            self.line.invalidate_recordset()  # частки лінії — нехранимі: рахуються при читанні
+            self.assertEqual(self.line.share_we_found, 5.5, 'частки лінії — з діючого правила лінії')
+
+    def test_m2_rule_checks(self):
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            self._rule(anchor='markup', date_from=NEXT)
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            self._rule(anchor='tariff', date_from=NEXT)
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            self._rule(price_mode='fixed_month', anchor='tariff', date_from=NEXT)
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            self._rule(share_we_found=5, client_price=43, date_from=NEXT)
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            self._rule(share_we_found=5, date_from=OLD)  # дубль «лінія × замовник × Ставка з»
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            self._rule(share_we_found=-1, date_from=NEXT)
+
+    def test_m2_04_own_and_back_to_rule(self):
+        a, b = self._no_agents()
+        with a, b:
+            r = self._rate()
+            with self.assertRaises(ValidationError), self.env.cr.savepoint():
+                r.write({'price': 26})
+            r.invalidate_recordset()
+            self.assertFalse(r.is_own)
+            r.write({'price': 26, 'own_reason': 'тест: домовились окремо'})
+            self.assertTrue(r.is_own, 'ручна Ц ≠ правилу — «Своя»')
+            self.assertEqual((r.price, r.our_share, r.rule_price), (26, 12, 19))
+            self.assertFalse(r.rule_ok)
+            r.write({'wage': 15})
+            self.assertEqual(r.price, 26, '«Своя»: зміна на руки ціну не чіпає')
+            r.action_back_to_rule()
+            self.assertFalse(r.is_own)
+            self.assertEqual(r.price, 20, '«Повернути до загальної» — числа правила (Р 15 + 5)')
+            r.write({'price': 20})
+            self.assertFalse(r.is_own, 'ручна Ц = правилу — не «Своя»')
+
+    def test_m2_05_apply_from_date(self):
+        self._isolate()
+        a, b = self._no_agents()
+        with a, b:
+            rates = [self._rate(person_id=self._person('Тест П%d' % i).id) for i in range(3)]
+            own = self._rate(person_id=self._person('Тест П своя').id, price=32, own_reason='тест: своя')
+            new_rule = self._rule(share_line_found=5.5, share_we_found=6.5, date_from=LATER)
+            self.assertEqual((new_rule.inherit_count, new_rule.own_count), (3, 1), 'А7: «Наслідують 3; своїх 1»')
+            wiz = self.env['workset.rate.rule.apply'].create({'rule_id': new_rule.id, 'date': LATER})
+            self.assertEqual((wiz.inherit_count, wiz.own_count, wiz.same_count, wiz.late_count), (3, 1, 0, 0), 'майстер показав 3 / 1')
+            self.assertEqual(wiz.governed_count, new_rule.inherit_count, 'майстер і смарт-кнопка рахують однаково')
+            self.assertIn('19 / 5', wiz.preview_html)
+            self.assertIn('20,5 / 6,5', wiz.preview_html)
+            wiz.action_apply()
+            for r in rates:
+                new = self.R.search([('person_id', '=', r.person_id.id), ('date_from', '=', LATER)])
+                self.assertEqual(len(new), 1, 'нова ставка з дати застосування')
+                self.assertEqual((new.price, new.state, new.source, new.rule_id), (20.5, 'future', 'rule', new_rule))
+                self.assertEqual(r.price, 19, 'попередня ставка не переписана')
+            self.assertFalse(self.R.search([('person_id', '=', own.person_id.id), ('date_from', '=', LATER)]), '«Своя» не змінена')
+            self.assertIn('вирішіть', new_rule.message_ids[0].body)
+            self.R.with_context(rates_today=LATER).rates_daily()
+            new = self.R.search([('person_id', '=', rates[0].person_id.id), ('date_from', '=', LATER)])
+            self.assertEqual(new.state, 'current', 'А3 з підміною дати — «Діє»')
+            self.assertEqual(rates[0].state, 'past')
+            self.assertEqual(calc.iso(rates[0].date_to), calc.add_days(LATER, -1))
+
+    def test_m2_05b_apply_rates_started_after_rule(self):
+        # правило з минулою датою R; ставка, що почалась після R (до появи правила), — перераховується на місці; давня — нова ставка з дати
+        self._isolate()
+        a, b = self._no_agents()
+        with a, b:
+            old = self._rate(person_id=self._person('Тест П давня').id, date_from=calc.add_days(DAY, -10))
+            late = self._rate(person_id=self._person('Тест П пізня').id, date_from=calc.add_days(DAY, -2))
+            self.assertEqual((old.price, late.price, late.rule_id), (19, 19, self.line_rule))
+            rule = self._rule(share_line_found=5.5, share_we_found=6.5, date_from=calc.add_days(DAY, -5))
+            self.assertEqual(rule.inherit_count, 2, 'смарт-кнопка: давня + та, що почалась після правила')
+            res = rule.action_apply_wizard()
+            self.assertEqual(res['context']['default_date'], DAY, 'дата майстра = дата смарт-кнопки (правило в минулому — сьогодні)')
+            wiz = self.env['workset.rate.rule.apply'].create({'rule_id': rule.id, 'date': DAY})
+            self.assertEqual((wiz.governed_count, wiz.inherit_count, wiz.late_count), (2, 1, 1))
+            self.assertEqual(wiz.governed_count, rule.inherit_count, 'майстер і смарт-кнопка рахують однаково')
+            self.assertIn('Почалися після правила', wiz.preview_html)
+            wiz.action_apply()
+            self.assertEqual((late.price, late.rule_id, late.source), (20.5, rule, 'rule'), 'перераховано на місці')
+            self.assertFalse(self.R.search([('person_id', '=', late.person_id.id), ('date_from', '=', DAY)]), 'нової ставки для пізньої немає')
+            new = self.R.search([('person_id', '=', old.person_id.id), ('date_from', '=', DAY)])
+            self.assertEqual((len(new), new.price, old.price), (1, 20.5, 19), 'давня — нова ставка з дати, сама не переписана')
+
+    def test_m2_fixed_month(self):
+        lf = self.env['workset.line'].create({'name': 'Тест лінія фікс'})
+        cf = self._cust('Тест замовник фікс', lf)
+        self._rule(line_id=lf.id, customer_id=cf.id, anchor='tariff', price_mode='fixed_month', fixed_month=840)
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_MONTH_HOURS, '')
+        self._quiet_bonuses()
+        a, b = self._no_agents()
+        with a, b, patch.object(type(self.R), '_pair_hour_rows', return_value=[]):
+            r = self._rate(customer_id=cf.id, wage=12)
+        self.assertEqual((r.price_mode, r.price, r.fixed_month), ('fixed_month', 12, 840), 'фікс за місяць: Ц = Р')
+        self.assertEqual(r.our_share, 5, 'W = фікс ÷ норма годин (табелів немає)')
+        self.assertIn('фікс за місяць', r.formula)
+
+    def test_m2_14_raise_wage_now(self):
         r = self._rate()
-        self.assertEqual(r.agent_source, 'line')
-        r.agent_share = 2
-        self.assertEqual(r.agent_source, 'manual', 'правка руками — джерело «вручну»')
-        self.assertIn('вручну', r.agent_note)
+        Raise = self.env['workset.rate.raise']
+        self.assertTrue(Raise._fields['date_to'].required, 'без «До» не зберегти')
+        x = Raise.create({'person_id': self.person.id, 'customer_id': self.cust.id, 'kind': 'hour', 'amount': 2, 'date_from': DAY, 'date_to': LATER,
+                          'payer': 'workset', 'source': 'other', 'source_note': 'тест'})
+        self.assertEqual(x.rate_id, r)
+        self.assertEqual(x.state, 'current')
+        r.invalidate_recordset()
+        self.assertEqual((r.raise_now, r.wage_now), (2, 16), 'на руки зараз = Р + Н')
+        self.assertEqual(r.with_context(rates_today=calc.add_days(LATER, 1)).wage_now, 14, 'поза датами — лише Р')
+        net = r.net_share
+        x.write({'amount': 3})
+        self.assertEqual((self.m_a.cost, r.our_share, r.net_share), (14, 5, net), 'у карту — база, W і Ч зміна не чіпає')
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            Raise.create({'person_id': self.person.id, 'customer_id': self.cust.id, 'kind': 'hour', 'amount': 1, 'date_from': NEXT, 'date_to': NEXT,
+                          'payer': 'line', 'source': 'other', 'source_note': 'тест'})
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            Raise.create({'person_id': self.person.id, 'customer_id': self.cust.id, 'kind': 'lump', 'amount': 5, 'date_from': NEXT, 'date_to': DAY,
+                          'payer': 'line', 'source': 'other', 'source_note': 'тест'})
+
+    def test_m2_15_payout_one_task(self):
+        Raise = self.env['workset.rate.raise'].with_context(rates_today='2026-11-15')
+        Month = self.env['workset.rate.raise.month']
+        p2 = self._person('Тест П доплата')
+        hours = [['2026-11-10', 10], ['2026-11-20', 10], ['2026-11-30', 1], ['2026-12-05', 8]]
+        with patch.object(type(self.R), '_pair_hour_rows', return_value=hours):
+            x = Raise.create({'person_id': self.person.id, 'customer_id': self.cust.id, 'kind': 'hour', 'amount': 2, 'date_from': '2026-11-10',
+                              'date_to': '2026-12-31', 'payer': 'workset', 'source': 'other', 'source_note': 'тест'})
+            self.assertEqual(x.month_ids.mapped('state'), ['open'], 'місяць іде — не до доплати')
+            self.assertFalse(Raise._open_tasks())
+            Raise.with_context(rates_today='2026-12-01')._raises_daily('2026-12-01')
+            nov = x.month_ids.filtered(lambda m: calc.iso(m.month) == '2026-11-01')
+            self.assertEqual((nov.hours, nov.total, nov.state), (21, 42, 'task'), '1 грудня: години 10–30 листопада × сума — у задачі')
+            task = Raise._open_tasks()
+            self.assertEqual(len(task), 1)
+            self.assertEqual(task.user_id, self.env.ref('base.user_admin'), 'виконавець — з параметра звірки')
+            self.assertEqual(x.state, 'task')
+            self._created(task, '2026-12-01')  # «сьогодні» тесту підмінене — день створення задачі теж
+            y = Raise.with_context(rates_today='2026-12-02').create({'person_id': p2.id, 'customer_id': self.cust.id, 'kind': 'lump', 'amount': 50,
+                                                                     'date_from': '2026-11-01', 'date_to': '2026-11-20', 'payer': 'line',
+                                                                     'source': 'other', 'source_note': 'тест'})
+            task2 = Raise._open_tasks()
+            self.assertEqual(len(task2), 1, 'друга зміна — і далі одна відкрита задача')
+            self.assertNotEqual(task2, task, 'наступного дня — минула задача закрита «замінено новою», поставлено нову')
+            self.assertEqual(y.month_ids.state, 'task')
+            self.assertIn('2 рядки', task2.summary)
+            self._created(task2, '2026-12-02')
+            nov.with_context(rates_today='2026-12-02').action_paid()
+            task3 = Raise._open_tasks()
+            self.assertEqual(len(task3), 1)
+            self.assertEqual(task3, task2, '«Виплачено» того ж дня — та сама задача переписана, нової немає (одна задача на день)')
+            self.assertIn('1 рядок', task3.summary, 'у задачі — без рядка «Виплачено»')
+            self.assertEqual(Month.search([('activity_id', '=', task3.id)]), y.month_ids)
+            self.assertEqual(nov.state, 'paid')
+            self.assertFalse(self._added_notes(task3), '«Виплачено» (рядків поменшало) — без повідомлення')
+            # нова зміна того ж дня — та сама задача, а про новий рядок виконавцю приходить повідомлення (4.5, замічання 8 ревю)
+            Raise.with_context(rates_today='2026-12-02').create({'person_id': self._person('Тест П доплата 2').id, 'customer_id': self.cust.id,
+                                                                'kind': 'lump', 'amount': 45, 'date_from': '2026-11-01', 'date_to': '2026-11-15',
+                                                                'payer': 'line', 'source': 'other', 'source_note': 'тест'})
+            task4 = Raise._open_tasks()
+            self.assertEqual(task4, task3, 'того ж дня — та сама задача')
+            self.assertIn('2 рядки', task4.summary)
+            notes = self._added_notes(task4)
+            self.assertEqual(len(notes), 1, 'про новий рядок — одне повідомлення')
+            self.assertIn(self.env.ref('base.user_admin').partner_id, notes.partner_ids, 'адресат — виконавець задачі')
+            # «сьогоднішня» — за днем створення, не за строком: задача п'ятниці (04.12, строк — вівторок 08.12) у суботу 05.12 має той самий
+            # строк «сьогодні + 2 робочі дні», але вона вчорашня — нова зміна суботи ставить нову задачу
+            Raise.with_context(rates_today='2026-12-04').create({'person_id': self._person('Тест П доплата 3').id, 'customer_id': self.cust.id,
+                                                                'kind': 'lump', 'amount': 45, 'date_from': '2026-11-01', 'date_to': '2026-11-15',
+                                                                'payer': 'line', 'source': 'other', 'source_note': 'тест'})
+            fri = Raise._open_tasks()
+            self.assertNotEqual(fri, task4, 'задача середи в п’ятницю — не сьогоднішня')
+            self._created(fri, '2026-12-04')
+            Raise.with_context(rates_today='2026-12-05').create({'person_id': self._person('Тест П доплата 4').id, 'customer_id': self.cust.id,
+                                                                'kind': 'lump', 'amount': 45, 'date_from': '2026-11-01', 'date_to': '2026-11-15',
+                                                                'payer': 'line', 'source': 'other', 'source_note': 'тест'})
+            sat = Raise._open_tasks()
+            self.assertEqual(len(sat), 1)
+            self.assertNotEqual(sat, fri, 'строк той самий (вівторок), але задачу створено вчора — нова')
+
+    def _created(self, act, day):
+        # день створення задачі (create_date пише лише база) — під «сьогодні» тесту
+        self.env.flush_all()
+        self.env.cr.execute('UPDATE mail_activity SET create_date = %s WHERE id = %s', ('%s 10:00:00' % day, act.id))
+        act.invalidate_recordset(['create_date'])
+
+    def _added_notes(self, act):
+        return self.env['workset.rate.raise'].browse(act.res_id).message_ids.filtered(lambda m: 'доповнено' in str(m.body or ''))
+
+    def test_m2_15b_late_timesheets_still_pay(self):
+        # місяць закінчився, табелів ще немає (0 €) — зміна не «Виплачено», а «Нічого доплачувати» й щоночі перераховується;
+        # табель внесли 3-го — рядок «До доплати» (і в задачі); через 45 днів після «До» без годин — «Без годин», далі не перераховується
+        Raise = self.env['workset.rate.raise']
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_RAISE_GRACE, '')
+        with patch.object(type(self.R), '_pair_hour_rows', return_value=[]):
+            x = Raise.with_context(rates_today='2026-12-01').create({
+                'person_id': self.person.id, 'customer_id': self.cust.id, 'kind': 'hour', 'amount': 2, 'date_from': '2026-11-10',
+                'date_to': '2026-11-30', 'payer': 'workset', 'source': 'other', 'source_note': 'тест'})
+            self.assertEqual((x.month_ids.state, x.state), ('skip', 'nothing'), '0 годин на 1-е число — не «Виплачено»')
+        with patch.object(type(self.R), '_pair_hour_rows', return_value=[['2026-11-20', 8]]):
+            x._refresh('2026-12-03')
+            self.assertEqual((x.month_ids.state, x.month_ids.total, x.state), ('due', 16, 'due'), 'табель внесли 3-го — до доплати')
+            Raise._raises_daily('2026-12-03')
+            self.assertEqual(x.month_ids.state, 'task', 'нічна перевірка бере «Нічого доплачувати» й ставить задачу')
+        y = Raise.with_context(rates_today='2026-12-01').create({
+            'person_id': self._person('Тест П без годин').id, 'customer_id': self.cust.id, 'kind': 'hour', 'amount': 2, 'date_from': '2026-11-10',
+            'date_to': '2026-11-30', 'payer': 'line', 'source': 'other', 'source_note': 'тест'})
+        with patch.object(type(self.R), '_pair_hour_rows', return_value=[]):
+            Raise._raises_daily('2027-01-14')
+            self.assertEqual(y.state, 'nothing', '45-й день після «До» — ще чекаємо табелі')
+            Raise._raises_daily('2027-01-15')
+            self.assertEqual(y.state, 'nohours', 'строк минув — «Без годин»')
+        with patch.object(type(self.R), '_pair_hour_rows', return_value=[['2026-11-20', 8]]):
+            Raise._raises_daily('2027-01-20')
+            self.assertEqual(y.state, 'nohours', '«Без годин» більше не перераховується')
+
+    def test_m2_16_agents_from_deals(self):
+        deals = [{'id': 1, 'rate': 2.5, 'state': 'active', 'kind': 'hour', 'customer_ids': [self.cust.id], 'line_id': 0, 'date_from': '', 'date_to': '',
+                  'agent': 'Тест посередник А'},
+                 {'id': 2, 'rate': 1.5, 'state': 'zvirka', 'kind': 'hour', 'customer_ids': [], 'line_id': self.line.id, 'date_from': OLD, 'date_to': '',
+                  'agent': 'Тест посередник Б'},
+                 {'id': 3, 'rate': 9, 'state': 'draft', 'kind': 'hour', 'customer_ids': [self.cust.id], 'line_id': 0, 'date_from': '', 'date_to': ''},
+                 {'id': 4, 'rate': 9, 'state': 'closed', 'kind': 'hour', 'customer_ids': [self.cust.id], 'line_id': 0, 'date_from': '', 'date_to': ''},
+                 {'id': 5, 'rate': 9, 'state': 'active', 'kind': 'fixed', 'customer_ids': [self.cust.id], 'line_id': 0, 'date_from': '', 'date_to': ''},
+                 {'id': 6, 'rate': 9, 'state': 'active', 'kind': 'hour', 'customer_ids': [self.cust.id], 'line_id': 0, 'date_from': '', 'date_to': OLD}]
+        with patch.object(agent_deals, 'read_deals', return_value=deals), patch.object(agent_deals, 'read_people', return_value=[]):
+            r = self._rate()
+        self.assertEqual(r.agent_client_share, 4, 'дві діючі (2,5 + 1,5); чернетка, закрита, фікс, поза датами — ні')
+        self.assertEqual((r.price, r.our_share), (19, 1), 'W = Ц − Р − посередник')
+        self.assertIn('Тест посередник А · 2,5', r.agent_client_note)
+        with patch.object(agent_deals, 'read_deals', return_value=None), patch.object(agent_deals, 'read_people', return_value=None):
+            n = self._rate(date_from=NEXT)
+        self.assertEqual((n.agent_client_share, n.our_share), (0, 5), 'моделей посередників немає — 0, без помилки')
+        self.assertEqual(n.agent_client_note, 'посередники не підключені')
+
+    def test_m2_17_people_agent(self):
+        people = [{'id': 5, 'partner_id': self.person.id, 'rate': 1.5, 'state': 'active', 'kind': 'hour', 'date_from': OLD, 'date_to': '',
+                   'deal_from': '', 'deal_to': ''}]
+        with patch.object(agent_deals, 'read_deals', return_value=[]), patch.object(agent_deals, 'read_people', return_value=people):
+            r = self._rate()
+            self.assertEqual((r.agent_people_share, r.people_agent_payer, r.our_share), (1.5, 'line', 5), 'платить лінія — W не зменшується')
+            self.assertFalse(r.people_agent_payer_manual)
+            r.write({'people_agent_payer': 'workset'})
+            self.assertEqual((r.our_share, r.people_agent_payer_manual), (3.5, True), 'платить WorkSET (вручну) — W = 5 − 1,5')
+            r.write({'wage': 15})
+            self.assertEqual(r.people_agent_payer, 'workset', '«вручну» тримається при перерахунку')
+            # правило змінило платника: ставка, яку не правили руками, іде за правилом; повернули те саме, що в правилі, — знову не «вручну»
+            self.line_rule.people_agent_payer = 'workset'
+            n = self._rate(date_from=NEXT)
+            self.assertEqual((n.people_agent_payer, n.people_agent_payer_manual, n.our_share), ('workset', False, 3.5))
+            n.write({'people_agent_payer': 'workset'})
+            self.assertFalse(n.people_agent_payer_manual, 'те саме, що в правилі, — за правилом')
+            n.write({'people_agent_payer': 'line'})
+            self.assertTrue(n.people_agent_payer_manual)
+            self.line_rule.people_agent_payer = 'client'
+            n._rechain()
+            self.assertEqual(n.people_agent_payer, 'line', 'правило змінилось — «вручну» не чіпає')
+
+    def test_m2_18_client_price(self):
+        a, b = self._no_agents()
+        with a, b:
+            r = self._rate()
+            self.assertEqual((r.client_price, r.line_share), (0, 0), 'К невідома — П порожньо (0)')
+            with self.assertRaises(ValidationError), self.env.cr.savepoint():
+                r.write({'client_price': 43})
+            r.invalidate_recordset()
+            r.write({'client_price': 43, 'client_price_source': 'тест: лист', 'client_price_date': DAY})
+            self.assertEqual(r.line_share, 24, 'П = К 43 − Ц 19')
+            self.assertEqual(r.our_share, 5, 'К у нашу частку не входить')
+            self.assertTrue(r.client_price_manual)
+
+    def test_m2_19_office_bonus(self):
+        self._quiet_bonuses()
+        Bonus = self.env['workset.office.bonus']
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_MIN_SHARE, '4')
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_MONTH_HOURS, '')
+        Bonus.create({'employee_id': self.emp_a.id, 'kind': 'hour', 'amount': 1.6, 'customer_ids': [(6, 0, [self.cust.id])], 'date_from': OLD, 'source': 'other'})
+        Bonus.create({'employee_id': self.emp_a.id, 'kind': 'hour', 'amount': 4, 'customer_ids': [(6, 0, [self.cust2.id])], 'date_from': OLD, 'source': 'other'})
+        a, b = self._no_agents()
+        with a, b:
+            r = self._rate()
+            self.assertEqual((r.office_bonus, r.net_share), (1.6, 3.4), '«€ за годину» замовника: Б 1,6, Ч = 5 − 1,6; бонус іншого замовника — ні')
+            self.assertEqual(r.net_level, 'low', 'Ч 3,4 < мінімум 4')
+            Bonus.create({'employee_id': self.emp_a.id, 'kind': 'worker_month', 'amount': 50, 'date_from': OLD, 'source': 'other'})
+            with patch.object(type(self.R), '_pair_hour_rows', return_value=[['2026-02-10', 170]]):
+                self.R.rates_daily()
+            self.assertEqual((r.month_hours, r.office_bonus, r.bonus_norm), (170, 1.89, False), 'бонус за працівника ÷ 170 год минулого місяця')
+            with patch.object(type(self.R), '_pair_hour_rows', return_value=[]):
+                self.R.rates_daily()
+            self.assertEqual((r.office_bonus, r.bonus_norm), (1.9, True), 'годин немає — ÷ 168 і позначка «за нормою»')
+            self.assertEqual(r.net_share, 3.1)
+            self.assertEqual(r.share_level, 'mid', 'W 5 не нижче мінімуму 4')
+
+    def test_m2_20_rights(self):
+        lt = self.env['workset.line'].create({'name': 'Тест лінія права'})
+        line_rule = self._rule(line_id=lt.id, anchor='tariff', share_we_found=5)
+        ct = self._cust('Тест замовник права', lt)
+        editor = new_test_user(self.env, login='ws_m2_editor', groups='base.group_user,workset_rates.group_editor')
+        owner = new_test_user(self.env, login='ws_m2_owner', groups='base.group_user,workset_rates.group_rule_editor')
+        viewer = new_test_user(self.env, login='ws_m2_viewer', groups='base.group_user,workset_rates.group_bonus_viewer')
+        hr_user = new_test_user(self.env, login='ws_m2_hr', groups='base.group_user,hr.group_hr_user')
+
+        def as_(user, rec):
+            return rec.with_user(user).with_context(allowed_company_ids=[user.company_id.id])
+
+        Rule = self.env['workset.rate.rule']
+        tariff = as_(editor, Rule).create({'line_id': lt.id, 'customer_id': ct.id, 'price': 31, 'date_from': DAY, 'source': 'call', 'source_note': 'тест'})
+        self.assertEqual(tariff.anchor, 'tariff', 'якір тарифу — з лінії')
+        as_(editor, tariff).write({'price': 33, 'client_price': 43, 'client_price_source': 'тест', 'client_price_date': DAY})
+        self.assertEqual(tariff.price, 33, 'редактор править тариф')
+        for vals in ({'min_share': 5}, {'price_mode': 'fixed_month', 'fixed_month': 100}, {'share_we_found': 8.5}, {'anchor': 'markup'}):
+            with self.assertRaisesRegex(UserError, 'власник'), self.env.cr.savepoint():
+                as_(editor, tariff).write(vals)
+        with self.assertRaisesRegex(UserError, 'власник'), self.env.cr.savepoint():
+            as_(editor, line_rule).write({'note': 'x'})
+        with self.assertRaisesRegex(UserError, 'власник'), self.env.cr.savepoint():
+            as_(editor, Rule).create({'line_id': lt.id, 'anchor': 'tariff', 'share_we_found': 9, 'date_from': DAY, 'source': 'call', 'source_note': 'тест'})
+        as_(owner, tariff).write({'min_share': 5})
+        self.assertEqual(tariff.min_share, 5, 'група «правила ліній» — так')
+        self.assertEqual(as_(hr_user, tariff).read(['price'])[0]['price'], 33, 'кадри читають')
+        with self.assertRaises(AccessError):
+            as_(hr_user, tariff).write({'note': 'x'})
+        with self.assertRaises(AccessError):
+            as_(editor, tariff).unlink()
+        bonus = self.env['workset.office.bonus'].create({'employee_id': self.emp_a.id, 'kind': 'hour', 'amount': 1.2, 'date_from': OLD, 'source': 'other'})
+        with self.assertRaises(AccessError):
+            as_(editor, bonus).read(['amount'])
+        self.assertEqual(as_(viewer, bonus).read(['amount'])[0]['amount'], 1.2, '«бонуси офісу — перегляд» читає')
+        with self.assertRaises(AccessError):
+            as_(viewer, bonus).write({'amount': 2.4})
+        as_(owner, bonus).write({'amount': 2.4})
+        r = self._rate()
+        self.assertTrue(as_(editor, r).read(['office_bonus', 'net_share']), 'на ставці редактор бачить підсумок')
+        tariff.unlink()
+        self.assertFalse(tariff.exists(), 'видаляє системний адміністратор')
+
+    def test_m2_21_averages(self):
+        for name in ('net_share', 'office_bonus', 'line_share', 'agent_client_share', 'agent_people_share', 'client_price', 'fixed_month'):
+            self.assertEqual(self.R._fields[name].aggregator, 'avg', name)
+        Rule = self.env['workset.rate.rule']
+        for name in ('share_line_found', 'share_we_found', 'price', 'fixed_month', 'min_share', 'client_price'):
+            self.assertEqual(Rule._fields[name].aggregator, 'avg', 'правило: %s' % name)
+        a, b = self._no_agents()
+        with a, b:
+            self._rate(wage=14)
+            self._rate(person_id=self._person('Тест П середні').id, wage=14, found_by='line')
+        groups = self.R._read_group([('line_id', '=', self.line.id)], ['line_id'], ['net_share:avg', 'our_share:avg'])
+        self.assertAlmostEqual(groups[0][2], 4.5, msg='у рядку групи — середнє частки (5 і 4), не сума')
+
+    def test_m2_22_summary(self):
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_MIN_SHARE, '4.5')
+        self._quiet_bonuses()
+        a, b = self._no_agents()
+        with a, b:
+            us = self._rate()                                                                # W 5 — не нижче 4,5
+            ln = self._rate(person_id=self._person('Тест П полоса').id, found_by='line')    # W 4 — нижче
+        (us | ln).write({'work': 'work', 'work_group': 'g1_work'})
+        self.env['workset.rate.raise'].create({'person_id': self.person.id, 'customer_id': self.cust.id, 'kind': 'hour', 'amount': 1, 'date_from': DAY,
+                                               'date_to': NEXT, 'payer': 'workset', 'source': 'other', 'source_note': 'тест'})
+        s = self.R.rates_summary([('id', 'in', (us | ln).ids)])
+        self.assertEqual((s['working'], s['avg_net'], s['below_min'], s['raises']), (2, 4.5, 1, 1),
+                         'полоса: сер. чиста (5 і 4), нижче мінімуму — одна, тимчасова зміна — в однієї пари')
+        # М2c: числа — за доменом пошуку (полоса над списком), а не за всіма ставками
+        s = self.R.rates_summary([('id', '=', ln.id)])
+        self.assertEqual((s['working'], s['avg_net'], s['below_min'], s['raises']), (1, 4, 1, 0), 'лише ставка «знайшла лінія»: без тимчасової зміни')
+        s = self.R.rates_summary([('id', '=', us.id)])
+        self.assertEqual((s['avg_net'], s['below_min'], s['raises']), (5, 0, 1))
+
+    def test_m2_23_plan_at(self):
+        self._quiet_bonuses()
+        self.env['workset.office.bonus'].create({'employee_id': self.emp_a.id, 'kind': 'hour', 'amount': 0.7, 'date_from': OLD,
+                                                 'date_to': calc.add_days(DAY, -3), 'source': 'other'})
+        deals = [{'id': 7, 'rate': 2.5, 'state': 'active', 'kind': 'hour', 'customer_ids': [self.cust.id], 'line_id': 0, 'date_from': OLD,
+                  'date_to': calc.add_days(DAY, -3), 'agent': 'Тест посередник'}]
+        with patch.object(agent_deals, 'read_deals', return_value=deals), patch.object(agent_deals, 'read_people', return_value=[]):
+            old = self._rate(date_from=calc.add_days(DAY, -10), wage=12)
+            cur = self._rate()
+            self.assertEqual((cur.agent_client_share, cur.office_bonus), (0, 0), 'на сьогодні домовленість і бонус уже не діють')
+            plan = self.R._plan_at([(self.person.id, self.cust.id)], calc.add_days(DAY, -5))[(self.person.id, self.cust.id)]
+            none = self.R._plan_at([(self.person.id, self.cust.id)], '2020-01-01')[(self.person.id, self.cust.id)]
+        self.assertEqual((plan['rate_id'], plan['wage'], plan['price']), (old.id, 12, 17), 'числа ставки тієї дати')
+        self.assertEqual((plan['agent_client'], plan['office_bonus'], plan['our_share'], plan['net_share']), (2.5, 0.7, 2.5, 1.8), 'А_з і Б — на ту дату')
+        self.assertIsNone(none, 'ставки на дату немає')
+
+    # ——— М2b: А6 «договір → база», страж, розділи звірки (розділ 8 п. 6–13, 4.7) ———
+    def _a6(self, mode):
+        # вимикач А6 (параметр workset_rates.a6_mode): False — параметра немає (вимкнено), 'dry', 'on'
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_A6_MODE, mode)
+
+    def _contracts(self, wages):
+        """Ставка договору версій — зі словника {(картка, «РРРР-ММ-ДД»): €/год або (€/год, погодинна)}: м'яке читання модуля зарплат
+        підмінене, тож тест однаковий з hr_payroll і без нього (версії справжні — hr.version, А6 бачить їх створення й правку).
+        А6 — увімкнено (параметр 'on'; за замовчуванням вимкнено — test_m2b_a6_mode_off_dry_on)."""
+        self._a6('on')
+        def contract_of(_rate, version):
+            w = wages.get((version.employee_id.id, calc.iso(version.date_version))) if version else None
+            if w is None:
+                return {'wage': 0.0, 'hourly': False}
+            return {'wage': float(w[0]), 'hourly': w[1]} if isinstance(w, tuple) else {'wage': float(w), 'hourly': True}
+        Rate = type(self.R)
+        return patch.object(Rate, '_has_contract', return_value=True), patch.object(Rate, '_contract_of', contract_of)
+
+    def _base_version(self, wages, wage=14):
+        # перша версія картки договору (emp_a: рядок карти в замовника, менший id) — з давньою датою: поточна — вона, а не «сьогодні» прогону
+        v = self.emp_a.version_ids.sorted('date_version')[:1]
+        wages[(self.emp_a.id, OLD)] = wage
+        v.write({'date_version': OLD})
+        self.emp_a._compute_current_version_id()
+        return v
+
+    def _version(self, wages, day, wage, emp=None):
+        emp = emp or self.emp_a
+        wages[(emp.id, day)] = wage
+        return emp.create_version({'date_version': day})
+
+    def _pair(self, day, cust=None):
+        return self.R.search([('person_id', '=', self.person.id), ('customer_id', '=', (cust or self.cust).id), ('date_from', '=', day)])
+
+    def _bodies(self, rec):
+        return ' '.join(str(b) for b in rec.message_ids.mapped('body'))
+
+    def test_m2_06_a6_markup(self):
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        with a, b, h, c:
+            self._base_version(wages)
+            r = self._rate()
+            v = self._version(wages, LATER, 15)
+            new = self._pair(LATER)
+            self.assertEqual(len(new), 1, 'нова версія договору — нова ставка з її дати')
+            self.assertEqual((new.wage, new.price, new.our_share, new.state), (15, 20, 5, 'future'), 'надбавка: Ц = 15 + 5, W та сама')
+            self.assertEqual((new.wage_source, new.source, new.contract_version_id), ('contract', 'contract', v))
+            self.assertIn('з договору', self._bodies(new))
+            self.assertIn('надбавка — ціна 19 → 20', self._bodies(new))
+            self.assertEqual((r.wage, r.price), (14, 19), 'попередня ставка не змінена')
+            self.assertEqual(calc.iso(r.date_to), calc.add_days(LATER, -1))
+            self.R.with_context(rates_today=LATER).rates_daily()
+            self.assertEqual(new.state, 'current')
+            self.assertEqual((self.m_a.cost, self.m_a.is_cost_changed), (15, True), 'у карту — нова база з прапорцем')
+
+    def test_m2_07_a6_tariff_below_min(self):
+        self._isolate()
+        lt = self.env['workset.line'].create({'name': 'Тест лінія тариф А6'})
+        self._rule(line_id=lt.id, anchor='tariff', share_we_found=5)
+        ct = self._cust('Тест замовник тариф А6', lt)
+        self._rule(line_id=lt.id, customer_id=ct.id, anchor='tariff', price=31)
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_MIN_SHARE, '16.5')
+        self._quiet_bonuses()
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        with a, b, h, c:
+            self._base_version(wages)
+            r = self._rate(customer_id=ct.id)
+            self.assertEqual((r.price, r.our_share), (31, 17))
+            self.assertNotEqual(r.share_level, 'low', 'W 17 ≥ мінімуму 16,5')
+            self._version(wages, LATER, 15)
+            new = self._pair(LATER, ct)
+            self.assertEqual((new.wage, new.price, new.our_share, new.share_level), (15, 31, 16, 'low'), 'тариф: ціна та сама, частка падає нижче мінімуму')
+            self.assertIn('тариф — ціна та сама, частка 17 → 16', self._bodies(new))
+            self.assertIn('Нижче мінімуму', self._bodies(new))
+            res = self.R.with_context(rates_today=LATER).rates_check()
+        self.assertEqual(res['sections']['low'], 1, 'розділ «Нижче мінімуму»')
+        self.assertFalse(self.env['mail.activity'].search([('res_model', '=', 'workset.rate'), ('res_id', '=', new.id)]),
+                         '«нижче мінімуму» — лише розділ звірки, задач модуль не ставить (10а.2)')
+
+    def test_m2_08_a6_fixed_month(self):
+        lf = self.env['workset.line'].create({'name': 'Тест лінія фікс А6'})
+        cf = self._cust('Тест замовник фікс А6', lf)
+        self._rule(line_id=lf.id, customer_id=cf.id, anchor='tariff', price_mode='fixed_month', fixed_month=840)
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_MONTH_HOURS, '')
+        self._quiet_bonuses()
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        with a, b, h, c, patch.object(type(self.R), '_pair_hour_rows', return_value=[]):
+            self._base_version(wages, 12)
+            self._rate(customer_id=cf.id, wage=12)
+            self._version(wages, LATER, 13)
+            new = self._pair(LATER, cf)
+        self.assertEqual((new.price_mode, new.price, new.our_share), ('fixed_month', 13, 5), 'фікс: Ц = нова Р, W = фікс ÷ годин')
+        self.assertIn('Фікс за місяць — ціна = на руки (12 → 13)', self._bodies(new))
+
+    def test_m2_09_a6_temporary_version(self):
+        self._isolate()
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        Raise = self.env['workset.rate.raise']
+        with a, b, h, c:
+            self._base_version(wages)
+            r = self._rate()
+            x = Raise.create({'person_id': self.person.id, 'customer_id': self.cust.id, 'kind': 'hour', 'amount': 2, 'date_from': LATER,
+                              'date_to': '2026-04-30', 'payer': 'workset', 'source': 'other', 'source_note': 'тест'})
+            # у формі: нова версія з дати (копія — та сама ставка), далі зберегли ставку й позначку разом
+            v = self._version(wages, LATER, 14)
+            self.assertFalse(self._pair(LATER), 'копія версії з тією самою ставкою — нової ставки немає')
+            wages[(self.emp_a.id, LATER)] = 16
+            v.write({'workset_temporary': True})
+            self.assertFalse(self._pair(LATER), 'версія «Тимчасово» — ставка не змінюється')
+            self.assertEqual(x.version_id, v, 'тимчасова зміна пари на ці дати — зв’язана з версією')
+            self.assertEqual(r.wage, 14)
+            # друга тимчасова версія — тимчасової зміни на її дату немає → розділ звірки
+            v2 = self._version(wages, '2026-06-01', 14)
+            wages[(self.emp_a.id, '2026-06-01')] = 17
+            v2.write({'workset_temporary': True})
+            self.assertFalse(self._pair('2026-06-01'))
+            res = self.R.with_context(rates_today='2026-06-02').rates_check()
+        self.assertEqual(res['sections']['tempver'], 1, 'тимчасова версія без тимчасової зміни — у звірці; зв’язана — ні')
+
+    def test_m2_10_a6_backdated_same_date_and_bad_wage(self):
+        self._isolate()
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        with a, b, h, c:
+            self._base_version(wages)
+            r1 = self._rate(date_from=calc.add_days(DAY, -30))
+            r2 = self._rate(date_from=LATER, wage=16)
+            v = self._version(wages, DAY, 15)
+            mid = self._pair(DAY)
+            self.assertEqual(len(mid), 1, 'версія задним числом між двома ставками — вставлена')
+            self.assertEqual((calc.iso(r1.date_to), calc.iso(mid.date_to)), (calc.add_days(DAY, -1), calc.add_days(LATER, -1)), '«до» сусідів перераховано')
+            self.assertEqual(r2.wage, 16)
+            wages[(self.emp_a.id, DAY)] = 15.5
+            v.write({'workset_temporary': False})
+            self.assertEqual((len(self._pair(DAY)), mid.wage), (1, 15.5), 'та сама дата — змінено «На руки», дубля немає')
+            self._version(wages, '2026-03-20', (15.8, False))
+            self.assertFalse(self._pair('2026-03-20'), 'не погодинний договір — ставка не тронута')
+            self._version(wages, '2026-05-01', 140)
+            self.assertFalse(self._pair('2026-05-01'), 'вище за поріг — ставка не тронута')
+            self.emp_a._compute_current_version_id()
+            res = self.R.with_context(rates_today='2026-05-02').rates_check()
+        self.assertEqual(res['sections']['wagebad'], 1, 'розділ «не погодинний або вищий за поріг»')
+        self.assertEqual(res['sections']['contract'], 0, 'та сама пара не дублюється в «Договір ≠ база»')
+
+    def test_m2_11_a6_perimeter_and_card(self):
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        with a, b, h, c:
+            self._base_version(wages)
+            self._rate()
+            self._version(wages, LATER, 15, self.emp_out)
+            self.assertFalse(self._pair(LATER), 'картка фірми поза периметром — нічого')
+            self._version(wages, LATER, 15, self.emp_b)
+            self.assertFalse(self._pair(LATER), 'картка не договірна для пари — нічого')
+
+    def test_m2_12_a6_catchup(self):
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        with a, b, h, c:
+            self._base_version(wages)
+            self._rate()
+            wages[(self.emp_a.id, LATER)] = 15
+            self.emp_a.with_context(workset_rates_no_sync=True).create_version({'date_version': LATER})  # «повз А6», як імпорт чи SQL
+            self.assertFalse(self._pair(LATER))
+            dry = self.R.with_context(rates_today=DAY, rates_dry=True).rates_daily()
+            self.assertEqual(dry['contract']['created'], 1, 'лише розрахунок: скільки ставок створить догон')
+            self.assertFalse(self._pair(LATER))
+            res = self.R.with_context(rates_today=DAY).rates_daily()
+            self.assertEqual(res['contract']['created'], 1)
+            self.assertEqual(self._pair(LATER).wage, 15, 'нічний догон створив ставку з версії')
+
+    def test_m2_13_up_and_back_guard(self):
+        self._isolate()
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        with a, b, h, c:
+            self._base_version(wages)
+            self._rate()
+            va = self._version(wages, LATER, 16)
+            vb = self._version(wages, '2026-05-10', 14)
+            up, back = self._pair(LATER), self._pair('2026-05-10')
+            self.assertEqual((up.wage, back.wage), (16, 14), 'А6 узяв обидві версії')
+            res = self.R.with_context(rates_today='2026-05-11').rates_daily()
+            self.assertEqual(res['updown']['marked'], 2)
+            for r in (up, back):
+                self.assertTrue(r.to_check, 'обидві ставки — «Перевірити»')
+                self.assertIn('схоже на тимчасове підвищення', r.check_reason)
+            chk = self.R.with_context(rates_today='2026-05-11').rates_check()
+            self.assertEqual((chk['sections']['updown'], chk['sections']['check']), (1, 0), 'свій розділ, не «Перевірити після переносу»')
+            va.write({'workset_temporary': True})
+            self.assertFalse(up.active, 'ставка з версії, позначеної «Тимчасово», — в архіві (замічання 2 ревю)')
+            res = self.R.with_context(rates_today='2026-05-11').rates_daily()
+            self.assertEqual((res['updown']['marked'], res['updown']['cleared']), (0, 2), 'з позначкою — тиша, позначку стража знято')
+            self.assertFalse(up.to_check or back.to_check)
+            va.write({'workset_temporary': False})
+            wages[(self.emp_a.id, '2026-07-30')] = 14
+            vb.write({'date_version': '2026-07-30'})  # повернення через 120 днів
+            self.assertFalse(back.active, 'дату версії перенесли — ставка зі старою датою в архіві')
+            self.assertEqual(self._pair('2026-07-30').wage, 14, '… і є з нової дати версії')
+            res = self.R.with_context(rates_today='2026-07-31').rates_daily()
+            self.assertEqual(res['updown']['marked'], 0, 'повернення пізніше за вікно — тиша')
+
+    def test_m2_contract_excused_by_raise_or_temporary(self):
+        # «Договір ≠ база» мовчить, поки в пари діє тимчасова зміна або поточну версію позначено «Тимчасово» (розділ 5.5)
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        with a, b, h, c:
+            base = self._base_version(wages)
+            r = self._rate()
+            self.assertTrue(r.contract_ok, 'договір 14 = база')
+            wages[(self.emp_a.id, OLD)] = 16  # версію змінили повз А6
+            r.action_apply_now()
+            self.assertFalse(r.contract_ok)
+            x = self.env['workset.rate.raise'].create({'person_id': self.person.id, 'customer_id': self.cust.id, 'kind': 'hour', 'amount': 2,
+                                                       'date_from': calc.add_days(DAY, -1), 'date_to': calc.add_days(DAY, 5), 'payer': 'line',
+                                                       'source': 'other', 'source_note': 'тест'})
+            r.action_apply_now()
+            self.assertTrue(r.contract_ok, 'діє тимчасова зміна, договір 16 = Р 14 + Н 2 — мовчить')
+            x.write({'amount': 1})
+            r.action_apply_now()
+            self.assertFalse(r.contract_ok, 'договір 16 ≠ Р 14 + Н 1 — не мовчить, хоч зміна й діє')
+            x.write({'amount': 2})
+            x.action_cancel()
+            r.action_apply_now()
+            self.assertFalse(r.contract_ok)
+            base.with_context(workset_rates_no_sync=True).write({'workset_temporary': True})
+            r.action_apply_now()
+            self.assertTrue(r.contract_ok, 'версію позначено «Тимчасово» — мовчить')
+
+    def test_m2_47_check_sections(self):
+        self._isolate()
+        self._quiet_bonuses()
+        self.env['workset.rate.raise'].sudo().search([]).write({'state': 'cancel'})  # зміни бази (staging-копія) — поза тестом
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_MIN_SHARE, '3')
+        a, b = self._no_agents()
+        with a, b:
+            # «Своя» з давньою загальною ставкою: правило лінії змінилось 20 днів тому → у «не за правилом»; «Своя» на новому правилі — ні
+            stale = self._rate(person_id=self._person('Тест П стара своя').id, date_from=calc.add_days(DAY, -40), price=31, own_reason='тест: стара')
+            self._rule(share_line_found=4.25, share_we_found=5.25, date_from=calc.add_days(DAY, -20))
+            self._rate(person_id=self._person('Тест П нова своя').id, price=26, own_reason='тест: нова')
+            found = self._rate(person_id=self._person('Тест П хто').id, found_by=False)
+            lt = self.env['workset.line'].create({'name': 'Тест лінія тариф звірка'})
+            ct = self._cust('Тест замовник тариф звірка', lt)
+            self._rule(line_id=lt.id, customer_id=ct.id, anchor='tariff', price=16)
+            low = self._rate(person_id=self._person('Тест П низька').id, customer_id=ct.id)
+            loose = self.env['res.partner'].create({'name': 'Тест замовник без лінії', 'is_company': True})
+            norule = self._rate(person_id=self._person('Тест П без правила').id, customer_id=loose.id, price=20)
+            self.env['workset.rate.raise'].create({'person_id': found.person_id.id, 'customer_id': self.cust.id, 'kind': 'hour', 'amount': 1,
+                                                   'date_from': calc.add_days(DAY, -5), 'date_to': calc.add_days(DAY, 2), 'payer': 'line',
+                                                   'source': 'other', 'source_note': 'тест'})
+            res = self.R.rates_check()
+        self.assertTrue(stale.is_own and low.share_level == 'low' and not norule.rule_id)
+        s = res['sections']
+        self.assertEqual((s['rule'], s['low'], s['found'], s['norule'], s['raise']), (1, 1, 1, 1, 1),
+                         'своя з давньою загальною; нижче мінімуму; хто знайшов; загальної немає; зміна закінчується за ≤ 3 дні')
+        body = self.env['workset.rate.check'].search([('date', '=', DAY)]).body
+        self.assertIn('Нижче мінімуму — 1', body)
+        rule_part = body.split('Частка WorkSET не за правилом')[1].split('<h3>')[0]
+        self.assertIn('Тест П стара своя', rule_part)
+        self.assertNotIn('Тест П нова своя', rule_part, '«Своя» без зміни загальної — не шум звірки')
+
+    # ——— М2b, правки ревю (11-review-m2b.md): вимикач, ставка йде за версією, догон, форма версії, помилка, страж, мова «Контролю» ———
+    def test_m2_11b_only_card_out_of_perimeter(self):
+        # у пари єдина картка — у фірмі поза периметром: вона й картка договору (calc.pick_card), але А6 її не бере
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        with a, b, h, c:
+            emp = self.env['hr.employee'].with_company(self.co_out).create({'name': 'Тест П лише поза', 'company_id': self.co_out.id})
+            v = emp.version_ids.sorted('date_version')[:1]
+            wages[(emp.id, OLD)] = 14
+            v.write({'date_version': OLD})
+            emp._compute_current_version_id()
+            person = emp.work_contact_id
+            self._rate(person_id=person.id)
+            self.assertEqual(self.R._contract_card(person.id, self.cust.id), emp, 'єдина картка пари — картка договору')
+            self._version(wages, LATER, 15, emp)
+            self.assertFalse(self.R.search([('person_id', '=', person.id), ('date_from', '=', LATER)]), 'картка поза периметром — ставки немає')
+
+    def test_m2b_a6_mode_off_dry_on(self):
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        with a, b, h, c:
+            self._base_version(wages)
+            self._rate()
+            self._a6(False)  # параметра немає — вимкнено (так після оновлення модуля)
+            self._version(wages, LATER, 15)
+            self.assertFalse(self._pair(LATER), 'А6 вимкнено — збереження договору ставку не створює')
+            res = self.R.with_context(rates_today=DAY).rates_daily()
+            self.assertEqual((res['a6_mode'], res['contract']['created'], res['a6_would']), ('off', 0, 0), 'і ніч не догонить')
+            self.assertFalse(self._pair(LATER))
+            self._a6('dry')
+            self._version(wages, '2026-05-01', 16)
+            self.assertFalse(self._pair('2026-05-01'), 'dry — збереження договору нічого не робить')
+            res = self.R.with_context(rates_today=DAY).rates_daily()
+            self.assertEqual((res['a6_mode'], res['a6_would']), ('dry', 2), 'ніч лише рахує: створив би дві ставки')
+            self.assertIn('створив би ставок 2', res['message'])
+            self.assertFalse(self._pair(LATER) or self._pair('2026-05-01'), 'dry нічого не пише')
+            self._a6('on')
+            res = self.R.with_context(rates_today=DAY).rates_daily()
+            self.assertEqual((res['a6_mode'], res['contract']['created'], res['a6_would']), ('on', 2, 0))
+            self.assertEqual((self._pair(LATER).wage, self._pair('2026-05-01').wage), (15, 16), 'увімкнули — догон створив обидві')
+
+    def test_m2b_rate_follows_version(self):
+        self._isolate()
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        # дати версій — до «сьогодні» тесту (DAY): ставки з них чинні, їхнє «На руки» стоїть у карті проєктів, і видно, що після архіву
+        # карта повертається до попередньої ставки 14 (ревю № 2, п. 5)
+        cost = lambda: (self.m_a.cost, self.m_b.cost)  # noqa: E731
+        with a, b, h, c:
+            self._base_version(wages)
+            r = self._rate(date_from='2026-02-01')
+            self.assertEqual(cost(), (14, 14))
+            # відмітили «Тимчасово» після збереження → ставки з версії немає, база — попередня
+            v = self._version(wages, '2026-02-20', 16)
+            new = self._pair('2026-02-20')
+            self.assertEqual((new.wage, new.state, cost()), (16, 'current', (16, 16)))
+            v.write({'workset_temporary': True})
+            self.assertFalse(self._pair('2026-02-20'), 'позначили після збереження — ставки з версії немає')
+            self.assertFalse(new.active)
+            self.assertIn('позначено «Тимчасово (не база)»', self._bodies(new))
+            self.assertFalse(r.date_to, 'база — знову попередня ставка, «до» порожньо')
+            self.assertEqual(cost(), (14, 14), 'карта проєктів — знову 14')
+            # дату перенесли (у майбутнє) → ставка переїхала, сьогодні база — знову 14
+            v2 = self._version(wages, '2026-02-25', 15)
+            old = self._pair('2026-02-25')
+            self.assertEqual((old.contract_version_id, cost()), (v2, (15, 15)))
+            wages[(self.emp_a.id, LATER)] = 15
+            v2.write({'date_version': LATER})
+            self.assertFalse(self._pair('2026-02-25'))
+            self.assertFalse(old.active)
+            self.assertIn('Дату версії договору перенесено', self._bodies(old))
+            moved = self._pair(LATER)
+            self.assertEqual((moved.wage, moved.contract_version_id, moved.state), (15, v2, 'future'), 'ставка переїхала на нову дату версії')
+            self.assertEqual(cost(), (14, 14), 'перенесли — до нової дати в карті знову 14')
+            # архівували версію → ставка в архіві
+            v3 = self._version(wages, '2026-02-27', 15)
+            third = self._pair('2026-02-27')
+            self.assertEqual(cost(), (15, 15))
+            v3.write({'active': False})
+            self.assertFalse(self._pair('2026-02-27'))
+            self.assertFalse(third.active, 'архівували версію — ставка з неї в архіві')
+            self.assertIn('архівовано', self._bodies(third))
+            self.assertEqual(cost(), (14, 14), 'архівували — у карті знову 14')
+            self.assertTrue(r.active and r.wage == 14, 'ставку, внесену не з договору, не чіпаємо')
+
+    def test_m2b_follow_keeps_rate_of_older_version(self):
+        # ревю № 2, п. 1: А6 створив ставку по v1; кадрова правка дала v2 з тим самим «На руки» пізніше — ставка лишається за v1,
+        # ночі її не знімають («дату перенесли» тут хибне)
+        self._isolate()
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        with a, b, h, c:
+            self._base_version(wages)
+            self._rate()
+            v1 = self._version(wages, '2026-05-10', 16)
+            mine = self._pair('2026-05-10')
+            self.assertEqual((mine.wage, mine.source, mine.contract_version_id), (16, 'contract', v1))
+            self._version(wages, '2026-06-01', 16)
+            self.assertEqual(mine.contract_version_id, v1, 'ставка «з договору» з іншою датою — за своєю версією')
+            for _night in range(2):
+                res = self.R.with_context(rates_today='2026-06-02').rates_daily()
+                self.assertEqual((res['contract']['archived'], res['contract']['linked'], res['contract']['created']), (0, 0, 0))
+            self.assertTrue(mine.active, 'ставка з 10.05 — діюча')
+            self.assertEqual(mine.contract_version_id, v1)
+            gone = self.R.with_context(active_test=False).search([('person_id', '=', self.person.id), ('customer_id', '=', self.cust.id),
+                                                                  ('active', '=', False)])
+            self.assertFalse(gone, 'в архіві нічого')
+
+    def test_m2b_follow_restores_rate_rewritten_by_contract(self):
+        # ревю № 2, п. 2: ставку внесли руками, версія з тієї самої дати переписала її «На руки» (update); договір перестав бути базою —
+        # ставка не в архів, а назад прежнє «На руки» (найгірший випадок — перша ставка пари); прежнього числа немає — «Перевірити»
+        self._isolate()
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        with a, b, h, c:
+            self._base_version(wages)
+            first = self._rate(date_from='2026-02-01')
+            v = self._version(wages, '2026-02-01', 15)
+            self.assertEqual((first.wage, first.wage_source, first.contract_version_id, first.wage_before_contract), (15, 'contract', v, 14))
+            self.assertEqual(self.m_a.cost, 15)
+            v.write({'workset_temporary': True})
+            self.assertTrue(first.active, 'перша ставка пари не в архіві')
+            self.assertEqual((first.wage, first.wage_source, first.contract_version_id.id, first.wage_before_contract), (14, 'manual', False, 0))
+            self.assertEqual(self.m_a.cost, 14, 'карта — прежнє «На руки»')
+            self.assertIn('повернуто до внесеного раніше', self._bodies(first))
+            # прежнього числа немає (ставку переписав договір до того, як модуль його запам'ятовував) — «Перевірити» з причиною
+            v.write({'workset_temporary': False})
+            self.assertEqual((first.wage, first.contract_version_id), (15, v))
+            first.write({'wage_before_contract': 0})
+            v.write({'active': False})
+            self.assertTrue(first.active)
+            self.assertEqual((first.wage, first.contract_version_id.id), (15, False), 'число не вгадуємо')
+            self.assertTrue(first.to_check)
+            self.assertIn('перевірте «На руки»', first.check_reason)
+
+    def test_m2b_temporary_row_not_in_nested_form(self):
+        # ревю № 2, п. 3: рядок — лише в sheet самої форми версії, не у вкладеній формі поля x2many (інша модель)
+        from lxml import etree
+        from ..models.hr_version import add_temporary_row
+        arch = etree.fromstring('<form><field name="lines"><form><sheet><group><field name="workset_temporary"/></group>'
+                                '<notebook><page name="n"/></notebook></sheet></form></field>'
+                                '<sheet><group><field name="date_version"/></group><notebook><page name="p"/></notebook></sheet></form>')
+        add_temporary_row(arch)
+        rows = arch.xpath("//group[@name='workset_rates_temporary']")
+        self.assertEqual(len(rows), 1, 'поле з тим самим ім’ям у вкладеній формі не рахується')
+        self.assertIs(rows[0].getparent(), arch.xpath('./sheet')[0], 'рядок — у sheet самої форми')
+        self.assertEqual(rows[0].getnext().tag, 'notebook')
+
+    def test_m2b_catchup_links_once(self):
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        with a, b, h, c:
+            self._base_version(wages)
+            r = self._rate()
+            self._version(wages, DAY3, 14)
+            v2 = self._version(wages, LATER, 14)
+            self.assertEqual(r.contract_version_id, v2, 'та сама «На руки» — лише позначити новішу версію')
+            for _night in range(2):
+                res = self.R.with_context(rates_today=DAY).rates_daily()
+                self.assertEqual(res['contract']['linked'], 0, 'ніч без змін — «пов’язано 0»')
+            self.assertEqual(r.contract_version_id, v2)
+
+    def test_m2b_version_form_row(self):
+        # форма самої версії договору (не лише вкладка працівника): рядок «Тимчасово (не база)» — у sheet перед вкладками
+        view = self.env['ir.ui.view'].create({'name': 'test.hr.version.form.workset', 'model': 'hr.version', 'type': 'form', 'priority': 1,
+                                              'arch': '<form><sheet><group><field name="date_version"/></group>'
+                                                      '<notebook><page string="Тест" name="test_page"/></notebook></sheet></form>'})
+        arch = self.env['hr.version'].with_user(self.env.ref('base.user_admin')).get_view(view.id, 'form')['arch']
+        self.assertIn('name="workset_temporary"', arch)
+        self.assertLess(arch.index('workset_temporary'), arch.index('<notebook'), 'рядок — у sheet перед вкладками')
+        self.assertEqual(arch.count('name="workset_temporary"'), 1)
+
+    def test_m2b_a6_error_wrapped(self):
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        with a, b, h, c:
+            self._base_version(wages)
+            self._rate()
+            with patch.object(type(self.R), '_contract_to_base', side_effect=ValidationError('тест: дубль ставки')):
+                with self.assertRaisesRegex(UserError, 'договір не збережено') as cm, self.env.cr.savepoint():
+                    self._version(wages, LATER, 15)
+        self.assertIn('тест: дубль ставки', str(cm.exception), 'причина з перевірки ставки — у тексті, не проковтнута')
+        self.assertNotIsInstance(cm.exception, ValidationError)
+
+    def test_m2b_guard_old_and_foreign(self):
+        self._isolate()
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        with a, b, h, c:
+            self._base_version(wages)
+            # давнє «вгору і назад» до першої ставки пари — не шум звірки (рядок без ставки й без імені)
+            self._version(wages, '2025-06-01', 16)
+            self._version(wages, '2025-07-01', 14)
+            self._rate()
+            chk = self.R.rates_check()
+            self.assertEqual(chk['sections']['updown'], 0, 'повернення раніше першої ставки — тиша')
+            # чужа причина «Перевірити» — страж її не переписує й не знімає
+            va = self._version(wages, LATER, 16)
+            self._version(wages, '2026-05-10', 14)
+            up, back = self._pair(LATER), self._pair('2026-05-10')
+            back.write({'to_check': True, 'check_reason': 'тест: перевірити після переносу'})
+            res = self.R.with_context(rates_today='2026-05-11').rates_daily()
+            self.assertEqual(res['updown']['marked'], 1, 'позначено лише ставку без чужої причини')
+            self.assertEqual(back.check_reason, 'тест: перевірити після переносу')
+            self.assertIn('схоже на тимчасове підвищення', up.check_reason)
+            va.write({'workset_temporary': True})
+            res = self.R.with_context(rates_today='2026-05-11').rates_daily()
+            self.assertEqual(res['updown']['cleared'], 1, 'знято лише свою позначку')
+            self.assertTrue(back.to_check, 'чужа позначка лишилась')
+
+    def test_m2b_guard_quiet_with_raise(self):
+        # тимчасова зміна пари на дні між підвищенням і поверненням — страж мовчить (виняток _updown_hits)
+        self._isolate()
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        with a, b, h, c:
+            self._base_version(wages)
+            self._rate()
+            self.env['workset.rate.raise'].create({'person_id': self.person.id, 'customer_id': self.cust.id, 'kind': 'hour', 'amount': 2,
+                                                   'date_from': LATER, 'date_to': '2026-05-09', 'payer': 'workset', 'source': 'other',
+                                                   'source_note': 'тест'})
+            self._version(wages, LATER, 16)
+            self._version(wages, '2026-05-10', 14)
+            res = self.R.with_context(rates_today='2026-05-11').rates_daily()
+            self.assertEqual(res['updown']['marked'], 0, 'є тимчасова зміна — «Перевірити» не ставиться')
+            chk = self.R.with_context(rates_today='2026-05-11').rates_check()
+        self.assertEqual(chk['sections']['updown'], 0, 'і розділу «Вгору і назад» немає')
+
+    def test_m2b_control_html_by_lang(self):
+        # вкладка «Контроль» — мовою того, хто дивиться, а не виконавця звірки, що вів ніч
+        for code in ('uk_UA', 'ru_RU'):
+            self.env['res.lang']._activate_lang(code)
+        r = self._rate()
+        self.assertIn('Договір у картках', r.control_html_uk)
+        self.assertIn('Договор в карточках', r.control_html_ru)
+        self.assertIn('Договор в карточках', r.with_context(lang='ru_RU').control_html)
+        self.assertIn('Договір у картках', r.with_context(lang='uk_UA').control_html)
+        admin = self.env.ref('base.user_admin')
+        admin.lang = 'ru_RU'  # виконавець звірки — російською
+        r.write({'control_html_uk': False, 'control_html_ru': False, 'control_sig': False})
         self.R.rates_daily()
-        self.assertAlmostEqual(r.agent_share, 2, msg='ніч ручну правку не перетирає (лінія 3)')
-        r.date_from = calc.add_days(DAY, -1)
-        self.assertEqual(r.agent_source, 'line', 'зміна дати скидає «вручну» — знову ланцюжок')
-        self.assertAlmostEqual(r.agent_share, 3)
+        self.assertIn('Договір у картках', r.control_html_uk, 'ніч мовою виконавця — українська вкладка все одно українська')
+        self.assertIn('Договор в карточках', r.control_html_ru)
+        # змінився лише російський текст (правка словника) — відбиток від обох мов, російська вкладка переписується (ревю № 2, п. 4)
+        orig = calc.control_html
 
-    def test_agent_manual_on_create_survives_night(self):
-        agent = self.env['res.partner'].create({'name': 'Тест посередник'})
-        self.line.write({'agent_id': agent.id, 'agent_share': 3})
-        r = self._rate(agent_share=2)
-        self.assertEqual(r.agent_source, 'manual', 'при створенні число ≠ ланцюжку (лінія 3) — «вручну»')
-        self.assertAlmostEqual(r.agent_share, 2)
-        self.R.rates_daily()
-        self.assertAlmostEqual(r.agent_share, 2, msg='ніч ручну частку зі створення не перетирає')
-        same = self._rate(date_from=NEXT, agent_share=3)
-        self.assertEqual(same.agent_source, 'line', 'число = ланцюжку — джерело ланцюжка')
-
-    def test_agent_source_gone_falls_to_next_level(self):
-        agent = self.env['res.partner'].create({'name': 'Тест посередник'})
-        self.line.write({'agent_id': agent.id, 'agent_share': 3})
-        r = self._rate()
-        self.assertAlmostEqual(r.agent_share, 3)
-        self.line.write({'agent_id': False})
-        self.R.rates_daily()
-        self.assertAlmostEqual(r.agent_share, 0, msg='джерело (лінія) перестало діяти — 0, а не збережене число')
-        self.assertEqual(r.agent_source, 'none')
-
-    def test_customer_change_resets_manual(self):
-        agent = self.env['res.partner'].create({'name': 'Тест посередник'})
-        self.line.write({'agent_id': agent.id, 'agent_share': 3, 'customer_ids': [(4, self.cust2.id)]})
-        r = self._rate()
-        r.agent_share = 1
-        self.assertEqual(r.agent_source, 'manual')
-        r.customer_id = self.cust2
-        self.assertEqual(r.agent_source, 'line', 'зміна замовника скидає «вручну»')
-        self.assertAlmostEqual(r.agent_share, 3)
+        def ru_changed(cards, maps, other, wage, price, lang):
+            return orig(cards, maps, other, wage, price, lang) + ('<p>тест: новий словник</p>' if lang == 'ru' else '')
+        with patch.object(calc, 'control_html', ru_changed):
+            r.action_apply_now()
+        self.assertIn('тест: новий словник', r.control_html_ru)
+        self.assertNotIn('тест: новий словник', r.control_html_uk)
 
     def test_unlink_dry_and_no_sync_only_admin(self):
         r = self._rate()
@@ -336,3 +1287,210 @@ class TestWorksetRates(TransactionCase):
         as_editor = r.with_user(editor).with_context(allowed_company_ids=[editor.company_id.id], workset_rates_no_sync=True)
         as_editor.write({'wage': 15})
         self.assertAlmostEqual(self.m_a.cost, 15, msg='не адміністратору «без автоматики» не діє — А1 спрацювала')
+
+    # ——— М2b, ревю № 3: повернення й «Перевірити» — окремі лічильники ночі; інша діюча версія на ту саму дату ———
+    def test_m2b_daily_counts_restored_and_check(self):
+        # позначку «Тимчасово» поставили повз ORM (імпорт, SQL) — догон уночі: «На руки» назад рахується як restored / check, не archived
+        self._isolate()
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+
+        def mark_temporary_by_sql(version):
+            self.env.flush_all()
+            self.env.cr.execute('UPDATE hr_version SET workset_temporary = TRUE WHERE id = %s', [version.id])
+            version.invalidate_recordset(['workset_temporary'])
+        with a, b, h, c:
+            self._base_version(wages)
+            first = self._rate(date_from='2026-02-01')
+            v = self._version(wages, '2026-02-01', 15)
+            self.assertEqual((first.wage, first.wage_before_contract), (15, 14))
+            mark_temporary_by_sql(v)
+            res = self.R.rates_daily()
+            self.assertEqual((res['contract']['restored'], res['contract']['check'], res['contract']['archived']), (1, 0, 0))
+            self.assertIn('повернуто «На руки» 1, «Перевірити» 0', res['message'])
+            self.assertEqual((first.wage, first.active), (14, True))
+            # прежнього числа немає — «Перевірити», і це теж не архів
+            v.write({'workset_temporary': False})
+            self.assertEqual(first.wage, 15)
+            first.write({'wage_before_contract': 0})
+            mark_temporary_by_sql(v)
+            res = self.R.rates_daily()
+            self.assertEqual((res['contract']['restored'], res['contract']['check'], res['contract']['archived']), (0, 1, 0))
+            self.assertIn('«Перевірити» 1', res['message'])
+            self.assertTrue(first.to_check and first.active)
+
+    def test_m2b_follow_falls_back_to_other_version(self):
+        # ставку А6 створив за v1 (картка А); картка договору пари стала Б, її версія v2 на ту саму дату переписала «На руки» (update);
+        # v2 архівували — на цю дату діє v1: ставка не в архів, а назад до v1
+        self._isolate()
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        with a, b, h, c:
+            self._base_version(wages)
+            self._rate(date_from='2026-02-01')
+            v1 = self._version(wages, '2026-02-10', 15)
+            mine = self._pair('2026-02-10')
+            self.assertEqual((mine.wage, mine.source, mine.contract_version_id), (15, 'contract', v1))
+            emp_b = self.emp_b
+            with patch.object(type(self.R), '_contract_card', lambda _self, person, cust: emp_b):
+                v2 = self._version(wages, '2026-02-10', 16, emp_b)
+                self.assertEqual((mine.wage, mine.contract_version_id), (16, v2), 'версія картки Б переписала ту саму ставку')
+                v2.write({'active': False})
+            self.assertTrue(mine.active, 'на ту саму дату діє інша версія — ставка не в архіві')
+            self.assertEqual((mine.wage, mine.contract_version_id, mine.wage_source), (15, v1, 'contract'))
+            self.assertIn('діє інша версія договору', self._bodies(mine))
+            self.assertEqual(self.m_a.cost, 15, 'карта проєктів — «На руки» версії v1')
+
+    # ——— М2c: екрани (розділ 6), житло лінії (3.13), полоса ———
+    def _views(self):
+        x = lambda n: self.env.ref('workset_rates.' + n).id  # noqa: E731
+        return {
+            'workset.rate': [(x('view_rate_list'), 'list'), (x('view_rate_form'), 'form'), (x('view_rate_kanban'), 'kanban'),
+                             (x('view_rate_search'), 'search'), (x('view_rate_pivot'), 'pivot'), (x('view_rate_graph'), 'graph')],
+            'workset.rate.rule': [(x('view_rule_list'), 'list'), (x('view_rule_form'), 'form'), (x('view_rule_search'), 'search')],
+            'workset.rate.rule.apply': [(x('view_rule_apply_form'), 'form')],
+            'workset.rate.raise': [(x('view_raise_list'), 'list'), (x('view_raise_form'), 'form'), (x('view_raise_search'), 'search')],
+            'workset.line': [(x('view_line_list'), 'list'), (x('view_line_form'), 'form'), (x('view_line_search'), 'search')],
+            'workset.line.housing': [(x('view_housing_list'), 'list'), (x('view_housing_form'), 'form'), (x('view_housing_search'), 'search')],
+        }
+
+    def _web_read_form(self, user, rec, view_xmlid):
+        """Як клієнт відкриває форму: поля виду цього користувача (groups уже прибрані) → web_read; m2o — з display_name (читання моделі)."""
+        res = rec.env[rec._name].with_user(user).get_views([(self.env.ref('workset_rates.' + view_xmlid).id, 'form')])
+        m = res['models'][rec._name]
+        names = [f for f in m.get('fields', m) if f in rec._fields]
+        spec = {f: ({'fields': {'display_name': {}}} if rec._fields[f].type == 'many2one' else {}) for f in names}
+        return rec.with_user(user).with_context(allowed_company_ids=user.company_ids.ids).web_read(spec)
+
+    def test_m2c_views_and_menus(self):
+        # редактор — як справжні редактори: бачить фірми ставок (фірма договору у вкладці «Контроль»), але без прав кадрів
+        firms = (self.co_a | self.co_b | self.co_uah | self.co_out | self.env.company).ids
+        editor = new_test_user(self.env, login='ws_m2c_editor', groups='base.group_user,workset_rates.group_editor',
+                               company_id=self.env.company.id, company_ids=[(6, 0, firms)])
+        viewer = new_test_user(self.env, login='ws_m2c_viewer', groups='base.group_user,workset_rates.group_bonus_viewer')
+        hr_user = new_test_user(self.env, login='ws_m2c_hr', groups='base.group_user,hr.group_hr_user')
+        admin = self.env.ref('base.user_admin')
+        for user in (admin, editor):
+            for model, views in self._views().items():
+                res = self.env[model].with_user(user).get_views(views)
+                self.assertEqual(sorted(res['views']), sorted({t for _v, t in views}), '%s: %s' % (user.login, model))
+        bonus = [(self.env.ref('workset_rates.view_bonus_list').id, 'list'), (self.env.ref('workset_rates.view_bonus_search').id, 'search')]
+        for user in (admin, viewer):
+            self.assertIn('list', self.env['workset.office.bonus'].with_user(user).get_views(bonus)['views'])
+        # редактор ставок без прав кадрів: у формі ставки немає поля версії договору (hr.version), і форма читається без помилки доступу
+        form = self.env['workset.rate'].with_user(editor).get_views([(self.env.ref('workset_rates.view_rate_form').id, 'form')])['views']['form']['arch']
+        self.assertNotIn('name="contract_version_id"', form)
+        self.assertIn('name="wage_note"', form)
+        a, b = self._no_agents()
+        with a, b:
+            r = self._rate()
+        self.env['workset.rate.raise'].create({'person_id': self.person.id, 'customer_id': self.cust.id, 'kind': 'hour', 'amount': 1.5, 'date_from': DAY,
+                                               'date_to': NEXT, 'payer': 'line', 'source': 'other', 'source_note': 'тест'})
+        r.sudo().write({'contract_version_id': self.emp_a.version_ids[:1].id})
+        r.invalidate_recordset(['raise_ids'])
+        self.assertTrue(r.raise_ids)
+        self.assertEqual(self._web_read_form(editor, r, 'view_rate_form')[0]['id'], r.id)
+        self.assertTrue(self._web_read_form(editor, self.line_rule, 'view_rule_form'))
+        self.assertTrue(self._web_read_form(editor, r.raise_ids[:1], 'view_raise_form'))
+        # меню: «Бонуси офісу» — лише «перегляд» і вище; решта нових — усім, хто бачить «Ставки»
+        Menu = self.env['ir.ui.menu']
+        ref = lambda n: self.env.ref('workset_rates.' + n).id  # noqa: E731
+        for user, sees, hidden in ((editor, ['menu_rules', 'menu_raises', 'menu_settings', 'menu_lines', 'menu_housing'], ['menu_bonuses']),
+                                   (hr_user, ['menu_rules', 'menu_raises', 'menu_housing'], ['menu_bonuses']),
+                                   (viewer, ['menu_bonuses', 'menu_rules'], []), (admin, ['menu_bonuses', 'menu_housing'], [])):
+            visible = Menu.with_user(user)._visible_menu_ids()
+            for n in sees:
+                self.assertIn(ref(n), visible, '%s бачить %s' % (user.login, n))
+            for n in hidden:
+                self.assertNotIn(ref(n), visible, '%s не бачить %s' % (user.login, n))
+
+    def test_m2c_housing_rules(self):
+        H = self.env['workset.line.housing']
+        lt = self.env['workset.line'].create({'name': 'Тест лінія житло'})
+        ct = self._cust('Тест замовник житло', lt)
+        other = self._cust('Тест замовник житло 2', lt)
+        vals = {'line_id': lt.id, 'source': 'owner', 'source_note': 'тест'}
+        base = H.create(dict(vals, kind='hour_deduction', amount=11, amount_unit='hour', date_from=OLD))
+        # назва: «лінія · уся лінія · години житла × сума €/год з дати» (суму в тексті тесту не пишемо поруч зі знаком євро — перевірка публічності)
+        self.assertTrue(base.name.startswith('Тест лінія житло · уся лінія · години житла × 11 '), base.name)
+        self.assertTrue(base.name.endswith('/год з 01.01.2025'), base.name)
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            H.create(dict(vals, kind='none', date_from=DAY))  # перетин з правилом без кінця
+        base.date_to = calc.add_days(DAY, -1)
+        later = H.create(dict(vals, kind='none', date_from=DAY))
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            later.date_from = calc.add_days(DAY, -3)
+        mine = H.create(dict(vals, customer_id=ct.id, kind='payment_buffer', amount=4, amount_unit='pct', date_from=OLD))
+        self.assertEqual(H._housing_at(lt, ct, DAY), mine, 'правило замовника перекриває правило лінії')
+        self.assertEqual(H._housing_at(lt, other, DAY), later)
+        self.assertEqual(H._housing_at(lt, other, calc.add_days(DAY, -5)), base, 'на минулу дату — правило, що діяло тоді')
+        self.assertFalse(H._housing_at(lt, other, '2020-01-01'))
+        mine.active = False
+        self.assertEqual(H._housing_at(lt, ct, DAY), later, 'архівне правило не діє')
+        # права — як у правил ліній: редактор лише читає, «правила ліній» — створює
+        editor = new_test_user(self.env, login='ws_m2c_h_editor', groups='base.group_user,workset_rates.group_editor')
+        owner = new_test_user(self.env, login='ws_m2c_h_owner', groups='base.group_user,workset_rates.group_rule_editor')
+        hr_user = new_test_user(self.env, login='ws_m2c_h_hr', groups='base.group_user,hr.group_hr_user')
+
+        def as_(user, rec):
+            return rec.with_user(user).with_context(allowed_company_ids=[user.company_id.id])
+        self.assertEqual(as_(editor, base).read(['kind'])[0]['kind'], 'hour_deduction')
+        self.assertTrue(as_(hr_user, base).read(['kind']))
+        with self.assertRaises(AccessError):
+            as_(editor, H).create(dict(vals, customer_id=other.id, kind='none', date_from=DAY))
+        with self.assertRaises(AccessError):
+            as_(editor, base).write({'note': 'x'})
+        as_(owner, H).create(dict(vals, customer_id=other.id, kind='customer_deducts', date_from=DAY))
+        with self.assertRaises(AccessError):
+            as_(owner, base).unlink()
+
+    def test_m2c_check_housing_section(self):
+        self._isolate()
+        self._quiet_bonuses()
+        self.line_housing.active = False
+        lt = self.env['workset.line'].create({'name': 'Тест тарифна житло'})
+        ct = self._cust('Тест замовник тарифна житло', lt)
+        self._rule(line_id=lt.id, anchor='tariff', share_we_found=5)
+        a, b = self._no_agents()
+        with a, b:
+            self._rate()
+            self._rate(person_id=self._person('Тест П тарифна').id, customer_id=ct.id)
+            res = self.R.rates_check()
+        self.assertEqual(res['sections']['housing'], 1, 'лінія-надбавка без правила житла — у звірці, тарифна — ні')
+        part = self.env['workset.rate.check'].search([('date', '=', DAY)]).body.split('Лінія з надбавкою без правила житла')[1].split('<h3>')[0]
+        self.assertIn('Тест лінія', part)
+        self.assertNotIn('Тест тарифна житло', part)
+        self.env['workset.line.housing'].create({'line_id': self.line.id, 'kind': 'invoice_buffer', 'date_from': DAY, 'source': 'owner',
+                                                 'source_note': 'тест'})
+        res = self.R.with_context(rates_today=NEXT).rates_check()
+        self.assertEqual(res['sections']['housing'], 0, 'правило житла є — розділ мовчить')
+
+    def test_m2c_rate_screen_texts(self):
+        self._quiet_bonuses()
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_MIN_SHARE, '3')  # частки тесту (4 і 5) — не нижче мінімуму
+        a, b = self._no_agents()
+        with a, b:
+            r = self._rate()
+            none = self._rate(person_id=self._person('Тест П бракує').id, found_by=False)
+        self.assertFalse(r.missing_text)
+        self.assertEqual(none.missing_text, 'Хто знайшов не вказано')
+        self.assertFalse(r.raise_note or r.raise_badge or r.has_raise)
+        self.env['workset.rate.raise'].create({'person_id': self.person.id, 'customer_id': self.cust.id, 'kind': 'hour', 'amount': 1.5, 'date_from': DAY,
+                                               'date_to': '2026-03-20', 'payer': 'line', 'source': 'other', 'source_note': 'тест'})
+        r.invalidate_recordset(['raise_note', 'raise_badge', 'has_raise', 'wage_now', 'raise_ids'])
+        self.assertEqual((r.wage_now, r.raise_note, r.raise_badge, r.has_raise), (15.5, 'зараз 15,5 до 20.03', '+1,5 до 20.03', True))
+        pair = (r | none).ids
+        self.assertEqual(self.R.search([('has_raise', '=', True), ('id', 'in', pair)]), r, 'фільтр «Є тимчасова зміна»')
+        self.assertEqual(self.R.search([('has_raise', '=', False), ('id', 'in', pair)]), none)
+        self.assertIn('чиста 5', r.card_line)
+        act = r.action_new_raise()
+        self.assertEqual((act['res_model'], act['context']['default_person_id'], act['context']['default_customer_id']),
+                         ('workset.rate.raise', self.person.id, self.cust.id))
+        # смарт-кнопки й «Нова з дати» загальної ставки — ті самі ставки, що рахує майстер
+        self.assertIn(r.id, self.line_rule.action_open_inherit()['domain'][0][2])
+        self.assertNotIn(r.id, self.line_rule.action_open_own()['domain'][0][2])
+        new = self.line_rule.action_new_from_date()
+        self.assertEqual((new['context']['default_line_id'], new['context']['default_share_we_found'], new['context']['default_date_from']),
+                         (self.line.id, 5, DAY))
