@@ -14,9 +14,9 @@
     'website': 'https://workset.com.ua',
     'license': 'LGPL-3',
     'category': 'Accounting',
-    'version': '19.0.1.0.0',
+    'version': '19.0.2.0.0',
     # workset_rates — лінії, ставки (_plan_at), житло ліній (_housing_at), периметр фірм; через нього — account (аналітика, рахунки),
-    # hr_timesheet (табелі), project. fleet — машина картки DKV (додаток «Автопарк» на проді встановлений)
+    # hr_timesheet (табелі), project, web (Chart.js для екранів). fleet — машина картки DKV (додаток «Автопарк» на проді встановлений)
     'depends': ['workset_rates', 'fleet'],
     'data': [
         'security/workset_profit_security.xml',
@@ -25,9 +25,18 @@
         'views/workset_line_cost_rule_views.xml',
         'views/workset_dkv_views.xml',
         'views/workset_profit_map_views.xml',
+        'views/workset_profit_screens_views.xml',
         'views/menus.xml',
         'data/ir_cron.xml',
     ],
+    # круг 2: екрани «Огляд», картка лінії, «Лінії × місяці» (client actions OWL)
+    'assets': {
+        'web.assets_backend': [
+            'workset_profit/static/src/scss/workset_profit.scss',
+            'workset_profit/static/src/js/profit_screens.js',
+            'workset_profit/static/src/xml/profit_screens.xml',
+        ],
+    },
     'installable': True,
     'auto_install': False,
     'application': True,

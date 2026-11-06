@@ -67,8 +67,8 @@ class WorksetProfitMonth(models.Model):
     housing = fields.Monetary(string='Житло', currency_field='currency_id', readonly=True, help='Наше житло лінії (мінус — витрата)')
     housing_customer = fields.Monetary(string='Житло (вирахував замовник)', currency_field='currency_id', readonly=True,
                                        help='Житло, яке замовник вираховує з оплати (правило житла лінії «Ставок», «Хто платить» — замовник): '
-                                            'сума правила × одиниця (за людину на місяць — люди з годинами в цього замовника; за добу за особу; '
-                                            'за годину; % з оплати). Наш мінус — у «чисто»')
+                                            'сума правила × одиниця (за місяць на об\'єкт — одна сума; за місяць за особу — люди з годинами в '
+                                            'цього замовника; за добу за особу; за годину; % з оплати). Наш мінус — у «чисто»')
     auto = fields.Monetary(string='Авто', currency_field='currency_id', readonly=True)
     fuel = fields.Monetary(string='Паливо', currency_field='currency_id', readonly=True)
     tool = fields.Monetary(string='Інструмент', currency_field='currency_id', readonly=True)
@@ -349,6 +349,20 @@ class WorksetProfitMonth(models.Model):
         # 1б. житло, яке вираховує замовник: правило житла лінії на кожен день із годинами → сума за одиницею правила
         hours += [{'key': calc.key_of('line', line=line), 'housing_customer': v}
                   for line, v in calc.customer_housing(*self._customer_housing_input(month_ts, segs, plans, cust_lines))]
+        # 2–4. аналітика, DKV, перевезення за прибуттями (_month_entries — ті самі записи бачить картка лінії)
+        entries, _refs = self._month_entries(first, last, cust_lines, line_nodes, ts)
+        rows = calc.assemble(hours, entries)
+        # 5. запис: місяць заново (рядки пише лише код)
+        self.search([('month', '=', first)]).unlink()
+        names = self._names(rows)
+        self.create([self._row_vals(r, first, names) for r in rows])
+        return len(rows)
+
+    def _month_entries(self, first, last, cust_lines, line_nodes, ts=None):
+        """Записи розкладу місяця (кроки 2–4 перерахунку): аналітика за розміткою, транзакції DKV за періодом картки, перевезення без лінії —
+        між лініями за прибуттями. → (entries, refs): refs[i] — звідки entries[i]: {'aal': [id], 'txn': [id], 'analytic', 'account',
+        'card', 'pool'} — для «Рядків за місяць» картки лінії (ті самі записи, що в перерахунку, — без розбіжності). ts — табелі від
+        first − розрив − 1 до last (немає — читаються, лише коли є перевезення без лінії). Викликати на sudo."""
         # 2. аналітика: розмітка → вид, лінія, замовник → хто платить → рядок і стовпець
         rules = self.env['workset.profit.analytic.map']._rules()
         by_id = {r['id']: r for r in rules}
@@ -357,7 +371,7 @@ class WorksetProfitMonth(models.Model):
         # рахунки DKV із транзакціями: їхня аналітика — рядок 'dkv' і «DKV різниця» (calc.dkv_bill_entries), не вдруге
         gross = self._dkv_gross({i['move_id'] for i in items if i['move_id']})
         totals = self._bill_totals(set(gross))
-        entries, pool, hcache, bills = [], [], {}, {}
+        entries, refs, pool, hcache, bills = [], [], [], {}, {}
         for it in items:
             if it['move_id'] in gross:
                 bills.setdefault(it['move_id'], []).append(it)
@@ -369,12 +383,17 @@ class WorksetProfitMonth(models.Model):
             elif c['line_id'] and c['kind'] in calc.COST_KINDS:
                 payer = calc.cost_payer(cost_rules, c['line_id'], c['cust'], c['kind'], it['date'])
             tgt = calc.target(c, it, payer)
+            ref = {'aal': [it['aal_id']], 'analytic': it['analytic_id'], 'account': it['account_id']}
             if tgt.get('pool'):
-                pool.append({'amount': it['amount'], 'src': 'aal', 'date': it['date']})
+                pool.append(({'amount': it['amount'], 'src': 'aal', 'date': it['date']}, ref))
             else:
                 entries.append(calc.entry(tgt, it['amount'], 'aal', '' if c['kind'] else c['hint']))
+                refs.append(ref)
         for move in sorted(bills):
-            entries += calc.dkv_bill_entries(bills[move], totals.get(move, 0.0), gross[move])
+            got = calc.dkv_bill_entries(bills[move], totals.get(move, 0.0), gross[move])
+            entries += got
+            refs += [{'aal': [i['aal_id'] for i in bills[move]], 'analytic': bills[move][0]['analytic_id'],
+                      'account': bills[move][0]['account_id']}] * len(got)
         # 3. DKV: транзакція → період картки на її дату
         periods = self.env['workset.dkv.card.period']._periods()
         for x in self._txns(first, last):
@@ -383,20 +402,33 @@ class WorksetProfitMonth(models.Model):
             p = calc.card_period(periods, card, day)
             payer = calc.cost_payer(cost_rules, p['line_id'], p['customer_id'], 'fuel', day) if (p and p['target'] == 'line' and p['line_id']) else ''
             tgt = calc.dkv_target(p, card, payer)
+            ref = {'txn': [x['id']], 'card': card}
             if tgt.get('pool'):
-                pool.append({'amount': -x['amount_gross'], 'src': 'dkv', 'date': day})
+                pool.append(({'amount': -x['amount_gross'], 'src': 'dkv', 'date': day}, ref))
             else:
                 entries.append(calc.entry(tgt, -x['amount_gross'], 'dkv'))
-        # 4. перевезення без лінії — між лініями за прибуттями місяця (людина — склеєні картки)
+                refs.append(ref)
+        # 4. перевезення без лінії — між лініями за прибуттями місяця (людина — склеєні картки); кожна сума — окремо (як і раніше)
         if pool:
-            arr = calc.arrivals([dict(r, person=r['glue']) for r in ts], first, last)
-            entries += calc.pool_entries(pool, calc.arrival_weights(arr, cust_lines), cost_rules)
-        rows = calc.assemble(hours, entries)
-        # 5. запис: місяць заново (рядки пише лише код)
-        self.search([('month', '=', first)]).unlink()
-        names = self._names(rows)
-        self.create([self._row_vals(r, first, names) for r in rows])
-        return len(rows)
+            if ts is None:
+                ts = self._timesheets(calc.add_days(first, -(calc.STINT_GAP_DAYS + 1)), last)
+            weights = calc.arrival_weights(calc.arrivals([dict(r, person=r['glue']) for r in ts], first, last), cust_lines)
+            for p, ref in pool:
+                got = calc.pool_entries([p], weights, cost_rules)
+                entries += got
+                refs += [dict(ref, pool=True)] * len(got)
+        return entries, refs
+
+    def _store_check(self, month, check):
+        """Підсумок звірки місяця — у «Звірку місяця» (екрани читають його, а не звіряють наново). Викликати на sudo."""
+        Check = self.env['workset.profit.check'].sudo()
+        first = calc.month_first(calc.iso(month))
+        vals = {'ok': bool(check.get('ok')), 'text': check.get('text') or '', 'checked_at': fields.Datetime.now()}
+        rec = Check.search([('month', '=', first)], limit=1)
+        if rec:
+            rec.write(vals)
+        else:
+            Check.create(dict(vals, month=first))
 
     def _names(self, rows):
         def of(model, key):
@@ -456,6 +488,7 @@ class WorksetProfitMonth(models.Model):
         for m in months:
             n += me._recompute_month(m)
             checks.append(dict(me._verify(m), month=m))
+            me._store_check(m, checks[-1])
         _logger.info('Прибутковість: перераховано %s — рядків %d; звірка: %s', ', '.join(months), n,
                      '; '.join(c['text'] for c in checks))
         return {'months': months, 'rows': n, 'verify': checks}
@@ -486,14 +519,23 @@ class WorksetProfitMonth(models.Model):
                            'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'}}}
 
     def action_verify(self):
-        """«Звірити»: місяці вибраних рядків, нічого не вибрано — поточний місяць."""
+        """«Звірити»: місяці вибраних рядків, нічого не вибрано — поточний місяць. Підсумок — і в «Звірку місяця» (його показують екрани)."""
         self.check_access('read')
         months = self._months_of() or [calc.month_first(calc.iso(self._today()))]
         checks = [self._verify(m) for m in months]
+        for m, c in zip(months, checks):
+            if self.sudo().search_count([('month', '=', calc.month_first(m))]):
+                self.sudo()._store_check(m, c)
         ok = all(c['ok'] for c in checks)
         return {'type': 'ir.actions.client', 'tag': 'display_notification',
                 'params': {'title': _('Прибутковість'), 'message': ' '.join(c['text'] for c in checks), 'type': 'success' if ok else 'warning',
                            'sticky': not ok}}
+
+    def action_open_card(self):
+        """Кнопка рядка лінії в списку й картці рядка — картка лінії (екран B) за цей місяць."""
+        self.ensure_one()
+        return {'type': 'ir.actions.client', 'tag': 'workset_profit.line_card', 'name': self.line_id.name or '',
+                'params': {'line_id': self.line_id.id, 'month': calc.iso(self.month)}}
 
     @api.model
     def _cron_recompute(self):

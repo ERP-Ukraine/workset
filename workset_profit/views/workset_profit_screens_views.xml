@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Екрани круга 2 (макети A, B, C): client actions OWL (static/src/js/profit_screens.js), кожен — один виклик сервера
+         (models/workset_profit_screens.py). path — постійна адреса сторінки (/odoo/workset-profit-overview …): посилання не залежить від
+         номера дії в базі. Бачить лише група «Прибутковість: перегляд» — меню й методи сервера (_check_screen) -->
+    <record id="action_overview" model="ir.actions.client">
+        <field name="name">Огляд</field>
+        <field name="tag">workset_profit.overview</field>
+        <field name="path">workset-profit-overview</field>
+    </record>
+
+    <record id="action_matrix" model="ir.actions.client">
+        <field name="name">Лінії × місяці</field>
+        <field name="tag">workset_profit.matrix</field>
+        <field name="path">workset-profit-matrix</field>
+    </record>
+
+    <!-- картка лінії: лінія й місяць — у params дії (з плитки «Огляду», клітинки таблиці, кнопки рядка списку); без них — остання відкрита -->
+    <record id="action_line_card" model="ir.actions.client">
+        <field name="name">Картка лінії</field>
+        <field name="tag">workset_profit.line_card</field>
+        <field name="path">workset-profit-line</field>
+    </record>
+</odoo>

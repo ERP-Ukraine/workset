@@ -16,4 +16,6 @@ access_workset_dkv_card_period_system,workset.dkv.card.period system,model_works
 access_workset_dkv_txn_viewer,workset.dkv.txn viewer,model_workset_dkv_txn,workset_profit.group_viewer,1,0,0,0
 access_workset_dkv_txn_editor,workset.dkv.txn editor,model_workset_dkv_txn,workset_profit.group_editor,1,1,1,0
 access_workset_dkv_txn_system,workset.dkv.txn system,model_workset_dkv_txn,base.group_system,1,1,1,1
+access_workset_profit_check_viewer,workset.profit.check viewer,model_workset_profit_check,workset_profit.group_viewer,1,0,0,0
+access_workset_profit_check_system,workset.profit.check system,model_workset_profit_check,base.group_system,1,1,1,1
 access_workset_line_profit_viewer,workset.line profit viewer,workset_rates.model_workset_line,workset_profit.group_viewer,1,0,0,0

@@ -80,6 +80,7 @@ msgid "Куди"
 msgstr "Куда"
 
 #. module: workset_profit
+#. odoo-javascript
 #: model:ir.model.fields.selection,name:workset_profit.selection__workset_dkv_card_period__target__line
 #: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_card_period__line_id
 #: model:ir.model.fields,field_description:workset_profit.field_workset_line_cost_rule__line_id
@@ -89,6 +90,7 @@ msgstr "Куда"
 #: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
 #: model_terms:ir.ui.view,arch_db:workset_profit.view_cost_rule_search
 #: model_terms:ir.ui.view,arch_db:workset_profit.view_map_search
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "Лінія"
 msgstr "Линия"
 
@@ -233,6 +235,7 @@ msgid "Унікальний ключ рядка з PDF або API: повтор�
 msgstr "Уникальный ключ строки из PDF или API: повторная запись не множит транзакцию"
 
 #. module: workset_profit
+#. odoo-javascript
 #: model:ir.model,name:workset_profit.model_workset_line_cost_rule
 #: model:ir.model.fields,field_description:workset_profit.field_workset_line_cost_rule__payer
 #: model_terms:ir.ui.view,arch_db:workset_profit.view_cost_rule_list
@@ -240,6 +243,7 @@ msgstr "Уникальный ключ строки из PDF или API: повт
 #: model_terms:ir.ui.view,arch_db:workset_profit.view_cost_rule_search
 #: model:ir.actions.act_window,name:workset_profit.action_cost_rules
 #: model:ir.ui.menu,name:workset_profit.menu_cost_rules
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "Хто платить"
 msgstr "Кто платит"
 
@@ -299,6 +303,40 @@ msgstr "Слово собственника, дата; разбор счетов
 #: model:ir.model.fields,field_description:workset_profit.field_workset_profit_analytic_map__active
 msgid "Активне"
 msgstr "Активно"
+
+#. module: workset_profit
+#: model:ir.model,name:workset_profit.model_workset_profit_check
+msgid "Звірка місяця"
+msgstr "Сверка месяца"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_check__month
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__month
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_txn_search
+msgid "Місяць"
+msgstr "Месяц"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_check__month
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__month
+msgid "Перше число місяця"
+msgstr "Первое число месяца"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_check__ok
+msgid "Зійшлося"
+msgstr "Сошлось"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_check__text
+msgid "Текст звірки"
+msgstr "Текст сверки"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_check__checked_at
+msgid "Звірено"
+msgstr "Сверено"
 
 #. module: workset_profit
 #: model:ir.model,name:workset_profit.model_workset_profit_analytic_map
@@ -361,9 +399,11 @@ msgid "Гроші лінії (партнер)"
 msgstr "Деньги линии (партнёр)"
 
 #. module: workset_profit
+#. odoo-javascript
 #: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_analytic_map__kind__owner
 #: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__row_kind__owner
 #: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__hint_kind__owner
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "Власник"
 msgstr "Собственник"
 
@@ -404,18 +444,6 @@ msgid "Рядок"
 msgstr "Строка"
 
 #. module: workset_profit
-#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__month
-#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
-#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_txn_search
-msgid "Місяць"
-msgstr "Месяц"
-
-#. module: workset_profit
-#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__month
-msgid "Перше число місяця"
-msgstr "Первое число месяца"
-
-#. module: workset_profit
 #: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__row_kind
 #: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
 msgid "Вид рядка"
@@ -427,8 +455,10 @@ msgid "Без лінії"
 msgstr "Без линии"
 
 #. module: workset_profit
+#. odoo-javascript
 #: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__row_kind__unallocated
 #: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "Не розподілено"
 msgstr "Не распределено"
 
@@ -478,7 +508,9 @@ msgid "Години пар без ставки на дату — у частку
 msgstr "Часы пар без ставки на дату — в долю не входят (разобрать в «Ставках»)"
 
 #. module: workset_profit
+#. odoo-javascript
 #: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__share
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "Частка WorkSET"
 msgstr "Доля WorkSET"
 
@@ -519,8 +551,8 @@ msgstr "Жильё (вычел заказчик)"
 
 #. module: workset_profit
 #: model:ir.model.fields,help:workset_profit.field_workset_profit_month__housing_customer
-msgid "Житло, яке замовник вираховує з оплати (правило житла лінії «Ставок», «Хто платить» — замовник): сума правила × одиниця (за людину на місяць — люди з годинами в цього замовника; за добу за особу; за годину; % з оплати). Наш мінус — у «чисто»"
-msgstr "Жильё, которое заказчик вычитает из оплаты (правило жилья линии «Ставок», «Кто платит» — заказчик): сумма правила × единица (за человека в месяц — люди с часами у этого заказчика; за сутки на человека; за час; % с оплаты). Наш минус — в «чисто»"
+msgid "Житло, яке замовник вираховує з оплати (правило житла лінії «Ставок», «Хто платить» — замовник): сума правила × одиниця (за місяць на об'єкт — одна сума; за місяць за особу — люди з годинами в цього замовника; за добу за особу; за годину; % з оплати). Наш мінус — у «чисто»"
+msgstr "Жильё, которое заказчик вычитает из оплаты (правило жилья линии «Ставок», «Кто платит» — заказчик): сумма правила × единица (за месяц на объект — одна сумма; за месяц на человека — люди с часами у этого заказчика; за сутки на человека; за час; % с оплаты). Наш минус — в «чисто»"
 
 #. module: workset_profit
 #: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__tool
@@ -632,8 +664,8 @@ msgstr "Просмотр"
 
 #. module: workset_profit
 #: model:res.groups,comment:workset_profit.group_viewer
-msgid "Бачить «Лінії × місяці», правила «Хто платить», картки й транзакції DKV, розмітку аналітики (без правки)"
-msgstr "Видит «Линии × месяцы», правила «Кто платит», карты и транзакции DKV, разметку аналитики (без правки)"
+msgid "Бачить додаток «Прибутковість»: екрани «Огляд», «Лінії × місяці», картку лінії, правила «Хто платить», картки й транзакції DKV, розмітку аналітики (без правки). Лише ця група — і меню, і екрани"
+msgstr "Видит приложение «Прибыльность»: экраны «Обзор», «Линии × месяцы», карточку линии, правила «Кто платит», карты и транзакции DKV, разметку аналитики (без правки). Только эта группа — и меню, и экраны"
 
 #. module: workset_profit
 #: model:res.groups,comment:workset_profit.group_editor
@@ -641,10 +673,12 @@ msgid "Править «Хто платить», картки й транзак�
 msgstr "Правит «Кто платит», карты и транзакции DKV, разметку аналитики; пересчитывает месяцы кнопкой «Пересчитать»"
 
 #. module: workset_profit
+#. odoo-javascript
 #: model_terms:ir.ui.view,arch_db:workset_profit.view_month_list
 #: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
-#: model:ir.actions.act_window,name:workset_profit.action_months
-#: model:ir.ui.menu,name:workset_profit.menu_months
+#: model:ir.actions.client,name:workset_profit.action_matrix
+#: model:ir.ui.menu,name:workset_profit.menu_matrix
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "Лінії × місяці"
 msgstr "Линии × месяцы"
 
@@ -663,6 +697,13 @@ msgstr "Сверить"
 #: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_txn_list
 msgid "Разом"
 msgstr "Итого"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_list
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_form
+#: model:ir.actions.client,name:workset_profit.action_line_card
+msgid "Картка лінії"
+msgstr "Карточка линии"
 
 #. module: workset_profit
 #: model_terms:ir.ui.view,arch_db:workset_profit.view_month_form
@@ -700,7 +741,9 @@ msgid "Без службових"
 msgstr "Без служебных"
 
 #. module: workset_profit
+#. odoo-javascript
 #: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "Лінії"
 msgstr "Линии"
 
@@ -723,6 +766,12 @@ msgstr "Есть часы без ставки"
 #: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
 msgid "Чисто нижче нуля"
 msgstr "Чисто ниже нуля"
+
+#. module: workset_profit
+#: model:ir.actions.act_window,name:workset_profit.action_months
+#: model:ir.ui.menu,name:workset_profit.menu_months
+msgid "Рядки розрахунку"
+msgstr "Строки расчёта"
 
 #. module: workset_profit
 #: model_terms:ir.actions.act_window,help:workset_profit.action_months
@@ -864,3 +913,285 @@ msgstr "Разметки ещё нет — вся аналитика в «Не �
 #: model_terms:ir.actions.act_window,help:workset_profit.action_map
 msgid "Вузол плану, стаття, рахунок або контрагент → вид витрати й лінія."
 msgstr "Узел плана, статья, счёт или контрагент → вид расхода и линия."
+
+#. module: workset_profit
+#: model:ir.actions.client,name:workset_profit.action_overview
+#: model:ir.ui.menu,name:workset_profit.menu_overview
+msgid "Огляд"
+msgstr "Обзор"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Прибутковість ліній"
+msgstr "Прибыльность линий"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Годин"
+msgstr "Часов"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "зі ставкою"
+msgstr "со ставкой"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "€ год"
+msgstr "€ ч"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Оренда авто плюсом; житло, авто, паливо, інструмент, перевезення — мінусом"
+msgstr "Аренда авто плюсом; жильё, авто, топливо, инструмент, перевозка — минусом"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Житло, авто, паливо, інструмент"
+msgstr "Жильё, авто, топливо, инструмент"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Чисто за місяць"
+msgstr "Чисто за месяц"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Години без ставки"
+msgstr "Часы без ставки"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Години без лінії"
+msgstr "Часы без линии"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Житло не в своєму місяці"
+msgstr "Жильё не в своём месяце"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Звірка зійшлася"
+msgstr "Сверка сошлась"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Звірка: розбіжність"
+msgstr "Сверка: расхождение"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "частка"
+msgstr "доля"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "житло з буфера лінії"
+msgstr "жильё из буфера линии"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "житло з фонду працівників"
+msgstr "жильё из фонда работников"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "€ за місяць"
+msgstr "€ за месяц"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "до минулого місяця, € год"
+msgstr "к прошлому месяцу, € ч"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "немає даних за"
+msgstr "нет данных за"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Чисто по місяцях,"
+msgstr "Чисто по месяцам,"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Усі лінії разом — жирно, кожна лінія — тонко."
+msgstr "Все линии вместе — жирно, каждая линия — тонко."
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Куди йде частка"
+msgstr "Куда идёт доля"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "житло"
+msgstr "жильё"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "паливо"
+msgstr "топливо"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "інструмент"
+msgstr "инструмент"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "перевезення"
+msgstr "перевозка"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Ліній за місяць немає"
+msgstr "Линий за месяц нет"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Минулий місяць"
+msgstr "Прошлый месяц"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Наступний місяць"
+msgstr "Следующий месяц"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Години"
+msgstr "Часы"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Витрати на лінію"
+msgstr "Расходы на линию"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Від частки до чистого,"
+msgstr "От доли до чистого,"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Не в нашому чисто"
+msgstr "Не в нашем чистом"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Стовпці — чисто, тонка лінія — частка WorkSET."
+msgstr "Столбцы — чисто, тонкая линия — доля WorkSET."
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Рядки за"
+msgstr "Строки за"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "з"
+msgstr "из"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "З місяця"
+msgstr "С месяца"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "По місяць"
+msgstr "По месяц"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Одиниця"
+msgstr "Единица"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "€/міс"
+msgstr "€/мес"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Звірка з аналітикою"
+msgstr "Сверка с аналитикой"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "червоний"
+msgstr "красный"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "— чисто нижче нуля,"
+msgstr "— чисто ниже нуля,"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "жовтий"
+msgstr "жёлтый"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "— упало більше ніж на"
+msgstr "— упало больше чем на"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "€ год порівняно з минулим місяцем; клік по клітинці — ланцюжок місяця."
+msgstr "€ ч по сравнению с прошлым месяцем; клик по ячейке — цепочка месяца."
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Відкрити рядки"
+msgstr "Открыть строки"

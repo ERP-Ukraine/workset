@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Додаток «Прибутковість»: бачать групи модуля й системний адміністратор. Іконки додатка в крузі 1 немає (картинка — навиком visual) -->
-    <menuitem id="menu_root" name="Прибутковість" sequence="187" groups="workset_profit.group_viewer,base.group_system"/>
-    <menuitem id="menu_months" name="Лінії × місяці" parent="menu_root" action="action_months" sequence="1"/>
+    <!-- Додаток «Прибутковість»: бачить лише група «Прибутковість: перегляд» (редактор її містить; п. 8 завдання круга 2 — адміністратор
+         поза групою меню не бачить, склад групи — дані, пише інструмент штабу). «Огляд» — першим. Іконки додатка немає (картинка — навиком
+         visual) -->
+    <menuitem id="menu_root" name="Прибутковість" sequence="187" groups="workset_profit.group_viewer"/>
+    <menuitem id="menu_overview" name="Огляд" parent="menu_root" action="action_overview" sequence="0"/>
+    <menuitem id="menu_matrix" name="Лінії × місяці" parent="menu_root" action="action_matrix" sequence="1"/>
     <menuitem id="menu_cost_rules" name="Хто платить" parent="menu_root" action="action_cost_rules" sequence="2"/>
     <menuitem id="menu_dkv_cards" name="Картки DKV" parent="menu_root" action="action_dkv_cards" sequence="3"/>
     <menuitem id="menu_dkv_txns" name="Транзакції DKV" parent="menu_root" action="action_dkv_txns" sequence="4"/>
     <menuitem id="menu_map" name="Розмітка аналітики" parent="menu_root" action="action_map" sequence="5"/>
+    <menuitem id="menu_months" name="Рядки розрахунку" parent="menu_root" action="action_months" sequence="6"/>
 </odoo>
