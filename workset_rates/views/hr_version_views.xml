@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Версія договору (Odoo 19 — у формі працівника, вкладка «Payroll»): одна строка «Тимчасово (не база)» — лише додавання, xpath за name
-         сторінки (вона є в hr і з модулем зарплат; рядки всередині модуль зарплат перебудовує). Позначена версія не змінює ставку (А6) -->
+    <!-- Версія договору (Odoo 19 — у формі працівника, вкладка «Payroll»): строки «Тимчасово (не база)» і «Повна ставка» — лише додавання,
+         xpath за name сторінки (вона є в hr і з модулем зарплат; рядки всередині модуль зарплат перебудовує, тож поруч зі ставкою договору
+         поле стоїть лише у формі самої версії — hr_version.add_temporary_row). Позначена «Тимчасово» версія не змінює ставку (А6); «Повна
+         ставка» — сума фонду працівників за домовленістю -->
     <record id="view_employee_form_rates_temporary" model="ir.ui.view">
         <field name="name">hr.employee.form.workset.rates.temporary</field>
         <field name="model">hr.employee</field>
@@ -11,6 +13,7 @@
             <xpath expr="//page[@name='payroll_information']" position="inside">
                 <group name="workset_rates_temporary" groups="hr.group_hr_user">
                     <field name="workset_temporary"/>
+                    <field name="workset_full_rate"/>
                 </group>
             </xpath>
         </field>

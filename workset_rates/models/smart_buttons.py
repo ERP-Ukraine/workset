@@ -23,19 +23,8 @@ class ResPartner(models.Model):
             p.workset_is_worker = p.id in ids
 
     def _search_workset_is_worker(self, operator, value):
-        # Odoo 19 може передати і «=» / «!=» з True / False, і «in» / «not in» зі списком — як _search_has_raise ставки
-        values = set(value) if isinstance(value, (list, tuple, set, frozenset)) else {value}
-        if operator in ('!=', 'not in'):
-            values = {True, False} - {bool(v) for v in values}
-        elif operator in ('=', 'in'):
-            values = {bool(v) for v in values}
-        else:
-            raise ValueError('workset_is_worker: %s' % operator)
-        if values == {True, False}:
-            return []
-        if not values:
-            return [('id', '=', 0)]
-        return [('id', 'in' if True in values else 'not in', list(self._worker_partner_ids()))]
+        # оператор і значення в будь-якому вигляді Odoo 19 (in / not in з OrderedSet) — як _search_has_raise ставки (calc.bool_search)
+        return calc.bool_search(operator, value, self._worker_partner_ids())
 
     def _compute_workset_rate_count(self):
         # sudo — лише на лічильник (назовні йде число); замовник — ставки в нього, працівник — його ставки

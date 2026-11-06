@@ -56,11 +56,15 @@ class TestWorksetRates(TransactionCase):
         cls.emp_b = Emp.with_company(cls.co_b).create({'name': 'Тест працівник', 'company_id': cls.co_b.id, 'hourly_cost': 10, 'work_contact_id': cls.person.id})
         cls.emp_uah = Emp.with_company(cls.co_uah).create({'name': 'Тест працівник', 'company_id': cls.co_uah.id, 'hourly_cost': 300, 'work_contact_id': cls.person.id})
         cls.emp_out = Emp.with_company(cls.co_out).create({'name': 'Тест працівник', 'company_id': cls.co_out.id, 'hourly_cost': 10, 'work_contact_id': cls.person.id})
+        # проєкти — «Billable», як усі проєкти з картою на проді: у неоплачуваного проєкту sale_project (Odoo 18–19, _compute_partner_id)
+        # стирає замовника, щойно змінюється карта, — пара «людина × замовник» зникає, і А1 / А2 не бачать рядків (перша збірка Odoo.sh 06.11)
         Project = env['project.project']
-        cls.p_a = Project.with_company(cls.co_a).create({'name': 'Тест об’єкт А', 'partner_id': cls.cust.id, 'company_id': cls.co_a.id})
-        cls.p_b = Project.with_company(cls.co_b).create({'name': 'Тест об’єкт Б', 'partner_id': cls.cust.id, 'company_id': cls.co_b.id})
-        cls.p_uah = Project.with_company(cls.co_uah).create({'name': 'Тест об’єкт гривня', 'partner_id': cls.cust.id, 'company_id': cls.co_uah.id})
-        cls.p_out = Project.with_company(cls.co_out).create({'name': 'Тест об’єкт поза', 'partner_id': cls.cust.id, 'company_id': cls.co_out.id})
+        cls.p_a = Project.with_company(cls.co_a).create({'name': 'Тест об’єкт А', 'partner_id': cls.cust.id, 'company_id': cls.co_a.id, 'allow_billable': True})
+        cls.p_b = Project.with_company(cls.co_b).create({'name': 'Тест об’єкт Б', 'partner_id': cls.cust.id, 'company_id': cls.co_b.id, 'allow_billable': True})
+        cls.p_uah = Project.with_company(cls.co_uah).create({'name': 'Тест об’єкт гривня', 'partner_id': cls.cust.id, 'company_id': cls.co_uah.id,
+                                                            'allow_billable': True})
+        cls.p_out = Project.with_company(cls.co_out).create({'name': 'Тест об’єкт поза', 'partner_id': cls.cust.id, 'company_id': cls.co_out.id,
+                                                            'allow_billable': True})
         Map = env['project.sale.line.employee.map']
         cls.m_a = Map.create({'project_id': cls.p_a.id, 'employee_id': cls.emp_a.id})
         cls.m_b = Map.create({'project_id': cls.p_b.id, 'employee_id': cls.emp_b.id})
@@ -154,7 +158,9 @@ class TestWorksetRates(TransactionCase):
     # ——— А2 ———
     def test_a2_new_map_line_and_employee_change(self):
         self._rate()
-        p2 = self.env['project.project'].with_company(self.co_a).create({'name': 'Тест об’єкт А2', 'partner_id': self.cust.id, 'company_id': self.co_a.id})
+        p2 = self.env['project.project'].with_company(self.co_a).create({'name': 'Тест об’єкт А2', 'partner_id': self.cust.id, 'company_id': self.co_a.id,
+                                                                         'allow_billable': True})
+        self.assertEqual(self.p_a.partner_id, self.cust, 'замовник проєкту з картою — на місці (Billable)')
         m2 = self.env['project.sale.line.employee.map'].create({'project_id': p2.id, 'employee_id': self.emp_a.id})
         self.assertAlmostEqual(m2.cost, 14, msg='А2: новий рядок одразу за ставкою')
         self.assertTrue(m2.is_cost_changed)
@@ -1218,6 +1224,20 @@ class TestWorksetRates(TransactionCase):
         self.assertIn('name="workset_temporary"', arch)
         self.assertLess(arch.index('workset_temporary'), arch.index('<notebook'), 'рядок — у sheet перед вкладками')
         self.assertEqual(arch.count('name="workset_temporary"'), 1)
+        self.assertEqual(arch.count('name="workset_full_rate"'), 1, '«Повна ставка» — ставки договору у формі немає, тож у тому самому рядку')
+
+    def test_c_full_rate_next_to_hourly_wage(self):
+        # форма версії з погодинною ставкою (модуль зарплат): «Повна ставка» — одразу після рядка групи зі ставкою (div-рядок із підписом)
+        from ..models.hr_version import add_temporary_row
+        arch = etree.fromstring('<form><sheet><group><label for="hourly_wage"/><div class="o_row" name="w"><field name="hourly_wage"/><span>h</span></div>'
+                                '<field name="date_version"/></group><notebook><page name="p"/></notebook></sheet></form>')
+        add_temporary_row(arch)
+        full = arch.xpath("//field[@name='workset_full_rate']")
+        self.assertEqual(len(full), 1)
+        self.assertEqual(full[0].getprevious().get('name'), 'w', 'після div-рядка ставки, у тій самій групі')
+        self.assertEqual(full[0].getparent().tag, 'group')
+        add_temporary_row(arch)
+        self.assertEqual(len(arch.xpath("//field[@name='workset_full_rate']")), 1, 'повторний виклик — без дубля')
 
     def test_m2b_a6_error_wrapped(self):
         wages = {}
@@ -1416,7 +1436,10 @@ class TestWorksetRates(TransactionCase):
         r.sudo().write({'contract_version_id': self.emp_a.version_ids[:1].id})
         r.invalidate_recordset(['raise_ids'])
         self.assertTrue(r.raise_ids)
-        self.assertEqual(self._web_read_form(editor, r, 'view_rate_form')[0]['id'], r.id)
+        row = self._web_read_form(editor, r, 'view_rate_form')[0]
+        self.assertEqual(row['id'], r.id)
+        self.assertIn('Тест фірма А · діє', row['employee_summary'], 'картки у фірмах — і без прав кадрів (без поля hr.employee)')
+        self.assertNotIn('employee_ids', row)
         self.assertTrue(self._web_read_form(editor, self.line_rule, 'view_rule_form'))
         self.assertTrue(self._web_read_form(editor, r.raise_ids[:1], 'view_raise_form'))
         # меню: «Бонуси офісу» — лише «перегляд» і вище; решта нових — усім, хто бачить «Ставки»
@@ -1561,6 +1584,9 @@ class TestWorksetRates(TransactionCase):
         pair = (r | none).ids
         self.assertEqual(self.R.search([('has_raise', '=', True), ('id', 'in', pair)]), r, 'фільтр «Є тимчасова зміна»')
         self.assertEqual(self.R.search([('has_raise', '=', False), ('id', 'in', pair)]), none)
+        # Odoo 19 приносить у метод пошуку «in» / «not in» з OrderedSet — той самий результат (перша збірка Odoo.sh: unhashable)
+        self.assertEqual(self.R.search([('has_raise', 'not in', [False]), ('id', 'in', pair)]), r)
+        self.assertEqual(self.R.search([('has_raise', 'in', [True, False]), ('id', 'in', pair)]), r | none)
         self.assertIn('після бонусів 5', r.card_line)
         act = r.action_new_raise()
         self.assertEqual((act['res_model'], act['context']['default_person_id'], act['context']['default_customer_id']),
@@ -1606,7 +1632,7 @@ class TestWorksetRates(TransactionCase):
         card = [c for c in res['lines'] if c['id'] == self.line.id][0]
         self.assertEqual((card['working'], card['below_min'], card['agent']), (2, 1, 'no'))
         self.assertEqual(len(card['spark_values']), calc.SPARK_MONTHS)
-        self.assertEqual([x['key'] for x in res['alerts']], ['raise_soon', 'future', 'no_line', 'to_check'])
+        self.assertEqual([x['key'] for x in res['alerts']], ['raise_soon', 'future', 'no_line', 'to_check', 'no_rate', 'talk'])
         self.assertEqual([x for x in res['alerts'] if x['key'] == 'future'][0]['ids'], fut.ids, 'майбутня ставка лінії — у тривозі «на 7 днів»')
         self.assertEqual(sum(x['count'] for x in res['buckets']), 2)
         self.assertEqual(res['found'], {'us': 1, 'line': 1, 'none': 0})
@@ -1755,7 +1781,7 @@ class TestWorksetRates(TransactionCase):
         self.assertEqual((res['lines'], res['buckets'], res['found'], res['check']), ([], [], {'us': 0, 'line': 0, 'none': 0}, False))
         self.assertEqual(len(res['series']['total']), 24)
         self.assertTrue(all(p['count'] == 0 and p['avg_share'] == 0 for p in res['series']['total']))
-        self.assertEqual([x['count'] for x in res['alerts'] if x['model'] == 'workset.rate'], [0, 0, 0])
+        self.assertEqual([x['count'] for x in res['alerts'] if x['model'] == 'workset.rate'], [0, 0, 0, 0], 'майбутні, без лінії, перевірити, переговорити')
 
     def test_b_overview_rights(self):
         hr_user = new_test_user(self.env, login='ws_b_hr', groups='base.group_user,hr.group_hr_user')
@@ -1932,3 +1958,133 @@ class TestWorksetRates(TransactionCase):
         self.assertFalse(self.env['ir.config_parameter'].sudo().get_param(calc.P_A6_MODE), 'a6_mode не створюється — А6 вимкнено')
         post.migrate(self.env.cr, '19.0.1.0.0')
         self.assertEqual(self.env['workset.rate.rule'].search_count([('line_id', '=', lt.id)]), 1, 'повторний запуск правил не множить')
+
+    # ——— круг 06.11 (c): фонд працівників, оренда авто, правка зі списку, «Переговорити», «працюють без ставки», зарплата за договором ———
+    def _fund_deals(self, rate_full=1.5):
+        # вигадані суми: фонд 2,5 (неповна ставка) / 1,5 (повна), посередник 0,75 — домовленості того самого замовника
+        deal = {'state': 'active', 'customer_ids': [self.cust.id], 'line_id': 0, 'date_from': '', 'date_to': ''}
+        return [dict(deal, **{'id': 21, 'kind': 'worker_fund', 'rate': 2.5, 'rate_full': rate_full, 'agent': 'Тест фонд'}),
+                dict(deal, **{'id': 22, 'kind': 'hour', 'rate': 0.75, 'rate_full': None, 'agent': 'Тест посередник'})]
+
+    def test_c_worker_fund_and_car_rent(self):
+        self._quiet_bonuses()
+        self.line_rule.car_rent = 0.5
+        v = self.emp_a.version_ids.sorted('date_version')[:1]
+        v.write({'date_version': OLD})
+        self.emp_a._compute_current_version_id()
+        with patch.object(agent_deals, 'read_deals', return_value=self._fund_deals()), patch.object(agent_deals, 'read_people', return_value=[]):
+            r = self._rate()
+            self.assertEqual((r.price, r.agent_client_share, r.worker_fund_share, r.car_rent_share), (19, 0.75, 2.5, 0.5),
+                             'фонд — окремо від посередника; оренда авто — з загальної ставки')
+            self.assertEqual(r.our_share, 1.25, 'частка = 19 − 14 − посередник 0,75 − фонд 2,5 − оренда 0,5')
+            self.assertIn('14 + 1,25 + 0,75 + 2,5 + 0,5 = 19', r.formula)
+            v.write({'workset_full_rate': True})
+            self.assertEqual((r.worker_fund_share, r.our_share), (1.5, 2.25), 'повна ставка в договорі — сума фонду «на повну ставку», одразу')
+            plan = self.R._plan_at([(self.person.id, self.cust.id)], DAY)[(self.person.id, self.cust.id)]
+            self.assertEqual((plan['worker_fund_share'], plan['car_rent_share'], plan['our_share']), (1.5, 0.5, 2.25),
+                             '«Прибутковість»: фонд і оренда поруч із часткою (частка — уже без них)')
+        with patch.object(agent_deals, 'read_deals', return_value=self._fund_deals(rate_full=None)), patch.object(agent_deals, 'read_people', return_value=[]):
+            r._chain(full=False)
+            self.assertEqual(r.worker_fund_share, 2.5, 'поля «на повну ставку» в домовленості немає — завжди основна сума')
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            editor = new_test_user(self.env, login='ws_c_fund_editor', groups='base.group_user,workset_rates.group_editor')
+            self.line_rule.with_user(editor).with_context(allowed_company_ids=[editor.company_id.id]).write({'car_rent': 1.5})
+
+    def test_c_edit_from_list(self):
+        self._quiet_bonuses()
+        a, b = self._no_agents()
+        Edit = self.env['workset.rate.edit']
+        with a, b:
+            r = self._rate()
+            act = r.action_edit_wage()
+            self.assertEqual((act['res_model'], act['context']['default_value'], act['context']['default_date']), ('workset.rate.edit', 14, DAY))
+            # «Нова ставка з дати»: нова ставка пари з дати, попередня закінчується напередодні, частка — одразу
+            Edit.create({'rate_id': r.id, 'what': 'wage', 'value': 15, 'date': NEXT, 'reason': 'тест: розмова', 'source': 'call'}).action_new_from_date()
+            new = self.R.search([('person_id', '=', self.person.id), ('customer_id', '=', self.cust.id), ('date_from', '=', NEXT)])
+            self.assertEqual((len(new), new.wage, new.price, new.our_share, new.state, new.source), (1, 15, 20, 5, 'future', 'call'))
+            self.assertEqual((r.wage, calc.iso(r.date_to)), (14, DAY), 'попередня не переписана, закінчується напередодні')
+            with self.assertRaises(UserError), self.env.cr.savepoint():
+                Edit.create({'rate_id': r.id, 'what': 'wage', 'value': 16, 'date': DAY}).action_new_from_date()
+            # «Виправити помилку»: без причини — ні; з причиною — число в цій самій ставці й причина в історії
+            fix = Edit.create({'rate_id': r.id, 'what': 'price', 'value': 21, 'date': DAY})
+            with self.assertRaises(UserError), self.env.cr.savepoint():
+                fix.action_fix()
+            self.assertEqual(r.price, 19)
+            fix.reason = 'тест: помилка введення'
+            fix.action_fix()
+            self.assertEqual((r.price, r.is_own, r.own_reason, r.our_share), (21, True, 'тест: помилка введення', 7))
+            self.assertTrue(any('Виправлено помилку' in str(m.body) and 'тест: помилка введення' in str(m.body) for m in r.message_ids))
+            # посередник лише цій людині — своє значення з причиною замість домовленостей; «За домовленістю» — назад
+            Edit.create({'rate_id': r.id, 'what': 'agent', 'value': 0.5, 'date': DAY, 'agent_scope': 'person', 'reason': 'тест: домовились'}).action_fix()
+            self.assertEqual((r.agent_own, r.agent_client_share, r.our_share), (True, 0.5, 6.5))
+            self.assertIn('тест: домовились', r.agent_client_note)
+            r.action_agent_by_deal()
+            self.assertEqual((r.agent_own, r.agent_client_share, r.our_share), (False, 0, 7))
+        # права: кадри читають ставки, але майстер правки не відкривають
+        hr_user = new_test_user(self.env, login='ws_c_edit_hr', groups='base.group_user,hr.group_hr_user')
+        with self.assertRaises(AccessError):
+            Edit.with_user(hr_user).with_context(allowed_company_ids=[hr_user.company_id.id]).create({'rate_id': r.id, 'what': 'wage', 'value': 15, 'date': DAY})
+        with self.assertRaises(AccessError):
+            r.with_user(hr_user).with_context(allowed_company_ids=[hr_user.company_id.id]).action_talk()
+
+    def test_c_talk_task_and_overview_alert(self):
+        self._isolate()
+        self._quiet_bonuses()
+        a, b = self._no_agents()
+        with a, b:
+            r = self._rate()
+        admin = self.env.ref('base.user_admin')
+        talk = self.env['workset.rate.talk'].create({'rate_id': r.id, 'user_id': admin.id})
+        self.assertEqual(talk.summary, 'Переговорити: зарплата 14, платять 19, частка 5')
+        talk.action_create()
+        acts = self.env['mail.activity'].search([('res_model', '=', 'workset.rate'), ('res_id', '=', r.id)])
+        self.assertEqual((len(acts), acts.user_id, acts.summary), (1, admin, talk.summary), 'задача на ставці для обраного користувача')
+        alert = [x for x in self.R.rates_overview([], 6)['alerts'] if x['key'] == 'talk'][0]
+        self.assertEqual((alert['count'], alert['ids'], alert['rows'][0]['id']), (1, r.ids, r.id), '«Тривоги» «Огляду» — рядок «Переговорити»')
+
+    def test_c_norate_pairs_without_map_row(self):
+        # людина з табелями в проєкті замовника, а рядка карти й ставки немає — раніше звірка її не бачила (лише рядки карти)
+        self._isolate()
+        self._quiet_bonuses()
+        a, b = self._no_agents()
+        with a, b:
+            self._rate()
+        other = self.env['hr.employee'].with_company(self.co_a).create({'name': 'Тест без карти', 'company_id': self.co_a.id})
+        groups = [(other, self.p_a, 16.0, calc.to_date(DAY), 77), (self.emp_a, self.p_a, 8.0, calc.to_date(DAY), 78)]
+        with patch.object(type(self.env['account.analytic.line']), '_read_group', return_value=groups):
+            pairs = self.R._norate_pairs(DAY)
+            res = self.R.rates_check()
+            ov = self.R.rates_overview([], 6)
+            ov_other = self.R.rates_overview([('customer_id', '=', self.cust2.id)], 6)
+        self.assertEqual([(p['person'], p['cust'], p['hours']) for p in pairs], [(other.work_contact_id.id, self.cust.id, 16)], 'пара зі ставкою — ні')
+        self.assertEqual(res['sections']['nomap'], 1)
+        body = self.env['workset.rate.check'].search([('date', '=', DAY)]).body
+        self.assertIn('Тест без карти', body)
+        self.assertIn('немає в карті проєкту', body)
+        alert = [x for x in ov['alerts'] if x['key'] == 'no_rate'][0]
+        self.assertEqual((alert['count'], alert['model'], alert['rows'][0]['new']['default_person_id']), (1, 'account.analytic.line', other.work_contact_id.id),
+                         'тривога «Працюють без ставки»: рядок — нова ставка цієї пари')
+        self.assertEqual([x for x in ov_other['alerts'] if x['key'] == 'no_rate'][0]['count'], 0, 'фільтр сторінки за іншим замовником — ні')
+
+    def test_c_wage_from_contract(self):
+        self._isolate()
+        self._quiet_bonuses()
+        wages = {}
+        a, b = self._no_agents()
+        h, c = self._contracts(wages)
+        with a, b, h, c:
+            self._base_version(wages)
+            r = self._rate()
+            self._a6(False)  # А6 вимкнено (як на проді після переносу): нова версія договору ставку не змінює
+            self._version(wages, LATER, 15)
+            self.emp_a._compute_current_version_id()
+            self.assertFalse(self._pair(LATER))
+            plan = self.R.rates_wage_from_contract()
+            self.assertEqual([(x['rate_id'], x['date'], x['wage_was'], x['wage_new'], x['price_was'], x['price_new']) for x in plan['rows']],
+                             [(r.id, LATER, 14, 15, 19, 20)], 'план: було → стало з дати версії; надбавка — + різниця')
+            self.assertFalse(self._pair(LATER), 'план нічого не пише')
+            done = self.R.rates_wage_from_contract([r.id], apply=True)
+            new = self._pair(LATER)
+            self.assertEqual((done['created'], new.wage, new.price, new.wage_source, new.source), (1, 15, 20, 'contract', 'contract'))
+            self.assertEqual(calc.iso(r.date_to), calc.add_days(LATER, -1))
+            self.assertFalse(self.R.rates_wage_from_contract()['rows'], 'повтор — нічого')

@@ -19,6 +19,7 @@
                 <field name="fixed_month" string="Фікс" widget="monetary" options="{'currency_field': 'currency_id'}" optional="show"/>
                 <field name="min_share" string="Мінімум" widget="monetary" options="{'currency_field': 'currency_id'}" optional="show"/>
                 <field name="client_price" widget="monetary" options="{'currency_field': 'currency_id'}" optional="show"/>
+                <field name="car_rent" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide"/>
                 <field name="date_from" options="{'numeric': True}"/>
                 <field name="date_to" options="{'numeric': True}" optional="show"/>
                 <field name="state" widget="badge" decoration-success="state == 'current'" decoration-info="state == 'future'" decoration-muted="state == 'past'"/>
@@ -125,6 +126,11 @@
                             <field name="client_price_source" string="Джерело ціни" invisible="not client_price" required="client_price"/>
                             <field name="client_price_date" string="Дата ціни" invisible="not client_price" required="client_price" options="{'numeric': True}"/>
                             <field name="people_agent_payer" string="Хто платить агенту" placeholder="Лінія"/>
+                            <label for="car_rent" string="Оренда авто"/>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap">
+                                <field name="car_rent" nolabel="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
+                                <div class="text-muted">€/год</div>
+                            </div>
                         </group>
                     </group>
                     <group>
