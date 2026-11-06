@@ -36,20 +36,20 @@ class WorksetRateRule(models.Model):
                                   help='Порожньо — правило всієї лінії; замовник — тариф цього замовника (точніше за правило лінії)')
     level = fields.Selection(LEVELS, string='Рівень', compute='_compute_level', store=True, index=True)
     anchor = fields.Selection(ANCHORS, string='Якір', required=True, tracking=3,
-                              help='Надбавка: росте на руки — росте ціна. Тариф: ціна та сама — зменшується наша частка.')
+                              help='Надбавка: росте зарплата працівника — росте «Платять нам». Тариф: «Платять нам» те саме — зменшується наша частка.')
     price_mode = fields.Selection(PRICE_MODES, string='Тип ціни', required=True, default='hour', tracking=4,
-                                  help='За годину — замовник платить ціну за годину. Фікс за місяць — замовник платить на руки за години як є '
+                                  help='За годину — замовник платить ціну за годину. Фікс за місяць — замовник платить зарплату працівника за години як є '
                                        'і фіксовану суму за оформлення людини на місяць.')
     currency_id = fields.Many2one('res.currency', string='Валюта', default=lambda self: self.env.ref('base.EUR', raise_if_not_found=False))
     # гроші правила — як у ставці, з усередненням: у рядку групи («Лінія») — середнє, не сума (розділ 3.9 спеціфікації М2)
     share_line_found = fields.Monetary(string='Знайшла лінія', currency_field='currency_id', tracking=5, aggregator='avg',
-                                       help='€/год зверху «на руки», якщо людину дала лінія (у тарифу — для стартової ціни нової людини)')
+                                       help='€/год зверху зарплати працівника, якщо людину дала лінія (у тарифу — для стартової ціни нової людини)')
     share_we_found = fields.Monetary(string='Знайшли ми', currency_field='currency_id', tracking=6, aggregator='avg',
-                                     help='€/год зверху «на руки», якщо людину знайшли ми (у тарифу — для стартової ціни нової людини)')
-    price = fields.Monetary(string='Ціна нам', currency_field='currency_id', tracking=7, aggregator='avg',
+                                     help='€/год зверху зарплати працівника, якщо людину знайшли ми (у тарифу — для стартової ціни нової людини)')
+    price = fields.Monetary(string='Платять нам', currency_field='currency_id', tracking=7, aggregator='avg',
                             help='У тарифу — скільки замовник платить нам за годину')
     fixed_month = fields.Monetary(string='Фікс за місяць', currency_field='currency_id', tracking=8, aggregator='avg',
-                                  help='Замовник платить на руки за години як є і фіксовану суму за оформлення людини на місяць.')
+                                  help='Замовник платить зарплату працівника за години як є і фіксовану суму за оформлення людини на місяць.')
     min_share = fields.Monetary(string='Мінімум частки', currency_field='currency_id', tracking=9, aggregator='avg',
                                 help='Нижче цієї частки WorkSET (€/год) ставка червона. Порожньо — мінімум лінії, а де його немає — за замовчуванням.')
     client_price = fields.Monetary(string='Ціна клієнта', currency_field='currency_id', tracking=10, aggregator='avg',

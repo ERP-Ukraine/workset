@@ -2,14 +2,15 @@
  *  Дані — ОДИН виклик workset.rate.rates_overview(домен фільтра, місяців, only_working): плитки, картки ліній, ряди графіків, тривоги,
  *  списки ліній і замовників для фільтра, підписи рядів мовою користувача. Фільтр (лінії, замовник, період, «тільки працюють») — у
  *  localStorage браузера окремо для кожного користувача. Графіки — Chart.js, який уже вантажить web (бандл web.chartjs_lib), кольори —
- *  штатна палітра Odoo й змінні Bootstrap теми (світла й темна). Клік по плитці, картці чи тривозі — штатний список або картка. */
+ *  штатна палітра Odoo й змінні Bootstrap теми (світла й темна). Клік по числу смуги, «пігулці», картці лінії, стовпцю розподілу, сектору
+ *  «Хто знайшов» — штатний список за описом, який сервер прислав поруч із числом (open: дія, заголовок, домен, фільтри пошуку; openList
+ *  лише виконує його) — число на елементі = число рядків списку; клік по тривозі — список або картка. */
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { loadBundle } from "@web/core/assets";
 import { browser } from "@web/core/browser/browser";
 import { cookie } from "@web/core/browser/cookie";
 import { getColor, hexToRGBA } from "@web/core/colors/colors";
-import { Domain } from "@web/core/domain";
 import { user } from "@web/core/user";
 import { formatFloat } from "@web/views/fields/formatters";
 import { Layout } from "@web/search/layout";
@@ -21,19 +22,7 @@ import { Component, onWillStart, useEffect, useRef, useState } from "@odoo/owl";
 const RATE = "workset.rate";
 const MONTHS = [6, 12, 24];
 const STORE = "workset_rates.overview.";
-const CURRENT = "workset_rates.action_rates_current";
 const ALL = "workset_rates.action_rates_all";
-// плитка → дія й фільтри пошуку «Ставок» (search_default_* — знімні фасети) поверх фільтра сторінки; working — завжди «Працюють»,
-// решта — «Працюють» лише коли ввімкнено «Тільки працюють» (ті самі ставки, з яких пораховано число)
-const TILES = {
-    working: { action: CURRENT, ctx: { search_default_current: 1 }, working: true },
-    avg: { action: CURRENT, ctx: { search_default_current: 1 } },
-    below_min: { action: CURRENT, ctx: { search_default_current: 1, search_default_share_low: 1 } },
-    raises: { action: CURRENT, ctx: { search_default_current: 1, search_default_has_raise: 1 } },
-    contract_diff: { action: CURRENT, ctx: { search_default_contract_diff: 1 } },
-    no_line: { action: ALL, ctx: { search_default_current: 1 }, domain: [["line_id", "=", false]] },
-    to_check: { action: ALL, ctx: { search_default_current: 1, search_default_to_check: 1 } },
-};
 const ALERT_ACTIONS = { "workset.rate": ALL, "workset.rate.raise": "workset_rates.action_raises" };
 
 export function defaultFilter() {
@@ -195,14 +184,9 @@ export class RatesOverview extends Component {
         return Boolean(d && (d.check || d.alerts.some((a) => a.count)));
     }
 
-    /** Плитка пораховано по всіх діючих ставках (не лише по тих, хто працює) — коли «Тільки працюють» вимкнено. */
+    /** Середні смуги пораховано по всіх діючих ставках (не лише по тих, хто працює) — коли «Тільки працюють» вимкнено. */
     allRates(key) {
         return !this.filter.working && ["avg", "below_min", "raises"].includes(key);
-    }
-
-    /** Колір плитки середньої частки за порогами (сервер: share_tone / net_tone) — лише класи тексту Bootstrap. */
-    toneClass(tone) {
-        return { low: "text-danger", good: "text-success" }[tone] || "";
     }
 
     money(value) {
@@ -217,25 +201,57 @@ export class RatesOverview extends Component {
         return day ? luxon.DateTime.fromISO(day).toFormat("dd.MM") : "";
     }
 
-    // ——— переходи ———
-    async openTile(key) {
-        const t = TILES[key] || TILES.working;
-        const action = await this.action.loadAction(t.action);
-        const context = { ...t.ctx };
-        if (t.working || this.filter.working) {
-            context.searchpanel_default_work_group = "g1_work";
-        }
-        this.action.doAction({ ...action, domain: Domain.and([this.domain(), t.domain || []]).toList(), context });
+    /** Сума без зайвих нулів: 3 → «3», 1,5 → «1,5». */
+    plain(value) {
+        return formatFloat(value || 0, { digits: [16, 2], trailingZeros: false });
     }
 
-    async openLine(line) {
-        const action = await this.action.loadAction(CURRENT);
-        const context = { search_default_current: 1, searchpanel_default_line_id: line.id };
-        if (this.filter.working) {
-            context.searchpanel_default_work_group = "g1_work";
+    /** Посередники картки лінії одним рядком: «Ім'я −сума €»; суми різні — «Ім'я від −найменша €». Порожньо, якщо посередників немає. */
+    agentText(line) {
+        const from = this.data.labels.agent_from;
+        return (line.agents || [])
+            .map((a) => {
+                const sum = a.min === a.max ? `−${this.plain(a.max)} €` : `${from} −${this.plain(a.min)} €`;
+                return a.name ? `${a.name} ${sum}` : sum;
+            })
+            .join(", ");
+    }
+
+    /** Підпис із сервера з підстановкою %s по черзі: підпис("Частка %s", "5–6") */
+    fill(text, ...args) {
+        let i = 0;
+        return String(text).replace(/%s/g, () => String(args[i++] ?? ""));
+    }
+
+    // ——— переходи ———
+    /** Єдиний вхід у список ставок: опис від сервера (rates_overview → open) — дія, заголовок вікна, домен (фільтр сторінки вже в ньому),
+     *  фільтри пошуку й панель зліва. Тут нічого не додається: число на елементі пораховано по тих самих ставках. */
+    async openList(spec) {
+        if (!spec) {
+            return;
         }
-        const domain = this.filter.customer ? [["customer_id", "=", this.filter.customer]] : [];
-        this.action.doAction({ ...action, domain, context });
+        const act = await this.action.loadAction(spec.action);
+        this.action.doAction({ ...act, name: spec.title, domain: spec.domain, context: spec.context });
+    }
+
+    openTile(key) {
+        return this.openList(this.data.open.tiles[key]);
+    }
+
+    /** Стовпець «Розподілу частки»: ставки з часткою стовпця. */
+    openBucket(index) {
+        const b = this.data.buckets[index];
+        return this.openList(b && b.open);
+    }
+
+    /** Сектор «Хто знайшов»: ми / лінія / не вказано. */
+    openFound(kind) {
+        return this.openList(this.data.open.found[kind]);
+    }
+
+    /** Картка лінії → ставки, з яких пораховано картку (лінія вибрана в панелі зліва). */
+    openLine(line) {
+        return this.openList(line.open);
     }
 
     async openAlert(alert) {
@@ -308,6 +324,20 @@ export class RatesOverview extends Component {
                 },
             })
         );
+        // клік по елементу графіка відкриває список, курсор-вказівник — лише над елементом
+        const clickable = (open) => ({
+            onClick: (_ev, elements) => {
+                if (elements.length) {
+                    open(elements[0].index);
+                }
+            },
+            onHover: (ev, elements) => {
+                const el = ev.native && ev.native.target;
+                if (el) {
+                    el.style.cursor = elements.length ? "pointer" : "default";
+                }
+            },
+        });
         this.charts.push(
             new Chart(this.bucketsRef.el, {
                 type: "bar",
@@ -315,17 +345,57 @@ export class RatesOverview extends Component {
                     labels: d.buckets.map((b) => b.label),
                     datasets: [{ label: L.people, data: d.buckets.map((b) => b.count), backgroundColor: primary, borderRadius: 3 }],
                 },
-                options: { ...base, plugins: { legend: { display: false } }, scales: { x: axis, y: { ...axis, beginAtZero: true, ticks: { color: text, precision: 0 } } } },
+                options: {
+                    ...base,
+                    ...clickable((i) => this.openBucket(i)),
+                    plugins: { legend: { display: false } },
+                    scales: { x: axis, y: { ...axis, beginAtZero: true, ticks: { color: text, precision: 0 } } },
+                },
             })
         );
+        // «Хто знайшов»: «Не вказано» — нейтральний сірий (змінна теми), щоб не збігатися з «Знайшли ми»; поле порожнє в усіх — підпис у центрі,
+        // вписаний у дірку кільця (measureText: найширший рядок і висота блоку — не далі за 0,9 внутрішнього радіуса від центру)
+        const kinds = ["us", "line", "none"];
+        const total = d.found.us + d.found.line + d.found.none;
+        const empty = total > 0 && d.found.us + d.found.line === 0;
+        const neutral = css.getPropertyValue("--bs-gray-500").trim() || grid || color(5);
+        const centerText = {
+            id: "wsFoundEmpty",
+            afterDraw: (chart) => {
+                if (!empty) {
+                    return;
+                }
+                const a = chart.chartArea;
+                const arc = chart.getDatasetMeta(0).data[0];
+                const cx = arc ? arc.x : (a.left + a.right) / 2;
+                const cy = arc ? arc.y : (a.top + a.bottom) / 2;
+                const inner = arc && arc.innerRadius ? arc.innerRadius : Math.min(a.width, a.height) * 0.3;
+                const ctx = chart.ctx;
+                const rows = this.fill(L.found_empty, total, total).split("\n");
+                const font = (px) => `600 ${px}px ${css.fontFamily}`;
+                let size = inner / 3;
+                ctx.save();
+                ctx.font = font(size);
+                const wide = Math.max(...rows.map((row) => ctx.measureText(row).width));
+                const tall = rows.length * size * 1.3;
+                size = Math.max(9, size * Math.min(1, (inner * 0.9) / Math.hypot(wide / 2, tall / 2)));
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = text || neutral;
+                ctx.font = font(size);
+                rows.forEach((row, i) => ctx.fillText(row, cx, cy + (i - (rows.length - 1) / 2) * size * 1.3));
+                ctx.restore();
+            },
+        };
         this.charts.push(
             new Chart(this.foundRef.el, {
                 type: "doughnut",
                 data: {
                     labels: [L.found_us, L.found_line, L.found_none],
-                    datasets: [{ data: [d.found.us, d.found.line, d.found.none], backgroundColor: [color(0), color(1), color(5)], borderWidth: 0 }],
+                    datasets: [{ data: [d.found.us, d.found.line, d.found.none], backgroundColor: [color(0), color(1), neutral], borderWidth: 0 }],
                 },
-                options: { ...base, cutout: "60%" },
+                options: { ...base, ...clickable((i) => this.openFound(kinds[i])), cutout: "60%" },
+                plugins: [centerText],
             })
         );
     }

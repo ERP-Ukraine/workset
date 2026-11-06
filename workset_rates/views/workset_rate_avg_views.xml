@@ -8,8 +8,8 @@
             <list string="Середні" create="0" edit="0" delete="0" default_order="work_count desc">
                 <field name="name" string="Розріз"/>
                 <field name="work_count" string="Працюють"/>
-                <field name="avg_wage" string="Середня на руки"/>
-                <field name="avg_price" string="Середня ціна"/>
+                <field name="avg_wage" string="Сер. зарплата працівника"/>
+                <field name="avg_price" string="Сер. платять нам"/>
                 <field name="avg_share" string="Середня частка WorkSET"/>
                 <field name="total" string="Усього ставок"/>
                 <field name="zero_share" string="Без частки" optional="show"/>

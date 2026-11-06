@@ -40,8 +40,9 @@ class WorksetLine(models.Model):
     good_share = fields.Float(string='Добра частка', help='Від цієї частки WorkSET (€/год) частка підсвічується зеленим. Порожньо — значення за замовчуванням.')
     rate_count = fields.Integer(string='Діючих ставок', compute='_compute_work')
     work_count = fields.Integer(string='Працюють', compute='_compute_work', help='Скільки людей лінії працює зараз (за табелями)')
-    avg_wage = fields.Float(string='Сер. на руки', compute='_compute_work', help='Середнє «На руки», €/год, по тих, хто працює зараз')
-    avg_price = fields.Float(string='Сер. ціна', compute='_compute_work', help='Середня «Ціна», €/год, по тих, хто працює зараз')
+    avg_wage = fields.Float(string='Сер. зарплата працівника', compute='_compute_work',
+                            help='Середня «Зарплата працівника», €/год, по тих, хто працює зараз')
+    avg_price = fields.Float(string='Сер. платять нам', compute='_compute_work', help='Середнє «Платять нам», €/год, по тих, хто працює зараз')
     avg_share = fields.Float(string='Сер. частка', compute='_compute_work', help='Середня «Частка WorkSET», €/год, по тих, хто працює зараз; частка ≤ 0 не входить')
 
     def _compute_rule(self):

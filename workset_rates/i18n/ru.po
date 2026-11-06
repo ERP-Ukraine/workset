@@ -216,7 +216,6 @@ msgstr "От этой доли WorkSET (€/час) доля подсвечив�
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__work_count
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_avg_list
-#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 #: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
 msgid "Працюють"
 msgstr "Работают"
@@ -229,32 +228,34 @@ msgstr "Сколько людей линии работает сейчас (по
 #. module: workset_rates
 #. odoo-javascript
 #: model:ir.model.fields,field_description:workset_rates.field_workset_line__avg_wage
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__avg_wage
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
-#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_avg_list
 #: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
-msgid "Сер. на руки"
-msgstr "Сред. на руки"
+msgid "Сер. зарплата працівника"
+msgstr "Сред. зарплата работника"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_line__avg_wage
-msgid "Середнє «На руки», €/год, по тих, хто працює зараз"
-msgstr "Среднее «На руки», €/час, по тем, кто работает сейчас"
+msgid "Середня «Зарплата працівника», €/год, по тих, хто працює зараз"
+msgstr "Средняя «Зарплата работника», €/час, по тем, кто работает сейчас"
 
 #. module: workset_rates
 #. odoo-javascript
 #: model:ir.model.fields,field_description:workset_rates.field_workset_line__avg_price
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__avg_price
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
-#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_avg_list
 #: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
-msgid "Сер. ціна"
-msgstr "Сред. цена"
+msgid "Сер. платять нам"
+msgstr "Сред. платят нам"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_line__avg_price
-msgid "Середня «Ціна», €/год, по тих, хто працює зараз"
-msgstr "Средняя «Цена», €/час, по тем, кто работает сейчас"
+msgid "Середнє «Платять нам», €/год, по тих, хто працює зараз"
+msgstr "Среднее «Платят нам», €/час, по тем, кто работает сейчас"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_line__avg_share
@@ -610,11 +611,13 @@ msgid "Порожньо — усі замовники"
 msgstr "Пусто — все заказчики"
 
 #. module: workset_rates
+#. odoo-javascript
 #: model:ir.model.fields,field_description:workset_rates.field_workset_office_bonus__line_ids
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_line_search
 #: model:ir.actions.act_window,name:workset_rates.action_lines
 #: model:ir.ui.menu,name:workset_rates.menu_lines
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 msgid "Лінії"
 msgstr "Линии"
 
@@ -688,6 +691,19 @@ msgid "Ми"
 msgstr "Мы"
 
 #. module: workset_rates
+#. odoo-javascript
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__wage
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Зарплата працівника"
+msgstr "Зарплата работника"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate__wage
+msgid "Скільки працівник отримує на руки за годину."
+msgstr "Сколько работник получает на руки за час."
+
+#. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__agent_share
 msgid "Частка посередника"
 msgstr "Доля посредника"
@@ -704,6 +720,7 @@ msgstr "Доля посредника из"
 
 #. module: workset_rates
 #: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__agent_source__deal
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
 msgid "Домовленість"
 msgstr "Договорённость"
 
@@ -732,8 +749,8 @@ msgstr "Правило, действующее на «Ставка с»: тар�
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate__anchor
 #: model:ir.model.fields,help:workset_rates.field_workset_rate_rule__anchor
-msgid "Надбавка: росте на руки — росте ціна. Тариф: ціна та сама — зменшується наша частка."
-msgstr "Надбавка: растёт на руки — растёт цена. Тариф: цена та же — уменьшается наша доля."
+msgid "Надбавка: росте зарплата працівника — росте «Платять нам». Тариф: «Платять нам» те саме — зменшується наша частка."
+msgstr "Надбавка: растёт зарплата работника — растёт «Платят нам». Тариф: «Платят нам» столько же — уменьшается наша доля."
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__price_mode
@@ -747,8 +764,8 @@ msgstr "Тип цены"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate__price_mode
-msgid "З загальної ставки; у «Своєї» можна змінити. Фікс за місяць: замовник платить на руки за години як є і фіксовану суму за оформлення людини на місяць."
-msgstr "Из общей ставки; у «Своей» можно изменить. Фикс за месяц: заказчик платит на руки за часы как есть и фиксированную сумму за оформление человека в месяц."
+msgid "З загальної ставки; у «Своєї» можна змінити. Фікс за місяць: замовник платить зарплату працівника за години як є і фіксовану суму за оформлення людини на місяць."
+msgstr "Из общей ставки; у «Своей» можно изменить. Фикс за месяц: заказчик платит зарплату работника за часы как есть и фиксированную сумму за оформление человека в месяц."
 
 #. module: workset_rates
 #: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__price_mode__hour
@@ -780,17 +797,19 @@ msgid "Чому своя"
 msgstr "Почему своя"
 
 #. module: workset_rates
+#. odoo-javascript
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__price
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate_rule__price
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rule_form
-msgid "Ціна нам"
-msgstr "Цена нам"
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Платять нам"
+msgstr "Платят нам"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate__price
-msgid "Що платить нам замовник або лінія за годину. Сама з загальної ставки: надбавка — на руки + частка за «Хто знайшов»; тариф — ціна тарифу; фікс за місяць — на руки. Змінили вручну й число ≠ правилу — ставка стає «Своєю»."
-msgstr "Что платит нам заказчик или линия за час. Сама из общей ставки: надбавка — на руки + доля по «Кто нашёл»; тариф — цена тарифа; фикс за месяц — на руки. Изменили вручную и число ≠ правилу — ставка становится «Своей»."
+msgid "Що платить нам замовник або лінія за годину. Сама з загальної ставки: надбавка — зарплата працівника + частка за «Хто знайшов»; тариф — ціна тарифу; фікс за місяць — зарплата працівника. Змінили вручну й число ≠ правилу — ставка стає «Своєю»."
+msgstr "Что платит нам заказчик или линия за час. Сама из общей ставки: надбавка — зарплата работника + доля по «Кто нашёл»; тариф — цена тарифа; фикс за месяц — зарплата работника. Изменили вручную и число ≠ правилу — ставка становится «Своей»."
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__rule_price
@@ -799,14 +818,14 @@ msgstr "По правилу"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate__rule_price
-msgid "«Ціна нам», яку дала б загальна ставка"
-msgstr "«Цена нам», которую дала бы общая ставка"
+msgid "«Платять нам», яке дала б загальна ставка"
+msgstr "«Платят нам», которое дала бы общая ставка"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate__fixed_month
 #: model:ir.model.fields,help:workset_rates.field_workset_rate_rule__fixed_month
-msgid "Замовник платить на руки за години як є і фіксовану суму за оформлення людини на місяць."
-msgstr "Заказчик платит на руки за часы как есть и фиксированную сумму за оформление человека в месяц."
+msgid "Замовник платить зарплату працівника за години як є і фіксовану суму за оформлення людини на місяць."
+msgstr "Заказчик платит зарплату работника за часы как есть и фиксированную сумму за оформление человека в месяц."
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__client_price
@@ -854,8 +873,8 @@ msgstr "Доля линии"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate__line_share
-msgid "Ціна клієнта − ціна нам, €/год. 0 — ціна клієнта невідома."
-msgstr "Цена клиента − цена нам, €/час. 0 — цена клиента неизвестна."
+msgid "Ціна клієнта − «Платять нам», €/год. 0 — ціна клієнта невідома."
+msgstr "Цена клиента − «Платят нам», €/час. 0 — цена клиента неизвестна."
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__agent_client_share
@@ -907,15 +926,17 @@ msgid "Змінили в цій ставці й не так, як у загал�
 msgstr "Изменили в этой ставке и не так, как в общей ставке; иначе — из общей ставки"
 
 #. module: workset_rates
+#. odoo-javascript
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__our_share
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 msgid "Частка WorkSET"
 msgstr "Доля WorkSET"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate__our_share
-msgid "За годину, до ZUS і податків на зарплату: ціна нам − на руки − посередник (− агент людей, якщо платить WorkSET); у «Фікс за місяць» — фікс ÷ годин місяця."
-msgstr "За час, до ZUS и налогов на зарплату: цена нам − на руки − посредник (− агент людей, если платит WorkSET); в «Фикс за месяц» — фикс ÷ часов месяца."
+msgid "За годину, до ZUS і податків на зарплату: платять нам − зарплата працівника − посередник (− агент людей, якщо платить WorkSET); у «Фікс за місяць» — фікс ÷ годин місяця."
+msgstr "За час, до ZUS и налогов на зарплату: платят нам − зарплата работника − посредник (− агент людей, если платит WorkSET); в «Фикс за месяц» — фикс ÷ часов месяца."
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__month_hours
@@ -943,10 +964,12 @@ msgid "Табелів за минулий місяць немає — місяч
 msgstr "Табелей за прошлый месяц нет — месячные бонусы поделены на норму часов"
 
 #. module: workset_rates
+#. odoo-javascript
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__net_share
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
-msgid "Чиста частка"
-msgstr "Чистая доля"
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Після бонусів офісу"
+msgstr "После бонусов офиса"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate__net_share
@@ -955,8 +978,8 @@ msgstr "Доля WorkSET − бонус офиса, €/час. Не «посл�
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__net_level
-msgid "Рівень чистої"
-msgstr "Уровень чистой"
+msgid "Рівень після бонусів"
+msgstr "Уровень после бонусов"
 
 #. module: workset_rates
 #: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate__net_level__low
@@ -990,8 +1013,8 @@ msgstr "Надбавка, а «Кто нашёл» пусто: цена — по
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__wage_source
-msgid "На руки з"
-msgstr "На руки из"
+msgid "Зарплата з"
+msgstr "Зарплата из"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__contract_version_id
@@ -1003,31 +1026,33 @@ msgstr "Версия договора"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate__contract_version_id
-msgid "Версія договору, з якої взято «На руки»"
-msgstr "Версия договора, из которой взято «На руки»"
+msgid "Версія договору, з якої взято «Зарплата працівника»"
+msgstr "Версия договора, из которой взята «Зарплата работника»"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__wage_before_contract
-msgid "На руки до договору"
-msgstr "На руки до договора"
+msgid "Зарплата до договору"
+msgstr "Зарплата до договора"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate__wage_before_contract
-msgid "«На руки», яке стояло в ставці до того, як його переписав договір на ту саму дату"
-msgstr "«На руки», которое стояло в ставке до того, как его переписал договор на ту же дату"
+msgid "«Зарплата працівника», яка стояла в ставці до того, як її переписав договір на ту саму дату"
+msgstr "«Зарплата работника», которая стояла в ставке до того, как её переписал договор на ту же дату"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__wage_source_before
-msgid "На руки з (до договору)"
-msgstr "На руки из (до договора)"
+msgid "Зарплата з (до договору)"
+msgstr "Зарплата из (до договора)"
 
 #. module: workset_rates
+#. odoo-javascript
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__raise_ids
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_raise_list
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_raise_search
 #: model:ir.actions.act_window,name:workset_rates.action_raises
 #: model:ir.ui.menu,name:workset_rates.menu_raises
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 msgid "Тимчасові зміни"
 msgstr "Временные изменения"
 
@@ -1043,23 +1068,23 @@ msgstr "Сумма временных изменений «+€ за час» п
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__wage_now
-msgid "На руки зараз"
-msgstr "На руки сейчас"
+msgid "Зарплата зараз"
+msgstr "Зарплата сейчас"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate__wage_now
-msgid "На руки + тимчасові зміни сьогодні. У карту проєктів і частку не входить."
-msgstr "На руки + временные изменения сегодня. В карту проектов и долю не входит."
+msgid "Зарплата працівника + тимчасові зміни сьогодні. У карту проєктів і частку не входить."
+msgstr "Зарплата работника + временные изменения сегодня. В карту проектов и долю не входит."
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__raise_note
-msgid "На руки зараз до"
-msgstr "На руки сейчас до"
+msgid "Зарплата зараз до"
+msgstr "Зарплата сейчас до"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate__raise_note
-msgid "«зараз 17 до 30.11» під «На руки», коли діє тимчасова зміна"
-msgstr "«сейчас 17 до 30.11» под «На руки», когда действует временное изменение"
+msgid "«зараз 17 до 30.11» під «Зарплата працівника», коли діє тимчасова зміна"
+msgstr "«сейчас 17 до 30.11» под «Зарплата работника», когда действует временное изменение"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate__raise_badge
@@ -1095,8 +1120,8 @@ msgstr "Не хватает"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__wage_note
-msgid "На руки звідки"
-msgstr "На руки откуда"
+msgid "Зарплата звідки"
+msgstr "Зарплата откуда"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__card_line
@@ -1123,8 +1148,8 @@ msgstr "Ставка с"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate__date_from
-msgid "Перший день, з якого діє ця ставка (на руки, ціна) — в усіх проєктах замовника в усіх фірмах. Попередня ставка цієї пари закінчується напередодні. «Вартість години» в проєктах змінюється при збереженні (майбутня ставка — уночі в день «Ставка з»); уже внесені табелі не перераховуються."
-msgstr "Первый день, с которого действует эта ставка (на руки, цена) — во всех проектах заказчика во всех фирмах. Предыдущая ставка этой пары заканчивается накануне. «Стоимость часа» в проектах меняется при сохранении (будущая ставка — ночью в день «Ставка с»); уже внесённые табели не пересчитываются."
+msgid "Перший день, з якого діє ця ставка (зарплата працівника, платять нам) — в усіх проєктах замовника в усіх фірмах. Попередня ставка цієї пари закінчується напередодні. «Вартість години» в проєктах змінюється при збереженні (майбутня ставка — уночі в день «Ставка з»); уже внесені табелі не перераховуються."
+msgstr "Первый день, с которого действует эта ставка (зарплата работника, платят нам) — во всех проектах заказчика во всех фирмах. Предыдущая ставка этой пары заканчивается накануне. «Стоимость часа» в проектах меняется при сохранении (будущая ставка — ночью в день «Ставка с»); уже внесённые табели не пересчитываются."
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate__date_to
@@ -1374,8 +1399,13 @@ msgstr "Заказчик · линия"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__formula
-msgid "На руки + частка = ціна"
-msgstr "На руки + доля = цена"
+msgid "Зарплата + частка = платять нам"
+msgstr "Зарплата + доля = платят нам"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__agent_deal_ok
+msgid "Є домовленість посередника"
+msgstr "Есть договорённость посредника"
 
 #. module: workset_rates
 #: model:ir.model,name:workset_rates.model_workset_rate_avg
@@ -1424,26 +1454,14 @@ msgid "Діючі ставки зі статусом роботи «Працює
 msgstr "Действующие ставки со статусом работы «Работает» или «Новый»"
 
 #. module: workset_rates
-#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__avg_wage
-#: model_terms:ir.ui.view,arch_db:workset_rates.view_avg_list
-msgid "Середня на руки"
-msgstr "Средняя на руки"
-
-#. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate_avg__avg_wage
-msgid "Середнє «На руки», €/год, по тих, хто працює"
-msgstr "Среднее «На руки», €/час, по тем, кто работает"
-
-#. module: workset_rates
-#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__avg_price
-#: model_terms:ir.ui.view,arch_db:workset_rates.view_avg_list
-msgid "Середня ціна"
-msgstr "Средняя цена"
+msgid "Середня «Зарплата працівника», €/год, по тих, хто працює"
+msgstr "Средняя «Зарплата работника», €/час, по тем, кто работает"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate_avg__avg_price
-msgid "Середня «Ціна», €/год, по тих, хто працює"
-msgstr "Средняя «Цена», €/час, по тем, кто работает"
+msgid "Середнє «Платять нам», €/год, по тих, хто працює"
+msgstr "Среднее «Платят нам», €/час, по тем, кто работает"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__avg_share
@@ -1699,18 +1717,18 @@ msgstr "Уровень"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate_rule__price_mode
-msgid "За годину — замовник платить ціну за годину. Фікс за місяць — замовник платить на руки за години як є і фіксовану суму за оформлення людини на місяць."
-msgstr "За час — заказчик платит цену за час. Фикс за месяц — заказчик платит на руки за часы как есть и фиксированную сумму за оформление человека в месяц."
+msgid "За годину — замовник платить ціну за годину. Фікс за місяць — замовник платить зарплату працівника за години як є і фіксовану суму за оформлення людини на місяць."
+msgstr "За час — заказчик платит цену за час. Фикс за месяц — заказчик платит зарплату работника за часы как есть и фиксированную сумму за оформление человека в месяц."
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate_rule__share_line_found
-msgid "€/год зверху «на руки», якщо людину дала лінія (у тарифу — для стартової ціни нової людини)"
-msgstr "€/час сверх «на руки», если человека дала линия (у тарифа — для стартовой цены нового человека)"
+msgid "€/год зверху зарплати працівника, якщо людину дала лінія (у тарифу — для стартової ціни нової людини)"
+msgstr "€/час сверх зарплаты работника, если человека дала линия (у тарифа — для стартовой цены нового человека)"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate_rule__share_we_found
-msgid "€/год зверху «на руки», якщо людину знайшли ми (у тарифу — для стартової ціни нової людини)"
-msgstr "€/час сверх «на руки», если человека нашли мы (у тарифа — для стартовой цены нового человека)"
+msgid "€/год зверху зарплати працівника, якщо людину знайшли ми (у тарифу — для стартової ціни нової людини)"
+msgstr "€/час сверх зарплаты работника, если человека нашли мы (у тарифа — для стартовой цены нового человека)"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate_rule__price
@@ -1871,8 +1889,8 @@ msgstr "Вернуть к общей"
 
 #. module: workset_rates
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
-msgid "Ціна нам, тип ціни й фікс стануть як у загальній ставці. Продовжити?"
-msgstr "Цена нам, тип цены и фикс станут как в общей ставке. Продолжить?"
+msgid "«Платять нам», тип ціни й фікс стануть як у загальній ставці. Продовжити?"
+msgstr "«Платят нам», тип цены и фикс станут как в общей ставке. Продолжить?"
 
 #. module: workset_rates
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
@@ -1894,6 +1912,7 @@ msgstr "В архиве"
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rule_form
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_raise_form
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_gantt
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 #: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
 msgid "€/год"
 msgstr "€/час"
@@ -2014,10 +2033,12 @@ msgid "фікс"
 msgstr "фикс"
 
 #. module: workset_rates
+#. odoo-javascript
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
 #: model:ir.actions.act_window,name:workset_rates.action_rates_current
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
 #: model:ir.ui.menu,name:workset_rates.menu_current
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 msgid "Працюють зараз"
 msgstr "Работают сейчас"
 
@@ -2051,8 +2072,8 @@ msgstr "Ниже минимума"
 
 #. module: workset_rates
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
-msgid "Частка WorkSET або чиста частка ≤ 0 чи нижче мінімуму (загальної ставки, лінії або за замовчуванням)"
-msgstr "Доля WorkSET или чистая доля ≤ 0 либо ниже минимума (общей ставки, линии или по умолчанию)"
+msgid "Частка WorkSET або «Після бонусів офісу» ≤ 0 чи нижче мінімуму (загальної ставки, лінії або за замовчуванням)"
+msgstr "Доля WorkSET или «После бонусов офиса» ≤ 0 или ниже минимума (общей ставки, линии или по умолчанию)"
 
 #. module: workset_rates
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
@@ -2199,8 +2220,8 @@ msgstr "Проверки"
 
 #. module: workset_rates
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
-msgid "Правило словами: на руки + частка WorkSET, якщо людину знайшла лінія; інша частка, якщо знайшли ми"
-msgstr "Правило словами: на руки + доля WorkSET, если человека нашла линия; другая доля, если нашли мы"
+msgid "Правило словами: зарплата працівника + частка WorkSET, якщо людину знайшла лінія; інша частка, якщо знайшли ми"
+msgstr "Правило словами: зарплата работника + доля WorkSET, если человека нашла линия; другая доля, если нашли мы"
 
 #. module: workset_rates
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
@@ -2324,8 +2345,8 @@ msgstr "Временных изменений нет"
 
 #. module: workset_rates
 #: model_terms:ir.actions.act_window,help:workset_rates.action_raises
-msgid "Надбавка до «На руки» на час (мало годин, простій, спецодяг) — з датами «З» і «До». Базу ставки й частку вона не змінює."
-msgstr "Надбавка к «На руки» на время (мало часов, простой, спецодежда) — с датами «С» и «По». Базу ставки и долю она не меняет."
+msgid "Надбавка до «Зарплата працівника» на час (мало годин, простій, спецодяг) — з датами «З» і «До». Базу ставки й частку вона не змінює."
+msgstr "Надбавка к «Зарплата работника» на время (мало часов, простой, спецодежда) — с датами «С» и «По». Базу ставки и долю она не меняет."
 
 #. module: workset_rates
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_bonus_list
@@ -2476,8 +2497,8 @@ msgstr "Доля WorkSET:"
 
 #. module: workset_rates
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_gantt
-msgid "Чиста частка:"
-msgstr "Чистая доля:"
+msgid "Після бонусів офісу:"
+msgstr "После бонусов офиса:"
 
 #. module: workset_rates
 #: model_terms:ir.actions.act_window,help:workset_rates.action_rates_gantt
@@ -2544,35 +2565,26 @@ msgstr "Только работают"
 #. odoo-javascript
 #: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 #: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
-msgid "Сер. частка WorkSET"
-msgstr "Сред. доля WorkSET"
-
-#. module: workset_rates
-#. odoo-javascript
-#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
-#: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
-msgid "Сер. чиста частка"
-msgstr "Сред. чистая доля"
-
-#. module: workset_rates
-#. odoo-javascript
-#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
-#: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
-msgid "Тимчасових"
-msgstr "Временных"
-
-#. module: workset_rates
-#. odoo-javascript
-#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
-#: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
 msgid "Договір ≠ база"
 msgstr "Договор ≠ база"
 
 #. module: workset_rates
 #. odoo-javascript
 #: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
-msgid "Без лінії"
-msgstr "Без линии"
+msgid "Лінію не вказано"
+msgstr "Линия не указана"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "посередник є"
+msgstr "посредник есть"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "посередника очікується"
+msgstr "посредник ожидается"
 
 #. module: workset_rates
 #. odoo-javascript
@@ -2583,38 +2595,20 @@ msgstr "ниже минимума"
 #. module: workset_rates
 #. odoo-javascript
 #: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
-msgid "ціна"
-msgstr "цена"
+msgid "працюють"
+msgstr "работают"
 
 #. module: workset_rates
 #. odoo-javascript
 #: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
-msgid "частка"
-msgstr "доля"
+msgid "частка WorkSET"
+msgstr "доля WorkSET"
 
 #. module: workset_rates
 #. odoo-javascript
 #: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
-msgid "Посередник:"
-msgstr "Посредник:"
-
-#. module: workset_rates
-#. odoo-javascript
-#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
-msgid "є"
-msgstr "есть"
-
-#. module: workset_rates
-#. odoo-javascript
-#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
-msgid "очікується"
-msgstr "ожидается"
-
-#. module: workset_rates
-#. odoo-javascript
-#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
-msgid "немає"
-msgstr "нет"
+msgid "платять нам"
+msgstr "платят нам"
 
 #. module: workset_rates
 #. odoo-javascript
@@ -2625,8 +2619,20 @@ msgstr "По этому фильтру действующих ставок не�
 #. module: workset_rates
 #. odoo-javascript
 #: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
-msgid "На руки, ціна, частка по місяцях"
-msgstr "На руки, цена, доля по месяцам"
+msgid "Розподіл частки WorkSET"
+msgstr "Распределение доли WorkSET"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Діючі ставки за часткою, €/год."
+msgstr "Действующие ставки по доле, €/час."
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Зарплата, платять нам, частка по місяцях"
+msgstr "Зарплата, платят нам, доля по месяцам"
 
 #. module: workset_rates
 #. odoo-javascript
@@ -2649,20 +2655,8 @@ msgstr "По линиям"
 #. module: workset_rates
 #. odoo-javascript
 #: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
-msgid "Ставки, що діяли на 1-ше число місяця; по лініях — сер. частка WorkSET."
-msgstr "Ставки, действовавшие на 1-е число месяца; по линиям — сред. доля WorkSET."
-
-#. module: workset_rates
-#. odoo-javascript
-#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
-msgid "Розподіл частки WorkSET"
-msgstr "Распределение доли WorkSET"
-
-#. module: workset_rates
-#. odoo-javascript
-#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
-msgid "Діючі ставки за часткою, €/год."
-msgstr "Действующие ставки по доле, €/час."
+msgid "Середні по ставках, що діяли на 1-ше число місяця; по лініях — сер. частка WorkSET."
+msgstr "Средние по ставкам, действовавшим на 1-е число месяца; по линиям — сред. доля WorkSET."
 
 #. module: workset_rates
 #. odoo-javascript
@@ -2697,12 +2691,6 @@ msgstr "Будущие ставки на 7 дней"
 #. module: workset_rates
 #. odoo-javascript
 #: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
-msgid "Ставки без лінії"
-msgstr "Ставки без линии"
-
-#. module: workset_rates
-#. odoo-javascript
-#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 #: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
 msgid "з"
 msgstr "из"
@@ -2718,3 +2706,21 @@ msgstr "Тревог нет"
 #: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 msgid "по всіх діючих"
 msgstr "по всем действующим"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
+msgid "Сер. частка WorkSET"
+msgstr "Сред. доля WorkSET"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
+msgid "Сер. після бонусів офісу"
+msgstr "Сред. после бонусов офиса"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
+msgid "Тимчасових"
+msgstr "Временных"

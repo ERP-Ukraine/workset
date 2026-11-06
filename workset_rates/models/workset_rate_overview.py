@@ -20,7 +20,8 @@ CHECK = 'workset.rate.check'
 GANTT_CTX = 'workset_rates_gantt'                    # контекст дії «Стрічка»: підпис смуги
 GANTT_ROW_FIELDS = frozenset(['line_id', 'person_id', 'customer_id'])  # рядок «Стрічки»: смугу в інший рядок не переносять
 GANTT_MOVE_FIELDS = GANTT_ROW_FIELDS | {'date_from'}                   # у контексті «Стрічки» — це перенос смуги
-ALERT_ROWS = 5      # рядків у тривозі «Огляду»; решта — списком за кліком на заголовок
+LABELS = ('count', 'wage', 'price', 'share', 'net', 'people', 'found_us', 'found_line', 'found_none', 'found_empty', 'agent_from')  # calc.TX: ov_<ключ>
+ALERT_ROWS = 5     # рядків у тривозі «Огляду»; решта — списком за кліком на заголовок
 ALERT_IDS = 1000    # id для списку тривоги не більше
 
 
@@ -47,6 +48,16 @@ class WorksetRateOverview(models.Model):
     def _inverse_gantt_stop(self):
         # кінець ставки рахує код («Ставка до» — день перед наступною ставкою пари): розтягнута смуга нічого не змінює
         return
+
+    @api.model
+    def get_gantt_data(self, *args, **kwargs):
+        # «Стрічка»: рядки ліній — як є, «без лінії» (група з порожнім line_id) — в кінець. Обгортка не змінює склад даних і мовчки
+        # лишає відповідь web_gantt як є, якщо її форма інша (групувань немає, поле не line_id)
+        res = super().get_gantt_data(*args, **kwargs)
+        groupby = kwargs.get('groupby') or (args[1] if len(args) > 1 else None)
+        if isinstance(res, dict) and 'groups' in res and isinstance(groupby, (list, tuple)) and groupby and groupby[0] == 'line_id':
+            res['groups'] = calc.gantt_groups_last(res.get('groups'), 'line_id')
+        return res
 
     @api.depends('name', 'state', 'formula')
     @api.depends_context(GANTT_CTX, 'lang')
@@ -90,7 +101,9 @@ class WorksetRateOverview(models.Model):
     @api.model
     def rates_overview(self, domain=None, months=calc.OVERVIEW_DEFAULT, only_working=True):
         """domain — фільтр сторінки (лінії, замовник) на workset.rate; months — 6 / 12 / 24 (інше — 12); only_working — «тільки працюють».
-        → {'today', 'months', 'tiles', 'lines', 'series', 'buckets', 'found', 'alerts', 'check', 'options', 'labels'}; без ставок — нулі й порожні списки."""
+        → {'today', 'months', 'tiles', 'lines', 'series', 'buckets', 'found', 'open', 'alerts', 'check', 'options', 'labels'}; без ставок — нулі
+        й порожні списки. Кожне число, по якому клікають, має поруч опис свого списку (calc.ov_list): плитки й сектори — 'open', картки ліній і
+        стовпці розподілу — 'open' у своєму записі; число картки лінії — 'count' (працюють або, коли «тільки працюють» вимкнено, усі діючі)."""
         self.check_access('read')
         lang = self._lang()
         months = calc.overview_months(months)
@@ -98,7 +111,7 @@ class WorksetRateOverview(models.Model):
         base = list(domain or [])
         scope = base + [('state', '=', 'current')] + ([('work_group', '=', 'g1_work')] if only_working else [])
         rows = self.search_read(scope, ['line_id', 'work', 'wage', 'price', 'our_share', 'net_share', 'share_level', 'net_level',
-                                        'agent_client_share', 'found_by', 'contract_ok'])
+                                        'agent_client_share', 'agent_client_note', 'found_by', 'contract_ok'])
         if only_working:
             tiles = self.rates_summary(scope)  # ті самі числа, що полоса підсумків над «Працюють зараз» (і «Договір ≠ база» — з неї)
         else:
@@ -107,6 +120,7 @@ class WorksetRateOverview(models.Model):
             tiles['raises'] = self.search_count(scope + [('has_raise', '=', True)])
         tiles['no_line'] = len([r for r in rows if not r['line_id']])
         tiles['to_check'] = self.search_count(scope + [('to_check', '=', True)])
+        tiles['all'] = self.search_count(base + [('state', '=', 'current')])  # «Ставок» — усі діючі фільтра, хоч би що з «тільки працюють»
         min_default = calc.parse_float(self._param(calc.P_MIN_SHARE))
         good_default = calc.parse_float(self._param(calc.P_GOOD_SHARE))
         have = bool(tiles['working'] if only_working else tiles['total'])
@@ -123,16 +137,22 @@ class WorksetRateOverview(models.Model):
 
         shown = days[-months:]
         series = {'days': shown, 'total': calc.month_series([h(r) for r in hist], shown), 'by_line': []}
-        lines = self._overview_lines(rows, hist, days, months, h, only_working)
+        lines = self._overview_lines(rows, hist, days, months, h, only_working, base, lang)
         series['by_line'] = [{'id': c['id'], 'name': c['name'], 'share': c.pop('_share')} for c in lines]
+        working = bool(only_working)
+        buckets = calc.share_buckets([r['our_share'] for r in rows])
+        for b in buckets:
+            b['open'] = calc.ov_list(calc.t('ov_t_bucket', lang) % b['label'], base, calc.bucket_domain(b), working=working)
+        found_open = {k: calc.ov_list(calc.t('ov_t_found', lang) % calc.t('ov_found_' + k, lang), base, calc.found_domain(k), working=working)
+                      for k in ('us', 'line', 'none')}
         return {
-            'today': today, 'months': months, 'tiles': tiles, 'lines': lines, 'series': series,
-            'buckets': calc.share_buckets([r['our_share'] for r in rows]),
+            'today': today, 'months': months, 'tiles': tiles, 'lines': lines, 'series': series, 'buckets': buckets,
             'found': calc.found_split([r['found_by'] for r in rows]),
+            'open': {'tiles': calc.ov_tiles_open(base, only_working, lang), 'found': found_open},
             'alerts': self._overview_alerts(base, scope, today, lang),
             'check': self._overview_check(),
             'options': self._overview_options(),
-            'labels': {k: calc.t('ov_' + k, lang) for k in ('count', 'wage', 'price', 'share', 'net', 'people', 'found_us', 'found_line', 'found_none')},
+            'labels': {k: calc.t('ov_' + k, lang) for k in LABELS},
         }
 
     @staticmethod
@@ -141,8 +161,9 @@ class WorksetRateOverview(models.Model):
         return [{'work': r['work'], 'wage': r['wage'], 'price': r['price'], 'share': r['our_share'], 'net': r['net_share'],
                  'low': 'low' in (r['share_level'], r['net_level']), 'contract': not r['contract_ok']} for r in rows]
 
-    def _overview_lines(self, rows, hist, days, months, h, only_working=True):
-        # картки ліній: діючі ставки фільтра по лінії (як плитки), посередник, міні-графік частки за SPARK_MONTHS місяців
+    def _overview_lines(self, rows, hist, days, months, h, only_working=True, base=(), lang='uk'):
+        # картки ліній: діючі ставки фільтра по лінії (як плитки), посередник, міні-графік частки за SPARK_MONTHS місяців; число картки
+        # ('count') і її список ('open') — ті самі ставки: «тільки працюють» — ті, хто працює, вимкнено — усі діючі лінії
         by_line = {}
         for r in rows:
             if r['line_id']:
@@ -158,9 +179,12 @@ class WorksetRateOverview(models.Model):
             share = [p['avg_share'] for p in calc.month_series(hist_by.get(line.id, []), days)]
             spark = share[-calc.SPARK_MONTHS:]
             out.append({'id': line.id, 'name': line.name or '', 'anchor': line.anchor or '', 'working': s['working'], 'total': s['total'],
+                        'count': s['working'] if only_working else s['total'],
+                        'open': calc.ov_list(calc.t('ov_t_line', lang) % (line.name or ''), base, working=bool(only_working), line_id=line.id),
                         'avg_wage': s['avg_wage'], 'avg_price': s['avg_price'], 'avg_share': s['avg_share'], 'avg_net': s['avg_net'],
                         'below_min': s['below_min'],
                         'agent': calc.agent_status(any((r['agent_client_share'] or 0) > 0 for r in mine), line.agent_expected),
+                        'agents': calc.agent_items([(r['agent_client_share'], r['agent_client_note']) for r in mine]),
                         'spark': calc.spark_path(spark), 'spark_values': spark, '_share': share[-months:]})
         out.sort(key=lambda c: (-c['working'], -c['total'], c['name']))
         return out

@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
-    <!-- «Огляд ставок»: фільтр → плитки → картки ліній → графіки й тривоги. Сітки (scss) заповнюють ширину без порожніх полів:
-         плитки — п'ять у ряд на широкому, дві — на вузькому, одна — на телефоні; кольори — лише класи Bootstrap теми Odoo -->
+    <!-- «Огляд ставок» за макетом C (06.11): фільтр → смуга п'яти головних чисел → «пігулки» тривог → картки ліній → графіки й тривоги.
+         Сітки (scss) заповнюють ширину без порожніх полів; кольори — лише класи й змінні Bootstrap теми Odoo (світла й темна). Кожне число
+         клікається: список ставок за описом сервера (open), число = рядки списку -->
     <t t-name="workset_rates.RatesOverview">
         <div class="o_action o_workset_rates_ov">
             <Layout display="{ controlPanel: {} }" className="'o_workset_rates_ov_main overflow-auto'">
@@ -42,108 +43,148 @@
                         </div>
                     </div>
 
-                    <!-- плитки: клік — «Працюють зараз» / «Усі ставки» з тим самим фільтром -->
+                    <!-- смуга п'яти головних чисел: підпис зверху, число крупно, «€/год» дрібно сірим, вертикальні роздільники; «Частка WorkSET» —
+                         колір бренду (нижче мінімуму — червоним) -->
                     <t t-set="tiles" t-value="data.tiles"/>
-                    <div class="o_workset_rates_ov_tiles mb-3">
-                        <t t-call="workset_rates.OverviewTile">
+                    <div class="card o_workset_rates_ov_band mb-3">
+                        <t t-call="workset_rates.OverviewBandCell">
                             <t t-set="key" t-value="'working'"/>
                             <t t-set="value" t-value="tiles.working"/>
+                            <t t-set="unit" t-value="false"/>
                             <t t-set="tone" t-value="''"/>
-                            <t t-set="label">Працюють</t>
+                            <t t-set="label">Працюють зараз</t>
                         </t>
-                        <t t-call="workset_rates.OverviewTile">
+                        <t t-call="workset_rates.OverviewBandCell">
                             <t t-set="key" t-value="'avg'"/>
-                            <t t-set="value" t-value="money(tiles.avg_wage) + ' €'"/>
+                            <t t-set="value" t-value="money(tiles.avg_price)"/>
+                            <t t-set="unit" t-value="true"/>
                             <t t-set="tone" t-value="''"/>
-                            <t t-set="label">Сер. на руки</t>
+                            <t t-set="label">Платять нам</t>
                         </t>
-                        <t t-call="workset_rates.OverviewTile">
+                        <t t-call="workset_rates.OverviewBandCell">
                             <t t-set="key" t-value="'avg'"/>
-                            <t t-set="value" t-value="money(tiles.avg_price) + ' €'"/>
+                            <t t-set="value" t-value="money(tiles.avg_wage)"/>
+                            <t t-set="unit" t-value="true"/>
                             <t t-set="tone" t-value="''"/>
-                            <t t-set="label">Сер. ціна</t>
+                            <t t-set="label">Зарплата працівника</t>
                         </t>
-                        <t t-call="workset_rates.OverviewTile">
+                        <t t-call="workset_rates.OverviewBandCell">
                             <t t-set="key" t-value="'avg'"/>
-                            <t t-set="value" t-value="money(tiles.avg_share) + ' €'"/>
-                            <t t-set="tone" t-value="toneClass(tiles.share_tone)"/>
-                            <t t-set="label">Сер. частка WorkSET</t>
+                            <t t-set="value" t-value="money(tiles.avg_share)"/>
+                            <t t-set="unit" t-value="true"/>
+                            <t t-set="tone" t-value="tiles.share_tone === 'low' ? 'text-danger' : 'text-primary'"/>
+                            <t t-set="label">Частка WorkSET</t>
                         </t>
-                        <t t-call="workset_rates.OverviewTile">
+                        <t t-call="workset_rates.OverviewBandCell">
                             <t t-set="key" t-value="'avg'"/>
-                            <t t-set="value" t-value="money(tiles.avg_net) + ' €'"/>
-                            <t t-set="tone" t-value="toneClass(tiles.net_tone)"/>
-                            <t t-set="label">Сер. чиста частка</t>
+                            <t t-set="value" t-value="money(tiles.avg_net)"/>
+                            <t t-set="unit" t-value="true"/>
+                            <t t-set="tone" t-value="tiles.net_tone === 'low' ? 'text-danger' : ''"/>
+                            <t t-set="label">Після бонусів офісу</t>
                         </t>
-                        <t t-call="workset_rates.OverviewTile">
-                            <t t-set="key" t-value="'below_min'"/>
-                            <t t-set="value" t-value="tiles.below_min"/>
-                            <t t-set="tone" t-value="tiles.below_min ? 'border-danger bg-danger-subtle text-danger-emphasis' : ''"/>
-                            <t t-set="label">Нижче мінімуму</t>
-                        </t>
-                        <t t-call="workset_rates.OverviewTile">
-                            <t t-set="key" t-value="'raises'"/>
-                            <t t-set="value" t-value="tiles.raises"/>
-                            <t t-set="tone" t-value="tiles.raises ? 'border-warning bg-warning-subtle text-warning-emphasis' : ''"/>
-                            <t t-set="label">Тимчасових</t>
-                        </t>
-                        <t t-call="workset_rates.OverviewTile">
+                    </div>
+
+                    <!-- «пігулки»: підпис, лічильник у сірій капсулі справа, кольорова крапка — лише в тривоги з числом > 0 -->
+                    <div class="o_workset_rates_ov_pills mb-4">
+                        <t t-call="workset_rates.OverviewPill">
                             <t t-set="key" t-value="'contract_diff'"/>
                             <t t-set="value" t-value="tiles.contract_diff"/>
-                            <t t-set="tone" t-value="tiles.contract_diff ? 'border-warning bg-warning-subtle text-warning-emphasis' : ''"/>
+                            <t t-set="dot" t-value="'bg-danger'"/>
                             <t t-set="label">Договір ≠ база</t>
                         </t>
-                        <t t-call="workset_rates.OverviewTile">
-                            <t t-set="key" t-value="'no_line'"/>
-                            <t t-set="value" t-value="tiles.no_line"/>
-                            <t t-set="tone" t-value="''"/>
-                            <t t-set="label">Без лінії</t>
+                        <t t-call="workset_rates.OverviewPill">
+                            <t t-set="key" t-value="'below_min'"/>
+                            <t t-set="value" t-value="tiles.below_min"/>
+                            <t t-set="dot" t-value="'bg-danger'"/>
+                            <t t-set="label">Нижче мінімуму</t>
                         </t>
-                        <t t-call="workset_rates.OverviewTile">
+                        <t t-call="workset_rates.OverviewPill">
                             <t t-set="key" t-value="'to_check'"/>
                             <t t-set="value" t-value="tiles.to_check"/>
-                            <t t-set="tone" t-value="''"/>
+                            <t t-set="dot" t-value="'bg-warning'"/>
                             <t t-set="label">Перевірити</t>
                         </t>
-                    </div>
-
-                    <!-- картки ліній: клік — «Працюють зараз» по лінії -->
-                    <div class="o_workset_rates_ov_lines mb-3" t-if="data.lines.length">
-                        <t t-foreach="data.lines" t-as="line" t-key="line.id">
-                            <button type="button" class="card text-start p-3 h-100 o_workset_rates_ov_line" t-on-click="() => this.openLine(line)">
-                                <div class="d-flex align-items-center justify-content-between gap-2 w-100">
-                                    <span class="fw-semibold fs-5 text-truncate" t-esc="line.name"/>
-                                    <span t-if="line.anchor === 'markup'" class="badge rounded-pill text-bg-primary">надбавка</span>
-                                    <span t-elif="line.anchor === 'tariff'" class="badge rounded-pill text-bg-secondary">тариф</span>
-                                </div>
-                                <div class="small text-muted mt-1">
-                                    <span>Працюють</span> <span class="fw-semibold text-body" t-esc="line.working"/>
-                                    <t t-if="line.below_min"> · <span class="text-danger fw-semibold">нижче мінімуму <t t-esc="line.below_min"/></span></t>
-                                </div>
-                                <div class="d-flex flex-wrap gap-3 mt-2">
-                                    <div><div class="fw-semibold" t-esc="money(line.avg_wage)"/><div class="small text-muted">на руки</div></div>
-                                    <div><div class="fw-semibold" t-esc="money(line.avg_price)"/><div class="small text-muted">ціна</div></div>
-                                    <div><div class="fw-semibold" t-esc="money(line.avg_share)"/><div class="small text-muted">частка</div></div>
-                                </div>
-                                <div class="small mt-2">
-                                    <span class="text-muted">Посередник:</span>
-                                    <span t-if="line.agent === 'yes'" class="text-success">є</span>
-                                    <span t-elif="line.agent === 'expected'" class="text-warning-emphasis">очікується</span>
-                                    <span t-else="" class="text-muted">немає</span>
-                                </div>
-                                <svg class="o_workset_rates_ov_spark w-100 text-primary mt-2" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">
-                                    <path t-att-d="line.spark" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"/>
-                                </svg>
-                            </button>
+                        <t t-call="workset_rates.OverviewPill">
+                            <t t-set="key" t-value="'no_line'"/>
+                            <t t-set="value" t-value="tiles.no_line"/>
+                            <t t-set="dot" t-value="'bg-warning'"/>
+                            <t t-set="label">Лінію не вказано</t>
+                        </t>
+                        <t t-call="workset_rates.OverviewPill">
+                            <t t-set="key" t-value="'raises'"/>
+                            <t t-set="value" t-value="tiles.raises"/>
+                            <t t-set="dot" t-value="'bg-warning'"/>
+                            <t t-set="label">Тимчасові зміни</t>
+                        </t>
+                        <t t-call="workset_rates.OverviewPill">
+                            <t t-set="key" t-value="'all'"/>
+                            <t t-set="value" t-value="tiles.all"/>
+                            <t t-set="dot" t-value="''"/>
+                            <t t-set="label">Ставок</t>
                         </t>
                     </div>
+
+                    <!-- картки ліній: назва, бейджі (посередник і скільки віднімає, нижче мінімуму), три колонки з роздільниками; рядки мають
+                         фіксоване місце — усі картки в ряду однакові -->
+                    <t t-if="data.lines.length">
+                        <div class="fs-4 fw-semibold mb-2">Лінії</div>
+                        <div class="o_workset_rates_ov_lines mb-4">
+                            <t t-foreach="data.lines" t-as="line" t-key="line.id">
+                                <button type="button" class="card text-start p-3 h-100 o_workset_rates_ov_line" t-on-click="() => this.openLine(line)">
+                                    <div class="o_workset_rates_ov_line_head d-flex align-items-center justify-content-between gap-2 w-100">
+                                        <span class="fw-semibold fs-5 text-truncate" t-esc="line.name"/>
+                                        <span t-if="line.anchor === 'markup'" class="badge rounded-pill text-bg-primary flex-shrink-0">надбавка</span>
+                                        <span t-elif="line.anchor === 'tariff'" class="badge rounded-pill text-bg-secondary flex-shrink-0">тариф</span>
+                                    </div>
+                                    <div class="o_workset_rates_ov_line_badges d-flex gap-1 w-100">
+                                        <span t-if="line.agent === 'yes'" class="badge rounded-pill o_workset_rates_ov_count text-truncate" t-att-title="agentText(line)">
+                                            <t t-if="agentText(line)" t-esc="agentText(line)"/>
+                                            <t t-else="">посередник є</t>
+                                        </span>
+                                        <span t-elif="line.agent === 'expected'" class="badge rounded-pill bg-warning-subtle text-warning-emphasis text-truncate">посередника очікується</span>
+                                        <span t-if="line.below_min" class="badge rounded-pill bg-danger-subtle text-danger-emphasis flex-shrink-0">нижче мінімуму <t t-esc="line.below_min"/></span>
+                                    </div>
+                                    <div class="o_workset_rates_ov_line_nums">
+                                        <div class="o_workset_rates_ov_line_col">
+                                            <div class="small text-muted text-truncate">
+                                                <t t-if="filter.working">працюють</t>
+                                                <t t-else="">ставок</t>
+                                            </div>
+                                            <div class="o_workset_rates_ov_line_num" t-esc="line.count"/>
+                                        </div>
+                                        <div class="o_workset_rates_ov_line_col">
+                                            <div class="small text-muted text-truncate">частка WorkSET</div>
+                                            <div class="o_workset_rates_ov_line_num" t-att-title="money(line.avg_share)"><t t-esc="money(line.avg_share)"/><span class="o_workset_rates_ov_unit text-muted fw-normal">€/год</span></div>
+                                        </div>
+                                        <div class="o_workset_rates_ov_line_col">
+                                            <div class="small text-muted text-truncate">платять нам</div>
+                                            <div class="o_workset_rates_ov_line_num" t-att-title="money(line.avg_price)"><t t-esc="money(line.avg_price)"/><span class="o_workset_rates_ov_unit text-muted fw-normal">€/год</span></div>
+                                        </div>
+                                    </div>
+                                </button>
+                            </t>
+                        </div>
+                    </t>
                     <div t-elif="!tiles.total" class="alert alert-info">За цим фільтром діючих ставок немає.</div>
 
-                    <!-- графіки й тривоги -->
+                    <!-- графіки й тривоги: «Розподіл» і «Хто знайшов» поруч (як у макеті), нижче — по місяцях і тривоги -->
                     <div class="o_workset_rates_ov_panels">
-                        <div class="card o_workset_rates_ov_panel o_workset_rates_ov_panel_wide">
+                        <div class="card o_workset_rates_ov_panel">
+                            <div class="card-header fw-semibold">Розподіл частки WorkSET</div>
+                            <div class="card-body">
+                                <div class="o_workset_rates_ov_chart o_workset_rates_ov_chart_tall"><canvas t-ref="buckets"/></div>
+                                <div class="small text-muted mt-2">Діючі ставки за часткою, €/год.</div>
+                            </div>
+                        </div>
+                        <div class="card o_workset_rates_ov_panel">
+                            <div class="card-header fw-semibold">Хто знайшов</div>
+                            <div class="card-body">
+                                <div class="o_workset_rates_ov_chart o_workset_rates_ov_chart_tall"><canvas t-ref="found"/></div>
+                            </div>
+                        </div>
+                        <div class="card o_workset_rates_ov_panel">
                             <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
-                                <span class="fw-semibold">На руки, ціна, частка по місяцях</span>
+                                <span class="fw-semibold">Зарплата, платять нам, частка по місяцях</span>
                                 <div class="btn-group btn-group-sm" role="group" aria-label="Ряди">
                                     <button type="button" class="btn" t-att-class="state.byLine ? 'btn-secondary' : 'btn-primary'" t-on-click="() => this.setByLine(false)">Загалом</button>
                                     <button type="button" class="btn" t-att-class="state.byLine ? 'btn-primary' : 'btn-secondary'" t-on-click="() => this.setByLine(true)">По лініях</button>
@@ -151,20 +192,7 @@
                             </div>
                             <div class="card-body">
                                 <div class="o_workset_rates_ov_chart"><canvas t-ref="history"/></div>
-                                <div class="small text-muted mt-2">Ставки, що діяли на 1-ше число місяця; по лініях — сер. частка WorkSET.</div>
-                            </div>
-                        </div>
-                        <div class="card o_workset_rates_ov_panel">
-                            <div class="card-header fw-semibold">Розподіл частки WorkSET</div>
-                            <div class="card-body">
-                                <div class="o_workset_rates_ov_chart"><canvas t-ref="buckets"/></div>
-                                <div class="small text-muted mt-2">Діючі ставки за часткою, €/год.</div>
-                            </div>
-                        </div>
-                        <div class="card o_workset_rates_ov_panel">
-                            <div class="card-header fw-semibold">Хто знайшов</div>
-                            <div class="card-body">
-                                <div class="o_workset_rates_ov_chart"><canvas t-ref="found"/></div>
+                                <div class="small text-muted mt-2">Середні по ставках, що діяли на 1-ше число місяця; по лініях — сер. частка WorkSET.</div>
                             </div>
                         </div>
                         <div class="card o_workset_rates_ov_panel o_workset_rates_ov_panel_alerts">
@@ -187,7 +215,7 @@
                                         <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center gap-2 fw-semibold" t-on-click="() => this.openAlert(a)">
                                             <span t-if="a.key === 'raise_soon'">Тимчасові зміни закінчуються ≤ 3 дні</span>
                                             <span t-elif="a.key === 'future'">Майбутні ставки на 7 днів</span>
-                                            <span t-elif="a.key === 'no_line'">Ставки без лінії</span>
+                                            <span t-elif="a.key === 'no_line'">Лінію не вказано</span>
                                             <span t-else="">Перевірити</span>
                                             <span class="badge rounded-pill text-bg-warning" t-esc="a.count"/>
                                         </button>
@@ -211,13 +239,24 @@
         </div>
     </t>
 
-    <!-- одна плитка: число fs-1 fw-semibold, підпис дрібно; tone — класи Bootstrap (червона / жовта) -->
-    <t t-name="workset_rates.OverviewTile">
-        <button type="button" class="o_workset_rates_ov_tile card text-start h-100 p-3" t-att-class="tone" t-on-click="() => this.openTile(key)">
-            <span class="fs-1 fw-semibold lh-1 text-nowrap" t-esc="value"/>
-            <span class="small mt-2" t-att-class="tone ? '' : 'text-muted'" t-out="label"/>
-            <!-- «Тільки працюють» вимкнено: середні, «нижче мінімуму» й «тимчасових» пораховано по всіх діючих ставках фільтра -->
+    <!-- колонка смуги: підпис зверху, число fs-1 по центру, «€/год» дрібно сірим (unit); tone — клас кольору числа -->
+    <t t-name="workset_rates.OverviewBandCell">
+        <button type="button" class="o_workset_rates_ov_band_cell text-center" t-on-click="() => this.openTile(key)">
+            <span class="d-block text-muted text-truncate" t-out="label"/>
+            <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_rates_ov_num" t-att-class="tone">
+                <t t-esc="value"/><span t-if="unit" class="o_workset_rates_ov_unit text-muted fw-normal">€/год</span>
+            </span>
+            <!-- «Тільки працюють» вимкнено: середні пораховано по всіх діючих ставках фільтра -->
             <span t-if="allRates(key)" class="small text-muted">по всіх діючих</span>
+        </button>
+    </t>
+
+    <!-- «пігулка»: підпис, лічильник у сірій капсулі справа, крапка dot (bg-danger / bg-warning) — лише коли число > 0 -->
+    <t t-name="workset_rates.OverviewPill">
+        <button type="button" class="card o_workset_rates_ov_pill flex-row align-items-center gap-2 px-3 py-2 text-start" t-on-click="() => this.openTile(key)">
+            <span class="flex-grow-1 text-truncate" t-out="label"/>
+            <span class="badge rounded-pill o_workset_rates_ov_count" t-esc="value"/>
+            <span t-if="dot and value" class="o_workset_rates_ov_dot rounded-circle flex-shrink-0" t-att-class="dot"/>
         </button>
     </t>
 </templates>

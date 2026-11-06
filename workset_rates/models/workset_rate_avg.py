@@ -25,8 +25,8 @@ class WorksetRateAvg(models.Model):
     company_id = fields.Many2one('res.company', string='Фірма', readonly=True)
     project_id = fields.Many2one('project.project', string='Проєкт', readonly=True)
     work_count = fields.Integer(string='Працюють', readonly=True, help='Діючі ставки зі статусом роботи «Працює» або «Новий»')
-    avg_wage = fields.Float(string='Середня на руки', readonly=True, help='Середнє «На руки», €/год, по тих, хто працює')
-    avg_price = fields.Float(string='Середня ціна', readonly=True, help='Середня «Ціна», €/год, по тих, хто працює')
+    avg_wage = fields.Float(string='Сер. зарплата працівника', readonly=True, help='Середня «Зарплата працівника», €/год, по тих, хто працює')
+    avg_price = fields.Float(string='Сер. платять нам', readonly=True, help='Середнє «Платять нам», €/год, по тих, хто працює')
     avg_share = fields.Float(string='Середня частка WorkSET', readonly=True,
                              help='Середня «Частка WorkSET», €/год, по тих, хто працює; ставки з часткою ≤ 0 у середню не входять (їх число — у «Без частки»)')
     total = fields.Integer(string='Усього ставок', readonly=True, help='Усі діючі ставки розрізу, і працюючі, і ні')
