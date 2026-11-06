@@ -1502,8 +1502,9 @@ class TestWorksetRates(TransactionCase):
         later = H.create(dict(vals, kind='none', date_from=DAY))
         with self.assertRaises(ValidationError), self.env.cr.savepoint():
             later.date_from = calc.add_days(DAY, -3)
-        mine = H.create(dict(vals, customer_id=ct.id, kind='payment_buffer', amount=4, amount_unit='pct', date_from=OLD))
+        mine = H.create(dict(vals, customer_id=ct.id, kind='payment_buffer', amount=4, amount_unit='pct', date_from=OLD, payer='worker_fund'))
         self.assertEqual(H._housing_at(lt, ct, DAY), mine, 'правило замовника перекриває правило лінії')
+        self.assertEqual(H._housing_at(lt, ct, DAY).payer, 'worker_fund', '«Хто платить» — «З фонду працівників» (М3 читає через _housing_at)')
         self.assertEqual(H._housing_at(lt, other, DAY), later)
         self.assertEqual(H._housing_at(lt, other, calc.add_days(DAY, -5)), base, 'на минулу дату — правило, що діяло тоді')
         self.assertFalse(H._housing_at(lt, other, '2020-01-01'))
