@@ -1329,11 +1329,16 @@ def migration_line_rules(lines, first_days, have_line_rule, today):
 def migration_rate_vals(have, by_rule, agent_share, agent_source, wage_source, lang='uk'):
     """Ставка М1 після переносу: «На руки з» — «Перенос» (крім уже взятих з договору); «Своя» — Ц (тип, фікс) ≠ правилу на «Ставка з»
     (правила немає — ні); причина «Своєї» — «було: частка агента N (до посередників)», якщо в М1 була частка посередника не з домовленостей
-    (agent_source ≠ 'deal', ≠ 0), інакше «перенос з М1: ціна ≠ загальній (за правилом X)». have — {'price', 'price_mode', 'fixed_month'};
-    by_rule — calc.rule_numbers або None. → vals."""
+    (agent_source ≠ 'deal', ≠ 0), інакше «перенос з М1: ціна ≠ загальній (за правилом X)»; ціна 0 (≤ 0) при правилі — не «Своя», а Ц, тип і
+    фікс з правила. have — {'price', 'price_mode', 'fixed_month'}; by_rule — calc.rule_numbers або None. → vals."""
     vals = {}
     if wage_source != 'contract':
         vals['wage_source'] = 'migration'
+    if by_rule and float(have.get('price') or 0.0) <= 0:
+        # ціни немає (перенесено з рядка карти без ціни) — це не «Своя»: ціна, тип і фікс — з правила (ревю перед продом, № 2)
+        vals.update({'is_own': False, 'price': by_rule['price'], 'price_mode': by_rule.get('price_mode') or 'hour',
+                     'fixed_month': by_rule.get('fixed_month') or 0.0})
+        return vals
     is_own = bool(by_rule) and not same_numbers(have, by_rule)
     vals['is_own'] = is_own
     if is_own:

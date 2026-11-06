@@ -569,10 +569,15 @@ msgstr "Бонус офиса"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_office_bonus__employee_id
-#: model:ir.model.fields,field_description:workset_rates.field_workset_office_bonus__employee_label
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_bonus_list
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_bonus_search
 msgid "Хто отримує"
 msgstr "Кто получает"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_office_bonus__employee_label
+msgid "Хто отримує (ім'я)"
+msgstr "Кто получает (имя)"
 
 #. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_office_bonus__kind
@@ -1286,7 +1291,6 @@ msgstr "Проверить"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__check_reason
-#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__issues
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate_check__body
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
 msgid "Що перевірити"
@@ -1348,6 +1352,11 @@ msgstr "Уровень доли"
 #: model:ir.model.fields,help:workset_rates.field_workset_rate__share_level
 msgid "Низька — частка WorkSET ≤ 0 або нижче мінімуму (загальної ставки, лінії або за замовчуванням); Добра — від «Доброї частки»."
 msgstr "Низкая — доля WorkSET ≤ 0 или ниже минимума (общей ставки, линии или по умолчанию); Хорошая — от «Хорошей доли»."
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__issues
+msgid "Перевірити: список"
+msgstr "Проверить: список"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__subtitle

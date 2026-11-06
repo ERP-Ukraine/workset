@@ -1572,6 +1572,41 @@ class TestWorksetRates(TransactionCase):
             r.sudo().with_context(workset_rates_internal=True).write({'check_reason': 'службове'})
             self.assertEqual(r.check_reason, 'службове')
 
+    def test_m2c2_link_rules_outside_migration(self):
+        """rates_link_rules поза міграцією (посів штабу --seed-m2): сухий режим нічого не пише; ціна 0 (перенесено з рядка карти без ціни) —
+        ціна з правила службовим записом, не «Своя»; ціна ≠ правилу — «Своя» з причиною, ціна та сама; «На руки з» у ставок, внесених
+        руками, не чіпається ні в 'transfer'; карта проєктів (cost, прапорець) — без змін: А1 не запускається."""
+        self._quiet_bonuses()
+        self.line_rule.active = False
+        a, b = self._no_agents()
+        with a, b:
+            zero = self._rate(price=0)
+            own = self._rate(person_id=self._person('Тест П привязка').id, price=23)
+            moved = self._rate(person_id=self._person('Тест П перенос карти').id, price=19, source='migration')
+        self.assertFalse(zero.rule_id or own.rule_id or moved.rule_id, 'правило лінії в архіві — ставки без правила')
+        self.assertEqual((zero.price, own.price, zero.wage_source), (0, 23, 'manual'))
+        self.m_a.sudo().write({'cost': 11})
+        before = [(m.cost, m.is_cost_changed) for m in (self.m_a, self.m_b)]
+        self.line_rule.active = True
+        with a, b:
+            dry = self.R.with_context(rates_dry=True).rates_link_rules(migration='transfer')
+            self.assertTrue(dry['dry'] and dry['linked'] >= 3)
+            self.env.invalidate_all()
+            self.assertEqual((zero.rule_id.id, zero.price, own.is_own, moved.wage_source), (False, 0, False, 'manual'), 'сухий режим нічого не пише')
+            res = self.R.rates_link_rules(migration='transfer')
+        self.env.invalidate_all()
+        self.assertFalse(res['dry'])
+        self.assertEqual((zero.rule_id, zero.price, zero.is_own), (self.line_rule, 19, False), 'ціна 0 — з правила (14 + 5), не «Своя»')
+        self.assertEqual((own.rule_id, own.price, own.is_own), (self.line_rule, 23, True), 'ціна ≠ правилу — «Своя», ціна та сама')
+        self.assertIn('за правилом 19', own.own_reason)
+        self.assertEqual((zero.wage_source, own.wage_source, moved.wage_source), ('manual', 'manual', 'migration'),
+                         "'transfer': «Перенос» — лише ставкам з джерелом «Перенесено з проєкту»")
+        self.assertEqual([(m.cost, m.is_cost_changed) for m in (self.m_a, self.m_b)], before, 'карта проєктів не змінилась (А1 не запускався)')
+        with a, b:
+            again = self.R.rates_link_rules(migration='transfer')
+        self.assertFalse({zero.id, own.id, moved.id} & set(self.R.search([('rule_id', '=', False)]).ids), 'повтор: усі прив\'язані')
+        self.assertEqual(again['linked'], 0, 'повтор нічого не прив\'язує')
+
     def test_m2c2_migration_from_m1(self):
         """Перенос 19.0.1 → 19.0.2 (migrations/19.0.2.0.0/post-migrate.py) на вигаданих даних: частки лінії М1 з тимчасової таблиці → правило
         лінії «Надбавка» з найранішої «Ставка з»; ставка з ціною за правилом — не «Своя», «На руки з» — «Перенос»; ручна частка агента М1 —

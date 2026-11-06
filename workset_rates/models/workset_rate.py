@@ -199,7 +199,7 @@ class WorksetRate(models.Model):
     person_rate_ids = fields.Many2many(RATE, 'workset_rate_person_rel', 'rate_id', 'other_id', string='Ставки працівника', compute='_compute_pair')
     share_level = fields.Selection(SHARE_LEVELS, string='Рівень частки', readonly=True, index=True,
                                    help='Низька — частка WorkSET ≤ 0 або нижче мінімуму (загальної ставки, лінії або за замовчуванням); Добра — від «Доброї частки».')
-    issues = fields.Char(string='Що перевірити', compute='_compute_issues')
+    issues = fields.Char(string='Перевірити: список', compute='_compute_issues')
     line_agent_id = fields.Many2one('res.partner', string='Агент лінії', related='line_id.agent_id')
     subtitle = fields.Char(string='Замовник · лінія', compute='_compute_texts')
     formula = fields.Char(string='На руки + частка = ціна', compute='_compute_texts')
@@ -1488,9 +1488,11 @@ class WorksetRate(models.Model):
     @api.model
     def rates_link_rules(self, migration=False):
         """Ставки без «Загальної ставки» (перенос М1; ставки, створені раніше за правила) — до правил, що діють на їхню «Ставка з»:
-        «Своя» — Ц (тип, фікс) ≠ правилу, з причиною (calc.migration_rate_vals), далі ланцюжок без зміни «Своєї» (числа «не своїх» = правилу,
-        тож ціна не змінюється); карта проєктів і замовлення не змінюються. migration — ще «На руки з» → «Перенос» (крім «Договір»): перенос
-        19.0.1 → 19.0.2 і посів прода (--seed-m2). Лише адміністратор; rates_dry — тільки числа. → {'rates', 'linked', 'own', 'chained', 'dry'}."""
+        «Своя» — Ц (тип, фікс) ≠ правилу, з причиною (calc.migration_rate_vals); ціна 0 (перенесена без ціни) — ціна з правила службовим
+        записом; далі ланцюжок без зміни «Своєї»; карта проєктів і замовлення не змінюються (А1 не запускається).
+        «На руки з» → «Перенос» (крім «Договір»): migration=True — усім ставкам (перенос 19.0.1 → 19.0.2: усі ставки бази — з М1);
+        migration='transfer' — лише ставкам, перенесеним з карти проєктів (джерело «Перенесено з проєкту»; посів прода --seed-m2: повторний
+        запуск не чіпає ставок, внесених пізніше руками). Лише адміністратор; rates_dry — тільки числа. → {'rates', 'linked', 'own', 'chained', 'dry'}."""
         self._check_admin()
         Rate = self.env[RATE].sudo().with_context(active_test=False)
         rates = Rate.search([('rule_id', '=', False)])
@@ -1499,12 +1501,13 @@ class WorksetRate(models.Model):
         linked = own = 0
         for r in rates:
             rid = calc.rule_pick(rules, r.line_id.id, cust_of(r.customer_id), calc.iso(r.date_from))
-            if not rid and not migration:
+            mig = migration is True or (migration == 'transfer' and r.source == 'migration')
+            if not rid and not mig:
                 continue
             by_rule = calc.rule_numbers(Rate._rule_dict(self.env[RULE].browse(rid)), r.wage, r.found_by, r._prev_price()) if rid else None
             vals = calc.migration_rate_vals({'price': r.price, 'price_mode': r.price_mode or 'hour', 'fixed_month': r.fixed_month}, by_rule,
                                             r.agent_share, r.agent_source, r.wage_source)
-            if not migration:
+            if not mig:
                 vals.pop('wage_source', None)
             if not rid:
                 vals.pop('is_own', None)

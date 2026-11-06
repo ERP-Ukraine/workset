@@ -11,7 +11,7 @@
                 <field name="active" column_invisible="1"/>
                 <!-- «Хто отримує»: правлять «правила ліній» (поле картки); «перегляд» без прав кадрів бачить ім'я, прочитане sudo -->
                 <field name="employee_id" options="{'no_create': True}" groups="workset_rates.group_rule_editor,base.group_system"/>
-                <field name="employee_label" groups="!workset_rates.group_rule_editor,!base.group_system"/>
+                <field name="employee_label" string="Хто отримує" groups="!workset_rates.group_rule_editor,!base.group_system"/>
                 <field name="kind"/>
                 <field name="amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                 <field name="customer_ids" widget="many2many_tags" options="{'no_create': True}" placeholder="усі"/>
