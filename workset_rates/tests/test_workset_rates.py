@@ -817,7 +817,7 @@ class TestWorksetRates(TransactionCase):
             self.assertEqual((new.wage, new.price, new.our_share, new.state), (15, 20, 5, 'future'), 'надбавка: Ц = 15 + 5, W та сама')
             self.assertEqual((new.wage_source, new.source, new.contract_version_id), ('contract', 'contract', v))
             self.assertIn('з договору', self._bodies(new))
-            self.assertIn('надбавка — ціна 19 → 20', self._bodies(new))
+            self.assertIn('надбавка — платять нам 19 → 20', self._bodies(new))
             self.assertEqual((r.wage, r.price), (14, 19), 'попередня ставка не змінена')
             self.assertEqual(calc.iso(r.date_to), calc.add_days(LATER, -1))
             self.R.with_context(rates_today=LATER).rates_daily()
