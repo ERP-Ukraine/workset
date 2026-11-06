@@ -9,7 +9,9 @@
             <list string="Бонуси офісу" editable="bottom" decoration-muted="not active">
                 <field name="currency_id" column_invisible="1"/>
                 <field name="active" column_invisible="1"/>
-                <field name="employee_id" options="{'no_create': True}"/>
+                <!-- «Хто отримує»: правлять «правила ліній» (поле картки); «перегляд» без прав кадрів бачить ім'я, прочитане sudo -->
+                <field name="employee_id" options="{'no_create': True}" groups="workset_rates.group_rule_editor,base.group_system"/>
+                <field name="employee_label" groups="!workset_rates.group_rule_editor,!base.group_system"/>
                 <field name="kind"/>
                 <field name="amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                 <field name="customer_ids" widget="many2many_tags" options="{'no_create': True}" placeholder="усі"/>
@@ -29,12 +31,12 @@
         <field name="model">workset.office.bonus</field>
         <field name="arch" type="xml">
             <search string="Бонуси офісу">
-                <field name="employee_id"/>
+                <field name="employee_id" groups="workset_rates.group_rule_editor,base.group_system"/>
                 <field name="customer_ids"/>
                 <field name="line_ids"/>
                 <filter name="archived" string="В архіві" domain="[('active', '=', False)]"/>
                 <group>
-                    <filter name="groupby_employee" string="Хто отримує" context="{'group_by': 'employee_id'}"/>
+                    <filter name="groupby_employee" string="Хто отримує" context="{'group_by': 'employee_id'}" groups="workset_rates.group_rule_editor,base.group_system"/>
                     <filter name="groupby_kind" string="Вид" context="{'group_by': 'kind'}"/>
                 </group>
             </search>

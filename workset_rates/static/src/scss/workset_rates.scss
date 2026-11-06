@@ -1,15 +1,19 @@
-// Полоса підсумків «Ставок»: штатні кольори теми (світла й темна), без власних заливок; на телефоні — дрібніше й щільніше.
-// Лише змінні й міксини Bootstrap (є в web.assets_backend): невідома змінна зламала б увесь бандл бекенду
-.o_workset_rates_summary .o_workset_rates_summary_item {
+// Плитки підсумків «Ставок» (рівень A, 6б): штатні кольори теми (світла й темна), без власних заливок. Плитки тягнуться на всю ширину ряду
+// (без порожніх місць праворуч); на телефоні — дві колонки. Лише змінні й міксини Bootstrap (є в web.assets_backend): невідома змінна
+// зламала б увесь бандл бекенду
+.o_workset_rates_tiles .o_workset_rates_tile {
+    flex: 1 1 9rem;
+    min-width: 0;
     white-space: nowrap;
 }
 
 @include media-breakpoint-down(md) {
-    .o_workset_rates_summary {
-        column-gap: map-get($spacers, 2) !important;
-        row-gap: map-get($spacers, 1) !important;
+    .o_workset_rates_tiles {
         padding-top: map-get($spacers, 1) !important;
         padding-bottom: map-get($spacers, 1) !important;
-        font-size: $font-size-sm;
+    }
+    .o_workset_rates_tiles .o_workset_rates_tile {
+        flex: 1 1 calc(50% - #{map-get($spacers, 2)});
+        max-width: calc(50% - #{map-get($spacers, 1)});
     }
 }

@@ -48,7 +48,7 @@ WORK_GROUPS = [('g1_work', 'Працюють'), ('g2_idle', 'Не працюют
 AGENT_SOURCES = [('deal', 'Домовленість'), ('line', 'Лінія'), ('manual', 'Вручну'), ('none', 'Немає')]
 SHARE_LEVELS = [('low', 'Низька'), ('mid', 'Звичайна'), ('good', 'Добра')]
 SOURCES = [('whatsapp', 'WhatsApp лінії'), ('email', 'Лист'), ('contract', 'Договір'), ('call', 'Розмова'), ('migration', 'Перенесено з проєкту'),
-           ('owner', 'Слово власника'), ('rule', 'Загальна ставка'), ('other', 'Інше')]
+           ('owner', 'Слово власника'), ('rule', 'Загальна ставка'), ('chat', 'Переписка'), ('odoo', 'Odoo'), ('other', 'Інше')]
 ANCHORS = [('markup', 'Надбавка'), ('tariff', 'Тариф')]
 PRICE_MODES = [('hour', 'За годину'), ('fixed_month', 'Фікс за місяць')]
 PAYERS = [('line', 'Лінія'), ('client', 'Клієнт зверху'), ('workset', 'WorkSET')]
@@ -148,7 +148,7 @@ class WorksetRate(models.Model):
     wage_note = fields.Char(string='На руки звідки', compute='_compute_wage_note')
     card_line = fields.Char(string='Рядок дошки', compute='_compute_texts')
     rule_share = fields.Monetary(string='За правилом лінії', currency_field='currency_id', compute='_compute_rule')
-    rule_ok = fields.Boolean(string='За правилом', readonly=True, default=True)
+    rule_ok = fields.Boolean(string='Відповідає правилу', readonly=True, default=True)
     rule_text = fields.Char(string='Правило лінії', compute='_compute_rule')
     date_from = fields.Date(string='Ставка з', required=True, index=True, tracking=8, default=lambda self: self._today(),
                             help='Перший день, з якого діє ця ставка (на руки, ціна) — в усіх проєктах замовника в усіх фірмах. Попередня ставка цієї пари '
@@ -191,7 +191,7 @@ class WorksetRate(models.Model):
     active = fields.Boolean(string='Активна', default=True, tracking=10)
     # нехранимі зв'язки — з явними іменами таблиць (таблиць немає; без імен Odoo не вивів би назву для зв'язку моделі з собою)
     employee_ids = fields.Many2many('hr.employee', 'workset_rate_employee_rel', 'rate_id', 'employee_id', string='Картки у фірмах', compute='_compute_employees')
-    employee_summary = fields.Char(string='Картки у фірмах', compute='_compute_employees')
+    employee_summary = fields.Char(string='Картки у фірмах (стисло)', compute='_compute_employees')
     pair_rate_ids = fields.Many2many(RATE, 'workset_rate_pair_rel', 'rate_id', 'other_id', string='Інші ставки пари', compute='_compute_pair')
     others_count = fields.Integer(string='Інших ставок', readonly=True)
     others_note = fields.Char(string='Інші ставки', compute='_compute_others_note',
@@ -199,7 +199,7 @@ class WorksetRate(models.Model):
     person_rate_ids = fields.Many2many(RATE, 'workset_rate_person_rel', 'rate_id', 'other_id', string='Ставки працівника', compute='_compute_pair')
     share_level = fields.Selection(SHARE_LEVELS, string='Рівень частки', readonly=True, index=True,
                                    help='Низька — частка WorkSET ≤ 0 або нижче мінімуму (загальної ставки, лінії або за замовчуванням); Добра — від «Доброї частки».')
-    issues = fields.Char(string='Перевірити', compute='_compute_issues')
+    issues = fields.Char(string='Що перевірити', compute='_compute_issues')
     line_agent_id = fields.Many2one('res.partner', string='Агент лінії', related='line_id.agent_id')
     subtitle = fields.Char(string='Замовник · лінія', compute='_compute_texts')
     formula = fields.Char(string='На руки + частка = ціна', compute='_compute_texts')
@@ -412,7 +412,8 @@ class WorksetRate(models.Model):
             if diff:
                 n += 1
                 if not self._dry():
-                    r.with_context(**{INTERNAL: True}).write(diff)
+                    # sudo: INTERNAL діє лише в суперкористувача (_strip_internal); права на саму правку перевірено до ланцюжка
+                    r.sudo().with_context(**{INTERNAL: True}).write(diff)
         return n
 
     def _rechain(self):
@@ -647,6 +648,7 @@ class WorksetRate(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        self = self._strip_internal()
         vals_list = [self._mark_client(v) for v in vals_list]
         recs = super().create(vals_list)
         if not self._no_sync():
@@ -657,7 +659,15 @@ class WorksetRate(models.Model):
             recs._after_change({}, set())
         return recs
 
+    def _strip_internal(self):
+        # контекст INTERNAL (службові поля ланцюжка без автоматики) — лише суперкористувачу (код модуля пише ним через sudo()); від
+        # користувача (RPC) він знімається, щоб редактор не обійшов А1 і ланцюжок — і щоб не потрапив у вкладені sudo-записи
+        if self.env.context.get(INTERNAL) and not self.env.su:
+            return self.with_context(**{INTERNAL: False})
+        return self
+
     def write(self, vals):
+        self = self._strip_internal()
         if self.env.context.get(INTERNAL):
             return super().write(vals)
         vals = self._mark_client(vals)
@@ -1081,8 +1091,10 @@ class WorksetRate(models.Model):
     # ——— полоса підсумків над списком і канбаном: один виклик по домену поточного пошуку ———
     @api.model
     def rates_summary(self, domain=None):
-        # М2: ще середня чиста частка, «Нижче мінімуму» (рівень частки або чистої — низький) і «Тимчасових» (пара має зміну, що діє сьогодні)
-        rows = self.search_read(list(domain or []), ['work', 'wage', 'price', 'our_share', 'net_share', 'share_level', 'net_level', 'person_id', 'customer_id'])
+        # М2: ще середня чиста частка, «Нижче мінімуму» (рівень частки або чистої — низький), «Тимчасових» (пара має зміну, що діє сьогодні)
+        # і «Договір ≠ база» (діюча ставка не збігається з договором — той самий прапорець, що фільтр «≠ договір»)
+        rows = self.search_read(list(domain or []), ['work', 'wage', 'price', 'our_share', 'net_share', 'share_level', 'net_level', 'person_id', 'customer_id',
+                                                     'state', 'contract_ok'])
         today = calc.iso(self._today())
         partners = self.env['res.partner'].browse([r['customer_id'][0] for r in rows if r['customer_id']])
         commercial = {p.id: p.commercial_partner_id.id for p in partners}
@@ -1093,6 +1105,7 @@ class WorksetRate(models.Model):
                 live.add((x.person_id.id, cust_of(x.customer_id)))
         s = calc.summary([{'work': r['work'], 'wage': r['wage'], 'price': r['price'], 'share': r['our_share'], 'net': r['net_share'],
                            'low': 'low' in (r['share_level'], r['net_level']),
+                           'contract': r['state'] == 'current' and not r['contract_ok'],
                            'raise': bool(r['person_id'] and r['customer_id']) and (r['person_id'][0], commercial.get(r['customer_id'][0], 0)) in live}
                           for r in rows])
         s['days'] = self._work_days()
@@ -1473,6 +1486,37 @@ class WorksetRate(models.Model):
                 'a6_mode': contract['mode'], 'a6_would': a6_would, 'message': summary, 'contract_message': contract_msg}
 
     @api.model
+    def rates_link_rules(self, migration=False):
+        """Ставки без «Загальної ставки» (перенос М1; ставки, створені раніше за правила) — до правил, що діють на їхню «Ставка з»:
+        «Своя» — Ц (тип, фікс) ≠ правилу, з причиною (calc.migration_rate_vals), далі ланцюжок без зміни «Своєї» (числа «не своїх» = правилу,
+        тож ціна не змінюється); карта проєктів і замовлення не змінюються. migration — ще «На руки з» → «Перенос» (крім «Договір»): перенос
+        19.0.1 → 19.0.2 і посів прода (--seed-m2). Лише адміністратор; rates_dry — тільки числа. → {'rates', 'linked', 'own', 'chained', 'dry'}."""
+        self._check_admin()
+        Rate = self.env[RATE].sudo().with_context(active_test=False)
+        rates = Rate.search([('rule_id', '=', False)])
+        rules = Rate._rules_index()
+        dry = self._dry()
+        linked = own = 0
+        for r in rates:
+            rid = calc.rule_pick(rules, r.line_id.id, cust_of(r.customer_id), calc.iso(r.date_from))
+            if not rid and not migration:
+                continue
+            by_rule = calc.rule_numbers(Rate._rule_dict(self.env[RULE].browse(rid)), r.wage, r.found_by, r._prev_price()) if rid else None
+            vals = calc.migration_rate_vals({'price': r.price, 'price_mode': r.price_mode or 'hour', 'fixed_month': r.fixed_month}, by_rule,
+                                            r.agent_share, r.agent_source, r.wage_source)
+            if not migration:
+                vals.pop('wage_source', None)
+            if not rid:
+                vals.pop('is_own', None)
+            linked += 1 if rid else 0
+            own += 1 if vals.get('is_own') else 0
+            diff = {k: v for k, v in vals.items() if (r[k] or False) != (v or False)}
+            if diff and not dry:
+                r.with_context(**{INTERNAL: True}).write(diff)
+        chained = rates.with_context(rates_dry=dry)._chain(full=True, edited=False) if rates else 0
+        return {'rates': len(rates), 'linked': linked, 'own': own, 'chained': chained, 'dry': dry}
+
+    @api.model
     def rates_recalc_work(self):
         """А5: «Робота» в усіх пар (останні години, стан, фірми й проєкти) без перерахунку статусів і рядків карти."""
         self._check_admin()
@@ -1630,16 +1674,21 @@ class WorksetRate(models.Model):
             for r in cur.filtered(lambda x: x.line_id.agent_expected and not x.agent_client_share):
                 agent_rows.append([rate_cell(r), r.customer_id.name or '', r.line_id.name or '', calc.money(r.agent_client_share) + ' €',
                                    r.agent_client_note or ''])
-        # М2c (розділ 3.13): лінія з якорем «надбавка» і діючими ставками, а правила житла на сьогодні немає; тарифні лінії мовчать
-        by_line = {}
+        # М2c (розділ 3.13): пара «лінія × замовник» з якорем лінії «надбавка» і діючими ставками, а правила житла на сьогодні немає ні
+        # замовника, ні лінії (ревю М2c-1, № 6: правило одного замовника не закриває всю лінію); тарифні лінії мовчать
+        by_pair = {}
         for r in cur.filtered('line_id'):
-            by_line[r.line_id.id] = by_line.get(r.line_id.id, 0) + 1
-        lines = self.env['workset.line'].sudo().browse(list(by_line))
+            key = (r.line_id.id, cust_of(r.customer_id))
+            by_pair[key] = by_pair.get(key, 0) + 1
+        lines = self.env['workset.line'].sudo().browse(sorted({k[0] for k in by_pair}))
+        anchors = {x.id: x.anchor for x in lines}
         housing_rows = []
-        for lid in calc.housing_missing([{'id': x.id, 'anchor': x.anchor, 'rates': by_line[x.id]} for x in lines],
-                                        self.env['workset.line.housing']._rules(), calc.iso(today)):
+        for lid, cid in calc.housing_missing([{'line_id': k[0], 'customer_id': k[1], 'anchor': anchors.get(k[0]), 'rates': n}
+                                              for k, n in sorted(by_pair.items())],
+                                             self.env['workset.line.housing']._rules(), calc.iso(today)):
             ln = lines.browse(lid)
-            housing_rows.append([{'text': ln.name or '', 'href': calc.link('workset.line', ln.id)}, str(by_line[lid])])
+            housing_rows.append([{'text': ln.name or '', 'href': calc.link('workset.line', ln.id)},
+                                 self.env['res.partner'].sudo().browse(cid).name or '', str(by_pair[(lid, cid)])])
         days = calc.RECENT_DAYS
         t = lambda k: calc.t(k, lang)  # noqa: E731
         cols_map = [t('c_project'), t('c_firm'), t('c_customer'), t('c_card'), t('c_cost'), t('c_note')]
@@ -1663,7 +1712,7 @@ class WorksetRate(models.Model):
             {'key': 'found', 'title': t('s_found'), 'hint': t('h_found'), 'cols': [t('c_person'), t('c_customer'), t('c_line')], 'rows': found_rows},
             {'key': 'check', 'title': t('s_check'), 'hint': t('h_check'), 'cols': [t('c_person'), t('c_customer'), t('c_what')], 'rows': check_rows},
             {'key': 'agent', 'title': t('s_agent'), 'hint': t('h_agent'), 'cols': [t('c_person'), t('c_customer'), t('c_line'), t('c_ashare'), t('c_asrc')], 'rows': agent_rows},
-            {'key': 'housing', 'title': t('s_housing'), 'hint': t('h_housing'), 'cols': [t('c_line'), t('c_rates')], 'rows': housing_rows},
+            {'key': 'housing', 'title': t('s_housing'), 'hint': t('h_housing'), 'cols': [t('c_line'), t('c_customer'), t('c_rates')], 'rows': housing_rows},
         ]
         n = calc.issue_count(sections) if total else 0
         counts = {s['key']: len(s['rows']) for s in sections}

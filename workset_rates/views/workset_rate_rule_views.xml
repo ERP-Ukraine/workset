@@ -10,7 +10,7 @@
                 <field name="currency_id" column_invisible="1"/>
                 <field name="level" column_invisible="1"/>
                 <field name="line_id" widget="badge"/>
-                <field name="customer_text" decoration-muted="level == 'line'"/>
+                <field name="customer_text" string="Замовник" decoration-muted="level == 'line'"/>
                 <field name="anchor" widget="badge" decoration-info="anchor == 'markup'"/>
                 <field name="price_mode" widget="badge" decoration-info="price_mode == 'fixed_month'"/>
                 <field name="share_line_found" string="Знайшла" widget="monetary" options="{'currency_field': 'currency_id'}" avg="Середнє"/>
@@ -35,7 +35,9 @@
         <field name="arch" type="xml">
             <form string="Загальна ставка">
                 <header>
-                    <button name="action_new_from_date" type="object" string="Нова з дати" class="btn-primary" invisible="not id or not active or state == 'past'"
+                    <field name="can_edit_line" invisible="1"/>
+                    <button name="action_new_from_date" type="object" string="Нова з дати" class="btn-primary"
+                            invisible="not id or not active or state == 'past' or (level == 'line' and not can_edit_line)"
                             groups="workset_rates.group_editor,base.group_system"/>
                     <button name="action_apply_wizard" type="object" string="Застосувати з дати" class="btn-secondary" invisible="not id or not active or state == 'past'"
                             groups="workset_rates.group_editor,base.group_system"/>

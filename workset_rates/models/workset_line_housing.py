@@ -56,13 +56,16 @@ class WorksetLineHousing(models.Model):
         return [{'id': h.id, 'line_id': h.line_id.id, 'customer_id': cust_of(h.customer_id), 'date_from': calc.iso(h.date_from),
                  'date_to': calc.iso(h.date_to)} for h in self.sudo().search([])]
 
-    @api.constrains('line_id', 'customer_id', 'date_from', 'date_to', 'active', 'amount', 'hours_per_person')
+    @api.constrains('line_id', 'customer_id', 'date_from', 'date_to', 'active', 'amount', 'hours_per_person', 'kind')
     def _check_housing(self):
         lang = calc.lang_of(self.env.lang)
         rules = None
         for h in self:
             if (h.amount or 0) < 0 or (h.hours_per_person or 0) < 0:
                 raise ValidationError(calc.t('negative', lang) % ', '.join([h._fields['amount'].string, h._fields['hours_per_person'].string]))
+            if h.hours_per_person and h.kind != 'hour_deduction':
+                # «Годин житла на особу» — лише для «Вирахування: години житла × €» (ревю М2c-1, № 8)
+                raise ValidationError(calc.t('h_hours_kind', lang))
             if h.date_to and h.date_to < h.date_from:
                 raise ValidationError(calc.t('rs_dates', lang))
             if not h.active:

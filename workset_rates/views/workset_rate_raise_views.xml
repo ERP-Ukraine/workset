@@ -41,7 +41,7 @@
                     <widget name="web_ribbon" title="Скасовано" bg_color="text-bg-danger" invisible="state != 'cancel'"/>
                     <field name="currency_id" invisible="1"/>
                     <div class="oe_title">
-                        <h1><field name="person_id" placeholder="Працівник" options="{'no_create': True}" domain="[('employee_ids', '!=', False)]"/></h1>
+                        <h1><field name="person_id" placeholder="Працівник" options="{'no_create': True}" domain="[('workset_is_worker', '=', True)]"/></h1>
                         <div class="d-flex align-items-baseline gap-2 flex-wrap text-muted" invisible="not id">
                             <field name="customer_id" readonly="1" class="w-auto"/>
                             <field name="rate_id" readonly="1" class="w-auto" invisible="not rate_id"/>

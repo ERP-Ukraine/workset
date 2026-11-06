@@ -123,7 +123,7 @@ TX = {
     'rule_txt': ['+%s €/год, %s', '+%s €/час, %s'],
     'no_rule': ['для «Хто знайшов» правила в лінії немає — ціна вручну', 'для «Кто нашёл» правила в линии нет — цена вручную'],
     'unit': ['€/год', '€/час'],
-    'i_rule': ['не за правилом лінії (+%s)', 'не по правилу линии (+%s)'], 'i_share': ['частка WorkSET ≤ 0', 'доля WorkSET ≤ 0'],
+    'i_rule': ['не за правилом лінії (+%s)', 'не по правилу линии (+%s)'],
     'i_contract': ['договір ≠ ставка', 'договор ≠ ставка'], 'i_map': ['рядків у проєктах не за ставкою: %d', 'строк в проектах не по ставке: %d'],
     'i_order': ['ціна в замовленні ≠ ставка', 'цена в заказе ≠ ставка'], 'i_check': ['перевірити після переносу', 'проверить после переноса'],
     'card_active': ['діє', 'действует'], 'card_archived': ['архів', 'архив'],
@@ -143,7 +143,6 @@ TX = {
                    'Ставка «Своя»: числа отличаются от общей ставки (по правилу — %s) — укажите «Почему своя».'],
     'client_src': ['«Ціна клієнта»: вкажіть джерело й дату ціни.', '«Цена клиента»: укажите источник и дату цены.'],
     'negative': ['Суми не можуть бути менші за 0: %s.', 'Суммы не могут быть меньше 0: %s.'],
-    'i_found': ['хто знайшов не вказано', 'кто нашёл не указано'],
     'i_own': ['своя: %s', 'своя: %s'],
     'formula_fixed': ['%s = %s %s · фікс за місяць %s € ≈ %s %s за %s год', '%s = %s %s · фикс за месяц %s € ≈ %s %s за %s ч'],
     'norm': [' (за нормою)', ' (по норме)'],
@@ -296,11 +295,15 @@ TX = {
     'h_clash': ['На ці дати в лінії «%s» уже є правило житла для того самого замовника (№ %d, %s – %s): одне правило на дату.',
                 'На эти даты в линии «%s» уже есть правило жилья для того же заказчика (№ %d, %s – %s): одно правило на дату.'],
     'h_open': ['без кінця', 'без конца'],
+    'mig_agent': ['було: частка агента %s (до посередників)', 'было: доля агента %s (до посредников)'],
+    'mig_price': ['перенос з М1: ціна ≠ загальній ставці (за правилом %s)', 'перенос из М1: цена ≠ общей ставке (по правилу %s)'],
+    'h_hours_kind': ['«Годин житла на особу» — лише для «Вирахування: години житла × €»: очистіть поле або змініть «Як рахуємо».',
+                     '«Часов жилья на человека» — только для «Вычет: часы жилья × €»: очистите поле или измените «Как считаем».'],
     's_housing': ['Лінія з надбавкою без правила житла', 'Линия с надбавкой без правила жилья'],
-    'h_housing': ['Лінія з якорем «надбавка» має діючі ставки, а правила житла на сьогодні немає: додайте його у «Ставки → Налаштування → Житло ліній» '
-                  '(«Житло не наше», якщо житло не наше). Лінії з тарифом сюди не потрапляють.',
-                  'Линия с якорем «надбавка» имеет действующие ставки, а правила жилья на сегодня нет: добавьте его в «Ставки → Настройки → Жильё линий» '
-                  '(«Жильё не наше», если жильё не наше). Линии с тарифом сюда не попадают.'],
+    'h_housing': ['У лінії з якорем «надбавка» є діючі ставки в замовника, а правила житла на сьогодні немає ні для цього замовника, ні для всієї лінії: '
+                  'додайте його у «Ставки → Налаштування → Житло ліній» («Житло не наше», якщо житло не наше). Лінії з тарифом сюди не потрапляють.',
+                  'В линии с якорем «надбавка» есть действующие ставки у заказчика, а правила жилья на сегодня нет ни для этого заказчика, ни для всей линии: '
+                  'добавьте его в «Ставки → Настройки → Жильё линий» («Жильё не наше», если жильё не наше). Линии с тарифом сюда не попадают.'],
     'c_rates': ['Діючих ставок', 'Действующих ставок'],
     'c_inherit': ['Наслідують', 'Наследуют'], 'c_own': ['Свої', 'Свои'],
 }
@@ -617,17 +620,16 @@ def formula(wage, share, agent, price, lang):
 
 
 def issues(r, lang):
-    """«Перевірити» — один рядок з усім, що не так у діючої або майбутньої ставки; r — словник полів ставки."""
+    """«Перевірити» — один рядок з усім, що не так у діючої або майбутньої ставки; r — словник полів ставки.
+    Без того, що вже є в «Бракує» (missing; ревю М2c-1, зауваження 2): «хто знайшов не вказано», «Своя» без причини, частка ≤ 0 (вона ж
+    «нижче мінімуму»)."""
     out = []
     if r['active'] and r['state'] in ('current', 'future'):
         if r.get('is_own'):
-            out.append(t('i_own', lang) % (r.get('own_reason') or '—'))
+            if (r.get('own_reason') or '').strip():
+                out.append(t('i_own', lang) % r['own_reason'])
         elif not r['rule_ok']:
             out.append(t('i_rule', lang) % num(r['rule_share']))
-        if r.get('found_missing'):
-            out.append(t('i_found', lang))
-        if (r['our_share'] or 0.0) <= 0:
-            out.append(t('i_share', lang))
         if r['state'] == 'current':
             if not r['contract_ok']:
                 out.append(t('i_contract', lang))
@@ -1147,10 +1149,10 @@ def panel_values(values, order_counts=None, keep_zero=False):
 
 
 def summary(rows):
-    """Полоса підсумків над списком: rows — [{'work', 'wage', 'price', 'share'} + М2 'net' (чиста; немає — як частка), 'low' (W або Ч
-    нижче мінімуму), 'raise' (є тимчасова зміна сьогодні)] ставок поточного пошуку.
+    """Плитки підсумків над списком: rows — [{'work', 'wage', 'price', 'share'} + М2 'net' (чиста; немає — як частка), 'low' (W або Ч
+    нижче мінімуму), 'raise' (є тимчасова зміна сьогодні), 'contract' (діюча ставка ≠ договору)] ставок поточного пошуку.
     Працюють — «Працює» + «Новий»; середні — по тих, хто працює; середні частка й чиста — без ставок з часткою ≤ 0 (їх число — «Без частки»),
-    щоб їх можна було порівняти між собою; «Нижче мінімуму» і «Тимчасових» — серед тих, хто працює."""
+    щоб їх можна було порівняти між собою; «Нижче мінімуму», «Тимчасових» і «Договір ≠ база» — серед тих, хто працює."""
     n = 0
     wage = 0.0
     price = 0.0
@@ -1160,6 +1162,7 @@ def summary(rows):
     zero = 0
     low = 0
     raises = 0
+    contract = 0
     for r in rows:
         if r['work'] not in ('work', 'work_new'):
             continue
@@ -1170,6 +1173,8 @@ def summary(rows):
             low += 1
         if r.get('raise'):
             raises += 1
+        if r.get('contract'):
+            contract += 1
         if (r['share'] or 0.0) > 0:
             share += r['share']
             net += r['net'] if r.get('net') is not None else r['share']
@@ -1178,7 +1183,7 @@ def summary(rows):
             zero += 1
     return {'total': len(rows), 'working': n, 'avg_wage': round(wage / n, 2) if n else 0.0, 'avg_price': round(price / n, 2) if n else 0.0,
             'avg_share': round(share / ns, 2) if ns else 0.0, 'zero_share': zero, 'avg_net': round(net / ns, 2) if ns else 0.0,
-            'below_min': low, 'raises': raises}
+            'below_min': low, 'raises': raises, 'contract_diff': contract}
 
 
 # ——— М2b, ревю № 3: інша діюча версія договору на ту саму дату ———
@@ -1285,8 +1290,55 @@ def housing_clash(rules, rule):
     return 0
 
 
-def housing_missing(lines, rules, today):
-    """Звірка «Лінія з надбавкою без правила житла»: lines — [{'id', 'anchor', 'rates'}] (rates — діючих ставок лінії); лише якір «надбавка»
-    з діючими ставками, у яких на today немає жодного правила житла (ні лінії, ні замовника) → [id лінії]. Тарифні лінії мовчать."""
-    covered = {r['line_id'] for r in rules if r.get('date_from') and in_dates(today, r['date_from'], r.get('date_to') or '')}
-    return [x['id'] for x in lines if x.get('anchor') == 'markup' and x.get('rates') and x['id'] not in covered]
+def housing_missing(pairs, rules, today):
+    """Звірка «Лінія з надбавкою без правила житла» — покриття по парах (ревю М2c-1, № 6): pairs — [{'line_id', 'customer_id' (комерційний),
+    'anchor' (якір лінії), 'rates' (діючих ставок пари)}]; лише якір «надбавка» з діючими ставками; пара, для якої на today немає правила
+    ні замовника, ні лінії (housing_pick), → [(line_id, customer_id)] у порядку pairs. Правило іншого замовника пару не закриває; тарифні мовчать."""
+    out = []
+    for p in pairs:
+        if p.get('anchor') != 'markup' or not p.get('rates'):
+            continue
+        if not housing_pick(rules, p['line_id'], p.get('customer_id') or 0, today):
+            out.append((p['line_id'], p.get('customer_id') or 0))
+    return out
+
+
+# ——— перенос 19.0.1 → 19.0.2 (migrations/19.0.2.0.0; розділ 9 спеціфікації М2): лише те, що вже є в базі, бізнес-чисел немає ———
+MIGRATION_NOTE = 'перенос з М1'  # «Звідки саме» правил лінії, створених переносом (назва запису — українською, як інші назви модуля)
+
+
+def migration_line_rules(lines, first_days, have_line_rule, today):
+    """Правила рівня лінії з часток М1: lines — [{'id', 'share_line_found', 'share_we_found', 'min_share'}] (збережені pre-migrate);
+    first_days — {id лінії: найраніша «Ставка з» її ставок}; have_line_rule — множина id ліній, у яких правило лінії вже є.
+    Лінія без часток (обидві ≤ 0) — без правила (надбавку без частки модуль не приймає); немає ставок — «Ставка з» = today.
+    Якір — «Надбавка»: М1 рахував ціну як «на руки + частка» (тариф лінії ставить інструмент штабу, --seed-m2). → [vals правила]."""
+    out = []
+    for ln in lines:
+        lf = round(float(ln.get('share_line_found') or 0.0), 2)
+        wf = round(float(ln.get('share_we_found') or 0.0), 2)
+        if ln['id'] in have_line_rule or (lf <= 0 and wf <= 0):
+            continue
+        vals = {'line_id': ln['id'], 'anchor': 'markup', 'price_mode': 'hour', 'share_line_found': max(lf, 0.0), 'share_we_found': max(wf, 0.0),
+                'date_from': first_days.get(ln['id']) or first_days.get(str(ln['id'])) or today, 'source': 'migration', 'source_note': MIGRATION_NOTE}
+        if float(ln.get('min_share') or 0.0) > 0:
+            vals['min_share'] = round(float(ln['min_share']), 2)
+        out.append(vals)
+    return out
+
+
+def migration_rate_vals(have, by_rule, agent_share, agent_source, wage_source, lang='uk'):
+    """Ставка М1 після переносу: «На руки з» — «Перенос» (крім уже взятих з договору); «Своя» — Ц (тип, фікс) ≠ правилу на «Ставка з»
+    (правила немає — ні); причина «Своєї» — «було: частка агента N (до посередників)», якщо в М1 була частка посередника не з домовленостей
+    (agent_source ≠ 'deal', ≠ 0), інакше «перенос з М1: ціна ≠ загальній (за правилом X)». have — {'price', 'price_mode', 'fixed_month'};
+    by_rule — calc.rule_numbers або None. → vals."""
+    vals = {}
+    if wage_source != 'contract':
+        vals['wage_source'] = 'migration'
+    is_own = bool(by_rule) and not same_numbers(have, by_rule)
+    vals['is_own'] = is_own
+    if is_own:
+        if agent_source != 'deal' and not same_money(agent_share, 0.0):
+            vals['own_reason'] = t('mig_agent', lang) % num(agent_share)
+        else:
+            vals['own_reason'] = t('mig_price', lang) % money(by_rule['price'])
+    return vals

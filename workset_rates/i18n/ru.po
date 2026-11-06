@@ -31,6 +31,11 @@ msgid "Діючих ставок"
 msgstr "Действующих ставок"
 
 #. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_res_partner__workset_is_worker
+msgid "Є картка працівника"
+msgstr "Есть карточка работника"
+
+#. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_project_project__workset_rate_count
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_project_form_rates
 msgid "Ставок замовника"
@@ -396,9 +401,9 @@ msgstr "Платит партнёр"
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate_raise_month__customer_id
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate_rule__customer_id
 #: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate_rule__level__customer
-#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_rule__customer_text
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rule_list
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rule_form
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rule_search
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_raise_form
@@ -564,6 +569,7 @@ msgstr "Бонус офиса"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_office_bonus__employee_id
+#: model:ir.model.fields,field_description:workset_rates.field_workset_office_bonus__employee_label
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_bonus_search
 msgid "Хто отримує"
 msgstr "Кто получает"
@@ -776,7 +782,6 @@ msgstr "Что платит нам заказчик или линия за ча�
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__rule_price
-#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__rule_ok
 msgid "За правилом"
 msgstr "По правилу"
 
@@ -1092,6 +1097,11 @@ msgid "За правилом лінії"
 msgstr "По правилу линии"
 
 #. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__rule_ok
+msgid "Відповідає правилу"
+msgstr "Соответствует правилу"
+
+#. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__date_from
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate_rule__date_from
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
@@ -1268,7 +1278,6 @@ msgstr "Цена в заказе"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__to_check
-#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__issues
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_list
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
@@ -1277,6 +1286,7 @@ msgstr "Проверить"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__check_reason
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__issues
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate_check__body
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
 msgid "Що перевірити"
@@ -1294,10 +1304,14 @@ msgstr "Отпечаток контроля"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__employee_ids
-#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__employee_summary
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
 msgid "Картки у фірмах"
 msgstr "Карточки в фирмах"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__employee_summary
+msgid "Картки у фірмах (стисло)"
+msgstr "Карточки в фирмах (кратко)"
 
 #. module: workset_rates
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__pair_rate_ids
@@ -1350,7 +1364,6 @@ msgstr "На руки + доля = цена"
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_avg_list
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_avg_search
 #: model:ir.actions.act_window,name:workset_rates.action_avg
-#: model:ir.ui.menu,name:workset_rates.menu_avg
 msgid "Середні"
 msgstr "Средние"
 
@@ -1711,9 +1724,19 @@ msgid "«Свої» ставки під цим правилом — загаль
 msgstr "«Свои» ставки под этим правилом — общая ставка их не меняет"
 
 #. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_rule__customer_text
+msgid "Замовник (у списку)"
+msgstr "Заказчик (в списке)"
+
+#. module: workset_rates
 #: model:ir.model.fields,help:workset_rates.field_workset_rate_rule__customer_text
 msgid "Порожньо в правилі — «усі замовники лінії»"
 msgstr "Пусто в правиле — «все заказчики линии»"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate_rule__can_edit_line
+msgid "Може правити правила ліній"
+msgstr "Может править правила линий"
 
 #. module: workset_rates
 #: model:ir.model,name:workset_rates.model_workset_rate_rule_apply
@@ -1832,11 +1855,6 @@ msgid "В архіві"
 msgstr "В архиве"
 
 #. module: workset_rates
-#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
-msgid "Перевірити:"
-msgstr "Проверить:"
-
-#. module: workset_rates
 #. odoo-javascript
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
@@ -1850,6 +1868,11 @@ msgstr "€/час"
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
 msgid "Бракує:"
 msgstr "Не хватает:"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
+msgid "Перевірити:"
+msgstr "Проверить:"
 
 #. module: workset_rates
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
@@ -2436,3 +2459,9 @@ msgstr "Сред. чистая доля"
 #: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
 msgid "Тимчасових"
 msgstr "Временных"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
+msgid "Договір ≠ база"
+msgstr "Договор ≠ база"

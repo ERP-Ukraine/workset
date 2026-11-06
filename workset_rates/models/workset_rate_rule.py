@@ -67,7 +67,9 @@ class WorksetRateRule(models.Model):
     inherit_count = fields.Integer(string='Наслідують', compute='_compute_counts',
                                    help='Діючі й майбутні ставки, якими керує це правило і які не «Свої»')
     own_count = fields.Integer(string='Своїх', compute='_compute_counts', help='«Свої» ставки під цим правилом — загальна ставка їх не змінює')
-    customer_text = fields.Char(string='Замовник', compute='_compute_customer_text', help='Порожньо в правилі — «усі замовники лінії»')
+    customer_text = fields.Char(string='Замовник (у списку)', compute='_compute_customer_text', help='Порожньо в правилі — «усі замовники лінії»')
+    # правило лінії змінює лише «Ставки: правила ліній» — редактору кнопку «Нова з дати» в нього не показуємо (ревю М2c-1, № 5)
+    can_edit_line = fields.Boolean(string='Може правити правила ліній', compute='_compute_can_edit_line')
     active = fields.Boolean(string='Активна', default=True, tracking=13)
 
     # ——— обчислювані ———
@@ -84,6 +86,12 @@ class WorksetRateRule(models.Model):
         lang = calc.lang_of(self.env.lang)
         for r in self:
             r.customer_text = r.customer_id.name if r.customer_id else calc.t('r_all', lang)
+
+    @api.depends_context('uid')
+    def _compute_can_edit_line(self):
+        ok = self._rule_admin()
+        for r in self:
+            r.can_edit_line = ok
 
     @api.depends('customer_id')
     def _compute_level(self):

@@ -10,6 +10,32 @@ class ResPartner(models.Model):
     _inherit = 'res.partner'
 
     workset_rate_count = fields.Integer(string='Діючих ставок', compute='_compute_workset_rate_count')
+    # «Працівник» у ставці й тимчасовій зміні: контакт, у якого є картка працівника. Домен по employee_ids (поле лише кадрам) дав би
+    # редактору без прав кадрів AccessError — тому своє нехраниме поле з пошуком через sudo (назовні — лише id контактів; ревю М2c-1, № 3)
+    workset_is_worker = fields.Boolean(string='Є картка працівника', compute='_compute_workset_is_worker', search='_search_workset_is_worker')
+
+    def _worker_partner_ids(self):
+        return set(self.env['hr.employee'].sudo().search([('work_contact_id', '!=', False)]).work_contact_id.ids)
+
+    def _compute_workset_is_worker(self):
+        ids = self._worker_partner_ids() if self.ids else set()
+        for p in self:
+            p.workset_is_worker = p.id in ids
+
+    def _search_workset_is_worker(self, operator, value):
+        # Odoo 19 може передати і «=» / «!=» з True / False, і «in» / «not in» зі списком — як _search_has_raise ставки
+        values = set(value) if isinstance(value, (list, tuple, set, frozenset)) else {value}
+        if operator in ('!=', 'not in'):
+            values = {True, False} - {bool(v) for v in values}
+        elif operator in ('=', 'in'):
+            values = {bool(v) for v in values}
+        else:
+            raise ValueError('workset_is_worker: %s' % operator)
+        if values == {True, False}:
+            return []
+        if not values:
+            return [('id', '=', 0)]
+        return [('id', 'in' if True in values else 'not in', list(self._worker_partner_ids()))]
 
     def _compute_workset_rate_count(self):
         # sudo — лише на лічильник (назовні йде число); замовник — ставки в нього, працівник — його ставки

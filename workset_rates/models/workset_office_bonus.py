@@ -22,6 +22,8 @@ class WorksetOfficeBonus(models.Model):
 
     name = fields.Char(string='Назва', compute='_compute_name', store=True)
     employee_id = fields.Many2one('hr.employee', string='Хто отримує', required=True, index=True, tracking=1, ondelete='restrict')
+    # ім'я для «Бонуси офісу — перегляд» без прав кадрів (картка в чужій фірмі дала б AccessError на display_name; ревю М2c-1, № 4)
+    employee_label = fields.Char(string='Хто отримує', compute='_compute_employee_label')
     kind = fields.Selection(KINDS, string='Вид', required=True, default='hour', tracking=2,
                             help='€ за годину — за кожну годину людей; € за працівника на місяць — ділиться на години людини в цього замовника за минулий '
                                  'місяць; € за своїх людей на місяць — так само, але лише за людей зі списку «Люди»')
@@ -44,6 +46,11 @@ class WorksetOfficeBonus(models.Model):
         labels = dict(KINDS)
         for b in self:
             b.name = '%s · %s · %s' % (b.employee_id.name or '—', labels.get(b.kind, ''), calc.money(b.amount))
+
+    @api.depends('employee_id')
+    def _compute_employee_label(self):
+        for b in self:
+            b.employee_label = b.sudo().employee_id.name or ''
 
     @api.constrains('amount', 'date_from', 'date_to')
     def _check_bonus(self):

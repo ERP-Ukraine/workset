@@ -318,7 +318,8 @@ class TestWorksetRates(TransactionCase):
         self.assertEqual((none.price, none.our_share), (18, 4), '«Хто знайшов» порожньо — за «знайшла лінія»')
         self.assertTrue(none.found_missing)
         self.assertFalse(us.found_missing)
-        self.assertIn('хто знайшов не вказано', none.issues)
+        self.assertEqual(none.missing_text, 'Хто знайшов не вказано')
+        self.assertNotIn('хто знайшов', none.issues or '', '«Перевірити» не повторює «Бракує» (ревю М2c-1, № 2)')
         self.assertFalse(us.is_own)
 
     def test_m2_02_tariff_and_start_price(self):
@@ -1461,11 +1462,63 @@ class TestWorksetRates(TransactionCase):
         self.assertEqual(res['sections']['housing'], 1, 'лінія-надбавка без правила житла — у звірці, тарифна — ні')
         part = self.env['workset.rate.check'].search([('date', '=', DAY)]).body.split('Лінія з надбавкою без правила житла')[1].split('<h3>')[0]
         self.assertIn('Тест лінія', part)
+        self.assertIn('Тест замовник', part, 'рядок — пара «лінія × замовник»')
         self.assertNotIn('Тест тарифна житло', part)
-        self.env['workset.line.housing'].create({'line_id': self.line.id, 'kind': 'invoice_buffer', 'date_from': DAY, 'source': 'owner',
+        # ревю М2c-1, № 6: правило житла ІНШОГО замовника лінії пару не закриває (раніше закривало всю лінію)
+        other = self._cust('Тест замовник житло інший')
+        self.env['workset.line.housing'].create({'line_id': self.line.id, 'customer_id': other.id, 'kind': 'none', 'date_from': DAY, 'source': 'owner',
                                                  'source_note': 'тест'})
         res = self.R.with_context(rates_today=NEXT).rates_check()
-        self.assertEqual(res['sections']['housing'], 0, 'правило житла є — розділ мовчить')
+        self.assertEqual(res['sections']['housing'], 1, 'правило іншого замовника — пара без житла лишається в звірці')
+        self.env['workset.line.housing'].create({'line_id': self.line.id, 'kind': 'invoice_buffer', 'date_from': DAY, 'source': 'owner',
+                                                 'source_note': 'тест'})
+        res = self.R.with_context(rates_today=DAY3).rates_check()
+        self.assertEqual(res['sections']['housing'], 0, 'правило житла лінії є — розділ мовчить')
+        # «Годин житла на особу» — лише при «Вирахування: години житла × €» (ревю М2c-1, № 8)
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            self.env['workset.line.housing'].create({'line_id': lt.id, 'kind': 'payment_buffer', 'hours_per_person': 10, 'date_from': DAY,
+                                                     'source': 'chat', 'source_note': 'тест'})
+        ok = self.env['workset.line.housing'].create({'line_id': lt.id, 'kind': 'hour_deduction', 'hours_per_person': 10, 'date_from': DAY,
+                                                      'source': 'odoo', 'source_note': 'тест'})
+        self.assertEqual((ok.hours_per_person, ok.source), (10, 'odoo'), 'джерела «Переписка» / «Odoo» — у загальному списку')
+
+    def test_m2c1b_review_access(self):
+        """Ревю М2c-1, № 3–5: редактор без прав кадрів підбирає «Працівник» (поле workset_is_worker, а не employee_ids); «Бонуси офісу —
+        перегляд» без прав кадрів читає список (ім'я — через sudo); «Нова з дати» правила лінії редактору не видно."""
+        editor = new_test_user(self.env, login='ws_m2c1b_editor', groups='base.group_user,workset_rates.group_editor')
+        viewer = new_test_user(self.env, login='ws_m2c1b_viewer', groups='base.group_user,workset_rates.group_bonus_viewer')
+        owner = new_test_user(self.env, login='ws_m2c1b_owner', groups='base.group_user,workset_rates.group_rule_editor')
+        self.assertFalse(editor.has_group('hr.group_hr_user'))
+        # № 3: домен поля «Працівник» форм ставки й тимчасової зміни — від редактора без прав кадрів, без AccessError
+        for xmlid, model in (('view_rate_form', 'workset.rate'), ('view_raise_form', 'workset.rate.raise')):
+            arch = self.env[model].with_user(editor).get_views([(self.env.ref('workset_rates.' + xmlid).id, 'form')])['views']['form']['arch']
+            self.assertIn("('workset_is_worker', '=', True)", arch, xmlid)
+            self.assertNotIn('employee_ids', arch, xmlid)
+        stranger = self._person('Тест контакт без картки')
+        found = [i for i, _n in self.env['res.partner'].with_user(editor).name_search('Тест', [('workset_is_worker', '=', True)], limit=1000)]
+        self.assertIn(self.person.id, found, 'працівник з карткою — є')
+        self.assertNotIn(stranger.id, found, 'контакт без картки — ні')
+        self.assertNotIn(self.person.id, self.env['res.partner'].with_user(editor).search([('workset_is_worker', '=', False), ('id', '=', self.person.id)]).ids)
+        # № 4: список «Бонуси офісу» так, як його читає клієнт: поля виду цього користувача → web_search_read
+        bonus = self.env['workset.office.bonus'].create({'employee_id': self.emp_a.id, 'kind': 'hour', 'amount': 1.2, 'date_from': OLD, 'source': 'other'})
+        view = self.env.ref('workset_rates.view_bonus_list').id
+
+        def list_fields(user):
+            m = self.env['workset.office.bonus'].with_user(user).get_views([(view, 'list')])['models']['workset.office.bonus']
+            return [f for f in m.get('fields', m) if f in bonus._fields]
+        names = list_fields(viewer)
+        self.assertIn('employee_label', names)
+        self.assertNotIn('employee_id', names, 'поле картки (hr.employee) — лише «правила ліній»')
+        self.assertIn('employee_id', list_fields(owner), '«правила ліній» правлять «Хто отримує» в списку')
+        spec = {f: ({'fields': {'display_name': {}}} if bonus._fields[f].type in ('many2one', 'many2many') else {}) for f in names}
+        rows = self.env['workset.office.bonus'].with_user(viewer).with_context(allowed_company_ids=viewer.company_ids.ids).web_search_read(
+            [('id', '=', bonus.id)], spec)['records']
+        self.assertEqual(rows[0]['employee_label'], self.emp_a.name, 'ім\'я картки в чужій фірмі — без AccessError')
+        # № 5: «Нова з дати» правила лінії — лише «правила ліній» (редактор отримав би UserError)
+        self.assertFalse(self.line_rule.with_user(editor).can_edit_line)
+        self.assertTrue(self.line_rule.with_user(owner).can_edit_line)
+        form = self.env['workset.rate.rule'].with_user(editor).get_views([(self.env.ref('workset_rates.view_rule_form').id, 'form')])['views']['form']['arch']
+        self.assertIn("level == 'line' and not can_edit_line", form)
 
     def test_m2c_rate_screen_texts(self):
         self._quiet_bonuses()
@@ -1494,3 +1547,64 @@ class TestWorksetRates(TransactionCase):
         new = self.line_rule.action_new_from_date()
         self.assertEqual((new['context']['default_line_id'], new['context']['default_share_we_found'], new['context']['default_date_from']),
                          (self.line.id, 5, DAY))
+
+    def test_m2c1b_internal_context_only_superuser(self):
+        """Контекст workset_rates_internal (службові поля ланцюжка без автоматики) — лише суперкористувачу: редактор через RPC з ним
+        не обходить ланцюжок і А1 — усе як без контексту (ревю рівня B)."""
+        firms = (self.co_a | self.co_b | self.co_uah | self.co_out | self.env.company).ids
+        editor = new_test_user(self.env, login='ws_m2c1b_internal', groups='base.group_user,workset_rates.group_editor',
+                               company_id=self.env.company.id, company_ids=[(6, 0, firms)])
+        self._quiet_bonuses()
+        a, b = self._no_agents()
+        with a, b:
+            r = self._rate()
+            self.assertEqual((r.price, self.m_a.cost), (19, 14))
+            r.with_user(editor).with_context(workset_rates_internal=True, allowed_company_ids=firms).write({'wage': 16})
+            self.env.invalidate_all()
+            self.assertEqual((r.wage, r.price, r.our_share), (16, 21, 5), 'ланцюжок перераховано: 16 + 5, як без контексту')
+            self.assertEqual((self.m_a.cost, self.m_b.cost), (16, 16), 'А1: «Вартість години» в карті обох фірм — як без контексту')
+            r.with_user(editor).with_context(workset_rates_internal=True, allowed_company_ids=firms).write({'price': 24, 'own_reason': 'тест'})
+            self.env.invalidate_all()
+            self.assertTrue(r.is_own, 'ціна ≠ правилу від редактора — «Своя», як без контексту')
+            with self.assertRaises(ValidationError), self.env.cr.savepoint():
+                r.with_user(editor).with_context(workset_rates_internal=True, allowed_company_ids=firms).write({'own_reason': False})
+            # суперкористувач (код модуля) — пише службове поле без ланцюжка
+            r.sudo().with_context(workset_rates_internal=True).write({'check_reason': 'службове'})
+            self.assertEqual(r.check_reason, 'службове')
+
+    def test_m2c2_migration_from_m1(self):
+        """Перенос 19.0.1 → 19.0.2 (migrations/19.0.2.0.0/post-migrate.py) на вигаданих даних: частки лінії М1 з тимчасової таблиці → правило
+        лінії «Надбавка» з найранішої «Ставка з»; ставка з ціною за правилом — не «Своя», «На руки з» — «Перенос»; ручна частка агента М1 —
+        «Своя» з причиною; тимчасова таблиця прибрана; параметра А6 немає (off)."""
+        import importlib.util
+        import os
+        path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'migrations', '19.0.2.0.0', 'post-migrate.py')
+        spec = importlib.util.spec_from_file_location('workset_rates_post_migrate_test', path)
+        post = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(post)
+        self._quiet_bonuses()
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_A6_MODE, '')
+        lt = self.env['workset.line'].create({'name': 'Тест лінія перенос'})
+        ct = self._cust('Тест замовник перенос', lt)
+        a, b = self._no_agents()
+        with a, b:
+            same = self._rate(customer_id=ct.id, price=19)
+            agent = self._rate(person_id=self._person('Тест П перенос').id, customer_id=ct.id, price=21, date_from=NEXT)
+            agent.with_context(workset_rates_internal=True).write({'agent_share': 2, 'agent_source': 'manual'})
+            self.assertFalse(lt.rule_id, 'до переносу правила лінії немає')
+            self.env.cr.execute('CREATE TABLE workset_rates_m1_line_shares AS SELECT %s::int AS line_id, 4.0::float AS share_line_found, '
+                                '5.0::float AS share_we_found, 0.0::float AS min_share', (lt.id,))
+            post.migrate(self.env.cr, '19.0.1.0.0')
+        self.env.invalidate_all()
+        rule = self.env['workset.rate.rule'].search([('line_id', '=', lt.id), ('customer_id', '=', False)])
+        self.assertEqual(len(rule), 1)
+        self.assertEqual((rule.anchor, rule.share_line_found, rule.share_we_found, calc.iso(rule.date_from), rule.source, rule.source_note),
+                         ('markup', 4, 5, DAY, 'migration', calc.MIGRATION_NOTE), 'надбавка з часток М1, «Ставка з» — найраніша ставка лінії')
+        self.assertEqual((same.rule_id, same.is_own, same.wage_source, same.price), (rule, False, 'migration', 19), 'Ц = Р 14 + 5 — за правилом')
+        self.assertEqual((agent.is_own, agent.own_reason, agent.price), (True, 'було: частка агента 2 (до посередників)', 21),
+                         'ручна частка агента М1 — «Своя» з причиною, ціна як була')
+        self.env.cr.execute("SELECT to_regclass('workset_rates_m1_line_shares')")
+        self.assertIsNone(self.env.cr.fetchone()[0], 'тимчасову таблицю прибрано')
+        self.assertFalse(self.env['ir.config_parameter'].sudo().get_param(calc.P_A6_MODE), 'a6_mode не створюється — А6 вимкнено')
+        post.migrate(self.env.cr, '19.0.1.0.0')
+        self.assertEqual(self.env['workset.rate.rule'].search_count([('line_id', '=', lt.id)]), 1, 'повторний запуск правил не множить')

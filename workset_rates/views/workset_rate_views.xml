@@ -72,16 +72,11 @@
                     <field name="net_level" invisible="1"/>
                     <field name="rule_id" invisible="1"/>
                     <div class="oe_title">
-                        <h1><field name="person_id" placeholder="Працівник" options="{'no_create': True}" domain="[('employee_ids', '!=', False)]"/></h1>
+                        <h1><field name="person_id" placeholder="Працівник" options="{'no_create': True}" domain="[('workset_is_worker', '=', True)]"/></h1>
                         <div class="d-flex align-items-baseline gap-2 flex-wrap text-muted" invisible="not subtitle and not others_note">
                             <field name="subtitle" readonly="1" class="w-auto"/>
                             <field name="others_note" readonly="1" invisible="not others_note" class="w-auto fw-semibold"/>
                         </div>
-                    </div>
-                    <div class="d-flex align-items-baseline gap-2 flex-wrap fw-semibold text-warning my-2" role="alert" invisible="not issues">
-                        <div><i class="fa fa-exclamation-circle me-1" role="img" title="Перевірити"/></div>
-                        <div>Перевірити:</div>
-                        <field name="issues" readonly="1" nolabel="1" class="w-auto"/>
                     </div>
                     <!-- М2: чотири цифри «На руки · Ціна нам · Частка WorkSET · Чиста частка»; під «На руки» сірим — «зараз 17 до 30.11», коли діє
                          тимчасова зміна (у карту проєктів і частки вона не входить) -->
@@ -124,6 +119,12 @@
                         <div>Бракує:</div>
                         <field name="missing_text" readonly="1" nolabel="1" class="w-auto"/>
                     </div>
+                    <!-- «Перевірити» — одразу під «Бракує», без його пунктів (calc.issues): звірка, договір, проєкти, замовлення, «Своя» з причиною -->
+                    <div class="d-flex align-items-baseline gap-2 flex-wrap fw-semibold text-warning my-2" role="alert" invisible="not issues">
+                        <div><i class="fa fa-exclamation-circle me-1" role="img" title="Перевірити"/></div>
+                        <div>Перевірити:</div>
+                        <field name="issues" readonly="1" nolabel="1" class="w-auto"/>
+                    </div>
                     <group>
                         <group name="who" string="Сторони">
                             <label for="customer_id" string="Замовник" class="fw-semibold"/>
@@ -135,7 +136,8 @@
                             <field name="date_to" string="Ставка до" readonly="1" invisible="not date_to" options="{'numeric': True}"/>
                             <field name="employee_summary" string="Картки у фірмах" readonly="1" invisible="not employee_summary"/>
                         </group>
-                        <!-- Ланцюжок цін згори вниз — лише заповнене; «Ціна клієнта» видно завжди: з неї ланцюжок починається, її вносять тут -->
+                        <!-- Ланцюжок цін згори вниз — лише заповнене; «Ціна клієнта» видно завжди: з неї ланцюжок починається, її вносять тут.
+                             Підписи полів лише для читання — звичайні (o_form_label без for): ті самі поля стоять у великих цифрах (ревю М2c-1, № 9) -->
                         <group name="chain" string="Ланцюжок">
                             <label for="client_price" string="Ціна клієнта"/>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap">
@@ -144,12 +146,12 @@
                                 <field name="client_price_source" nolabel="1" placeholder="джерело" class="w-auto text-muted" invisible="not client_price" required="client_price"/>
                                 <field name="client_price_date" nolabel="1" placeholder="дата" options="{'numeric': True}" class="w-auto text-muted" invisible="not client_price" required="client_price"/>
                             </div>
-                            <label for="line_share" string="Частка лінії" invisible="not client_price"/>
+                            <div class="o_form_label" invisible="not client_price">Частка лінії</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap" invisible="not client_price">
                                 <field name="line_share" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
                                 <div class="text-muted">€/год</div>
                             </div>
-                            <label for="price" string="Ціна нам" invisible="not price"/>
+                            <div class="o_form_label" invisible="not price">Ціна нам</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap" invisible="not price">
                                 <field name="price" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
                                 <div class="text-muted">€/год</div>
@@ -157,42 +159,42 @@
                                 <field name="rule_price" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="w-auto text-muted"
                                        invisible="not is_own or not rule_id"/>
                             </div>
-                            <label for="agent_client_share" string="Посередник" invisible="not agent_client_share"/>
+                            <div class="o_form_label" invisible="not agent_client_share">Посередник</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap" invisible="not agent_client_share">
                                 <field name="agent_client_share" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
                                 <div class="text-muted">€/год</div>
                                 <field name="agent_client_note" nolabel="1" readonly="1" class="w-auto text-muted"/>
                             </div>
-                            <label for="agent_people_share" string="Агент людей" invisible="not agent_people_share"/>
+                            <div class="o_form_label" invisible="not agent_people_share">Агент людей</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap" invisible="not agent_people_share">
                                 <field name="agent_people_share" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
                                 <div class="text-muted">€/год · платить:</div>
                                 <field name="people_agent_payer" nolabel="1" class="w-auto text-muted"/>
                             </div>
-                            <label for="wage" string="На руки"/>
+                            <div class="o_form_label">На руки</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap">
                                 <field name="wage" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
                                 <div class="text-muted">€/год</div>
                                 <field name="wage_note" nolabel="1" readonly="1" class="w-auto text-muted" invisible="not wage_note"/>
                             </div>
-                            <label for="wage_before_contract" string="До договору" class="text-muted" invisible="not wage_before_contract"/>
+                            <div class="o_form_label text-muted" invisible="not wage_before_contract">До договору</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap text-muted" invisible="not wage_before_contract">
                                 <field name="wage_before_contract" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
                                 <div>€/год</div>
                             </div>
-                            <label for="our_share" string="Частка WorkSET" invisible="not price"/>
+                            <div class="o_form_label" invisible="not price">Частка WorkSET</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap" invisible="not price">
                                 <field name="our_share" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
                                 <div class="text-muted">€/год</div>
                             </div>
-                            <label for="office_bonus" string="Бонус офісу" invisible="not office_bonus"/>
+                            <div class="o_form_label" invisible="not office_bonus">Бонус офісу</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap" invisible="not office_bonus">
                                 <field name="office_bonus" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
                                 <div class="text-muted">€/год</div>
                                 <field name="bonus_norm" invisible="1"/>
                                 <div class="text-muted" invisible="not bonus_norm">за нормою годин</div>
                             </div>
-                            <label for="net_share" string="Чиста частка" invisible="not price"/>
+                            <div class="o_form_label" invisible="not price">Чиста частка</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap fw-semibold" invisible="not price">
                                 <field name="net_share" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"
                                        decoration-danger="net_level == 'low'"/>
@@ -318,13 +320,15 @@
         </field>
     </record>
 
-    <!-- Дошка (і мобільний вид): групування за лінією; ті самі цифри, що у формі; над дошкою — полоса підсумків -->
+    <!-- Дошка (і мобільний вид): групування за лінією; ті самі цифри, що у формі; над дошкою — плитки підсумків. У шапці колонки — середня
+         «Частка WorkSET» колонки (aggregator avg поля) і смуга рівнів частки: нижче мінімуму / середня / добра -->
     <record id="view_rate_kanban" model="ir.ui.view">
         <field name="name">workset.rate.kanban</field>
         <field name="model">workset.rate</field>
         <field name="arch" type="xml">
             <kanban js_class="workset_rates_kanban" default_group_by="line_id" quick_create="false" group_create="false" group_delete="false" group_edit="false"
                     records_draggable="false" archivable="false" sample="1">
+                <progressbar field="share_level" colors='{"low": "danger", "mid": "info", "good": "success"}' sum_field="our_share"/>
                 <field name="state"/>
                 <field name="is_own"/>
                 <field name="price_mode"/>
@@ -422,6 +426,9 @@
                 <field name="work" type="col"/>
                 <field name="our_share" type="measure"/>
                 <field name="net_share" type="measure"/>
+                <field name="office_bonus" type="measure"/>
+                <field name="line_share" type="measure"/>
+                <field name="agent_client_share" type="measure"/>
                 <field name="contract_wage" invisible="1"/>
                 <field name="others_count" invisible="1"/>
                 <field name="map_count" invisible="1"/>
@@ -437,6 +444,8 @@
         <field name="arch" type="xml">
             <graph string="Частка WorkSET по лініях" type="bar" sample="1">
                 <field name="line_id"/>
+                <!-- графік показує одну міру за раз (остання в арці — типова): «Чиста частка» — у переліку мір, типова — «Частка WorkSET» -->
+                <field name="net_share" type="measure"/>
                 <field name="our_share" type="measure"/>
                 <field name="contract_wage" invisible="1"/>
                 <field name="others_count" invisible="1"/>
