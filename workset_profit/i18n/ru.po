@@ -1,0 +1,866 @@
+# Russian translation of the Odoo module workset_profit.
+# Згенеровано tools/odoo_addon_po.py — не правити вручну.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Language: ru\n"
+"Plural-Forms: \n"
+
+#. module: workset_profit
+#: model:ir.model,name:workset_profit.model_workset_dkv_card
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__card_id
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_card_form
+msgid "Картка DKV"
+msgstr "Карта DKV"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_card__name
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_card_period__card_id
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_txn__card_id
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_card_form
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_txn_search
+msgid "Картка"
+msgstr "Карта"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_card__number
+msgid "Номер картки"
+msgstr "Номер карты"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_card__seq
+msgid "Порядковий №"
+msgstr "Порядковый №"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_dkv_card__seq
+msgid "Номер картки в кабінеті DKV"
+msgstr "Номер карты в кабинете DKV"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_card__period_ids
+msgid "Періоди"
+msgstr "Периоды"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_card__now_text
+msgid "Зараз"
+msgstr "Сейчас"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_dkv_card__now_text
+msgid "Період картки на сьогодні"
+msgstr "Период карты на сегодня"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_card__txn_count
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_card_form
+msgid "Транзакцій"
+msgstr "Транзакций"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_card__note
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_txn__note
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_analytic_map__note
+msgid "Нотатка"
+msgstr "Заметка"
+
+#. module: workset_profit
+#: model:ir.model,name:workset_profit.model_workset_dkv_card_period
+msgid "Період картки DKV"
+msgstr "Период карты DKV"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_card_period__target
+msgid "Куди"
+msgstr "Куда"
+
+#. module: workset_profit
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_dkv_card_period__target__line
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_card_period__line_id
+#: model:ir.model.fields,field_description:workset_profit.field_workset_line_cost_rule__line_id
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_analytic_map__line_id
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__row_kind__line
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__line_id
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_cost_rule_search
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_map_search
+msgid "Лінія"
+msgstr "Линия"
+
+#. module: workset_profit
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_dkv_card_period__target__office
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_analytic_map__kind__office
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__row_kind__office
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__hint_kind__office
+msgid "Офіс"
+msgstr "Офис"
+
+#. module: workset_profit
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_dkv_card_period__target__transport
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_line_cost_rule__kind__transport
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_analytic_map__kind__transport
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__hint_kind__transport
+msgid "Перевезення людей"
+msgstr "Перевозка людей"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_card_period__customer_id
+#: model:ir.model.fields,field_description:workset_profit.field_workset_line_cost_rule__customer_id
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_line_cost_rule__payer__customer
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_analytic_map__customer_id
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__customer_id
+msgid "Замовник"
+msgstr "Заказчик"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_dkv_card_period__customer_id
+msgid "Необов'язково: для правила «Хто платить» замовника"
+msgstr "Необязательно: для правила «Кто платит» заказчика"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_card_period__date_from
+#: model:ir.model.fields,field_description:workset_profit.field_workset_line_cost_rule__date_from
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_analytic_map__date_from
+msgid "З"
+msgstr "С"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_dkv_card_period__date_to
+#: model:ir.model.fields,help:workset_profit.field_workset_line_cost_rule__date_to
+msgid "Порожньо — діє досі"
+msgstr "Пусто — действует до сих пор"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_card_period__note
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_form
+msgid "Звідки"
+msgstr "Откуда"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_dkv_card_period__note
+msgid "Чиє слово, дата"
+msgstr "Чьё слово, дата"
+
+#. module: workset_profit
+#: model:ir.model,name:workset_profit.model_workset_dkv_txn
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_txn_form
+msgid "Транзакція DKV"
+msgstr "Транзакция DKV"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_txn__name
+#: model:ir.model.fields,field_description:workset_profit.field_workset_line_cost_rule__name
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_analytic_map__name
+msgid "Назва"
+msgstr "Название"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_txn__country
+msgid "Країна"
+msgstr "Страна"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_txn__city
+msgid "Місто"
+msgstr "Город"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_txn__product_group
+msgid "Група товару"
+msgstr "Группа товара"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_dkv_txn__product_group
+msgid "Паливо, принадлежності, дорожній збір — як у рахунку DKV"
+msgstr "Топливо, принадлежности, дорожный сбор — как в счёте DKV"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_txn__quantity
+msgid "Кількість"
+msgstr "Количество"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_dkv_txn__amount_gross
+msgid "Так проведено в книгах: у «Прибутковість» іде брутто"
+msgstr "Так проведено в книгах: в «Прибыльность» идёт брутто"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_txn__invoice_no
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_analytic_map__kind__dkv_bill
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__hint_kind__dkv_bill
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_txn_search
+msgid "Рахунок DKV"
+msgstr "Счёт DKV"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_dkv_txn__invoice_no
+msgid "Номер рахунку DKV. Поле «Рахунок постачальника» порожнє — транзакція привʼязується до рахунку Odoo, у якого «Референс» = цей номер"
+msgstr "Номер счёта DKV. Поле «Счёт поставщика» пусто — транзакция привязывается к счёту Odoo, у которого «Референс» = этот номер"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_txn__move_id
+msgid "Рахунок постачальника"
+msgstr "Счёт поставщика"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_dkv_txn__move_id
+msgid "Рахунок DKV в Odoo: його аналітика вдруге не рахується — рахуються транзакції; різниця «рахунок − транзакції» (частково завантажені) — рядком «Не розподілено: DKV різниця». Порожньо й номер рахунку не знайдено — транзакція рахується по лініях, у звірці — «без рахунку в Odoo»"
+msgstr "Счёт DKV в Odoo: его аналитика второй раз не считается — считаются транзакции; разница «счёт − транзакции» (загружены частично) — строкой «Не распределено: DKV разница». Пусто и номер счёта не найден — транзакция считается по линиям, в сверке — «без счёта в Odoo»"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_txn__source
+msgid "Джерело"
+msgstr "Источник"
+
+#. module: workset_profit
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_dkv_txn__source__pdf
+msgid "PDF рахунку"
+msgstr "PDF счёта"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_dkv_txn__ref
+msgid "Ключ рядка"
+msgstr "Ключ строки"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_dkv_txn__ref
+msgid "Унікальний ключ рядка з PDF або API: повторний запис не множить транзакцію"
+msgstr "Уникальный ключ строки из PDF или API: повторная запись не множит транзакцию"
+
+#. module: workset_profit
+#: model:ir.model,name:workset_profit.model_workset_line_cost_rule
+#: model:ir.model.fields,field_description:workset_profit.field_workset_line_cost_rule__payer
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_cost_rule_list
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_cost_rule_form
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_cost_rule_search
+#: model:ir.actions.act_window,name:workset_profit.action_cost_rules
+#: model:ir.ui.menu,name:workset_profit.menu_cost_rules
+msgid "Хто платить"
+msgstr "Кто платит"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_line_cost_rule__customer_id
+msgid "Порожньо — уся лінія; замовник — його правило, точніше за правило лінії"
+msgstr "Пусто — вся линия; заказчик — его правило, точнее правила линии"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_line_cost_rule__kind
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_cost_rule_search
+msgid "Вид витрати"
+msgstr "Вид расхода"
+
+#. module: workset_profit
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_line_cost_rule__kind__fuel
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_analytic_map__kind__fuel
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__hint_kind__fuel
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__fuel
+msgid "Паливо"
+msgstr "Топливо"
+
+#. module: workset_profit
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_line_cost_rule__kind__tool
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_analytic_map__kind__tool
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__hint_kind__tool
+msgid "Інструмент і спецодяг"
+msgstr "Инструмент и спецодежда"
+
+#. module: workset_profit
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_line_cost_rule__payer__we
+msgid "Ми (у «чисто»)"
+msgstr "Мы (в «чисто»)"
+
+#. module: workset_profit
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_line_cost_rule__payer__partner
+msgid "Партнер (гроші лінії)"
+msgstr "Партнёр (деньги линии)"
+
+#. module: workset_profit
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_line_cost_rule__payer__worker_fund
+msgid "Фонд працівників"
+msgstr "Фонд работников"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_line_cost_rule__note
+msgid "Звідки правило"
+msgstr "Откуда правило"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_line_cost_rule__note
+msgid "Слово власника, дата; розбір рахунків"
+msgstr "Слово собственника, дата; разбор счетов"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_line_cost_rule__active
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_analytic_map__active
+msgid "Активне"
+msgstr "Активно"
+
+#. module: workset_profit
+#: model:ir.model,name:workset_profit.model_workset_profit_analytic_map
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_map_list
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_map_search
+#: model:ir.actions.act_window,name:workset_profit.action_map
+#: model:ir.ui.menu,name:workset_profit.menu_map
+msgid "Розмітка аналітики"
+msgstr "Разметка аналитики"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_analytic_map__plan_id
+msgid "Вузол плану"
+msgstr "Узел плана"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_analytic_map__plan_id
+msgid "Усі статті під цим вузлом (і глибше), якщо точнішого правила немає"
+msgstr "Все статьи под этим узлом (и глубже), если более точного правила нет"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_analytic_map__analytic_id
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__analytic_id
+msgid "Стаття аналітики"
+msgstr "Статья аналитики"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_analytic_map__account_id
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__account_id
+msgid "Рахунок"
+msgstr "Счёт"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_analytic_map__account_id
+msgid "Рахунок рядка проводки (напр. паливо в зарплаті): разом зі статтею або вузлом — точніше"
+msgstr "Счёт строки проводки (напр. топливо в зарплате): вместе со статьёй или узлом — точнее"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_analytic_map__partner_id
+msgid "Постачальник рядка (напр. рахунки DKV) — найточніший ключ"
+msgstr "Поставщик строки (напр. счета DKV) — самый точный ключ"
+
+#. module: workset_profit
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_analytic_map__kind__housing
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__hint_kind__housing
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__housing
+msgid "Житло"
+msgstr "Жильё"
+
+#. module: workset_profit
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_analytic_map__kind__housing_buffer
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__hint_kind__housing_buffer
+msgid "Буфер житла (довідково)"
+msgstr "Буфер жилья (справочно)"
+
+#. module: workset_profit
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_analytic_map__kind__partner
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__hint_kind__partner
+msgid "Гроші лінії (партнер)"
+msgstr "Деньги линии (партнёр)"
+
+#. module: workset_profit
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_analytic_map__kind__owner
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__row_kind__owner
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__hint_kind__owner
+msgid "Власник"
+msgstr "Собственник"
+
+#. module: workset_profit
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_analytic_map__kind__ignore
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__hint_kind__ignore
+msgid "Не враховувати"
+msgstr "Не учитывать"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_analytic_map__line_id
+msgid "Порожньо — лінія за вузлом статті (вузли аналітики лінії) або за замовником статті"
+msgstr "Пусто — линия по узлу статьи (узлы аналитики линии) или по заказчику статьи"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_analytic_map__customer_id
+msgid "Для правила «Хто платить» і житла лінії; порожньо — контрагент статті аналітики"
+msgstr "Для правила «Кто платит» и жилья линии; пусто — контрагент статьи аналитики"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_analytic_map__date_from
+msgid "Порожньо — від початку"
+msgstr "Пусто — с начала"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_analytic_map__date_to
+msgid "Порожньо — без кінця"
+msgstr "Пусто — без конца"
+
+#. module: workset_profit
+#: model:ir.model,name:workset_profit.model_workset_profit_month
+msgid "Прибутковість: лінія × місяць"
+msgstr "Прибыльность: линия × месяц"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__name
+msgid "Рядок"
+msgstr "Строка"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__month
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_txn_search
+msgid "Місяць"
+msgstr "Месяц"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__month
+msgid "Перше число місяця"
+msgstr "Первое число месяца"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__row_kind
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
+msgid "Вид рядка"
+msgstr "Вид строки"
+
+#. module: workset_profit
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__row_kind__noline
+msgid "Без лінії"
+msgstr "Без линии"
+
+#. module: workset_profit
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__row_kind__unallocated
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
+msgid "Не розподілено"
+msgstr "Не распределено"
+
+#. module: workset_profit
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__row_kind__ignore
+msgid "Не враховано"
+msgstr "Не учтено"
+
+#. module: workset_profit
+#: model:ir.model.fields.selection,name:workset_profit.selection__workset_profit_month__row_kind__dkv
+msgid "Рахунки DKV (розкладено)"
+msgstr "Счета DKV (разложено)"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__tag
+msgid "Службове: чому рядок «Не розподілено» (вид без лінії, DKV, перевезення)"
+msgstr "Служебное: почему строка «Не распределено» (вид без линии, DKV, перевозка)"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__hint_kind
+msgid "Підказка виду"
+msgstr "Подсказка вида"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__hint_kind
+msgid "Вид за назвою статті — лише підказка для розмітки; рахує розмітка"
+msgstr "Вид по названию статьи — только подсказка для разметки; считает разметка"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__hours_total
+msgid "Годин усього"
+msgstr "Часов всего"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__hours_rate
+msgid "Годин зі ставкою"
+msgstr "Часов со ставкой"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__hours_no_rate
+msgid "Годин без ставки"
+msgstr "Часов без ставки"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__hours_no_rate
+msgid "Години пар без ставки на дату — у частку не входять (розібрати у «Ставках»)"
+msgstr "Часы пар без ставки на дату — в долю не входят (разобрать в «Ставках»)"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__share
+msgid "Частка WorkSET"
+msgstr "Доля WorkSET"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__share
+msgid "Години × «Після бонусів офісу» ставки на дату; «Фікс за місяць» — фікс за частку годин пари мінус бонус офісу"
+msgstr "Часы × «После бонусов офиса» ставки на дату; «Фикс за месяц» — фикс за долю часов пары минус бонус офиса"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__car_rent
+msgid "Оренда авто"
+msgstr "Аренда авто"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__car_rent
+msgid "Години × «Оренда авто» ставки: наш дохід"
+msgstr "Часы × «Аренда авто» ставки: наш доход"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__fund_in
+msgid "У фонд працівників"
+msgstr "В фонд работников"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__fund_in
+msgid "Години × «Фонд працівників» ставки: гроші працівників, не наші"
+msgstr "Часы × «Фонд работников» ставки: деньги работников, не наши"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__housing
+msgid "Наше житло лінії (мінус — витрата)"
+msgstr "Наше жильё линии (минус — расход)"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__housing_customer
+msgid "Житло (вирахував замовник)"
+msgstr "Жильё (вычел заказчик)"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__housing_customer
+msgid "Житло, яке замовник вираховує з оплати (правило житла лінії «Ставок», «Хто платить» — замовник): сума правила × одиниця (за людину на місяць — люди з годинами в цього замовника; за добу за особу; за годину; % з оплати). Наш мінус — у «чисто»"
+msgstr "Жильё, которое заказчик вычитает из оплаты (правило жилья линии «Ставок», «Кто платит» — заказчик): сумма правила × единица (за человека в месяц — люди с часами у этого заказчика; за сутки на человека; за час; % с оплаты). Наш минус — в «чисто»"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__tool
+msgid "Інструмент"
+msgstr "Инструмент"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__transport
+msgid "Перевезення"
+msgstr "Перевозка"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__transport
+msgid "Наша частка рейсів місяця — за числом прибуттів лінії"
+msgstr "Наша доля рейсов месяца — по числу прибытий линии"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__net
+msgid "Лінія: частка + оренда авто + житло + житло, яке вирахував замовник, + авто + паливо + інструмент + перевезення (наші, до ZUS і загальних). Рядок компанії — його сума"
+msgstr "Линия: доля + аренда авто + жильё + жильё, которое вычел заказчик, + авто + топливо + инструмент + перевозка (наши, до ZUS и общих). Строка компании — её сумма"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__net_per_hour
+msgid "Чисто, €/год"
+msgstr "Чисто, €/час"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__net_per_hour
+msgid "Чисто ÷ години зі ставкою"
+msgstr "Чисто ÷ часы со ставкой"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__partner_paid
+msgid "З грошей лінії"
+msgstr "Из денег линии"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__partner_paid
+msgid "Заплачено з грошей партнера лінії (буфер партнера) — не в нашому «чисто»"
+msgstr "Оплачено из денег партнёра линии (буфер партнёра) — не в нашем «чисто»"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__fund_paid
+msgid "З фонду працівників"
+msgstr "Из фонда работников"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__fund_paid
+msgid "Заплачено з фонду працівників — не в нашому «чисто»"
+msgstr "Оплачено из фонда работников — не в нашем «чисто»"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__fund_left
+msgid "Фонд: залишок місяця"
+msgstr "Фонд: остаток месяца"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__fund_left
+msgid "У фонд + з фонду"
+msgstr "В фонд + из фонда"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__housing_buffer
+msgid "Буфер житла"
+msgstr "Буфер жилья"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__housing_buffer
+msgid "Довідково: частина оплати замовника, передана в буфер житла, — не дохід, у «чисто» не входить"
+msgstr "Справочно: часть оплаты заказчика, переданная в буфер жилья, — не доход, в «чисто» не входит"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__amount
+msgid "Сума"
+msgstr "Сумма"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__amount
+msgid "Сума рядка компанії"
+msgstr "Сумма строки компании"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__aal_amount
+msgid "З аналітики"
+msgstr "Из аналитики"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__aal_amount
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__dkv_amount
+msgid "Службове для звірки"
+msgstr "Служебное для сверки"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__dkv_amount
+msgid "З транзакцій DKV"
+msgstr "Из транзакций DKV"
+
+#. module: workset_profit
+#: model:res.groups.privilege,name:workset_profit.res_groups_privilege_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_pivot
+#: model:ir.ui.menu,name:workset_profit.menu_root
+msgid "Прибутковість"
+msgstr "Прибыльность"
+
+#. module: workset_profit
+#: model:res.groups,name:workset_profit.group_viewer
+msgid "Перегляд"
+msgstr "Просмотр"
+
+#. module: workset_profit
+#: model:res.groups,comment:workset_profit.group_viewer
+msgid "Бачить «Лінії × місяці», правила «Хто платить», картки й транзакції DKV, розмітку аналітики (без правки)"
+msgstr "Видит «Линии × месяцы», правила «Кто платит», карты и транзакции DKV, разметку аналитики (без правки)"
+
+#. module: workset_profit
+#: model:res.groups,comment:workset_profit.group_editor
+msgid "Править «Хто платить», картки й транзакції DKV, розмітку аналітики; перераховує місяці кнопкою «Перерахувати»"
+msgstr "Правит «Кто платит», карты и транзакции DKV, разметку аналитики; пересчитывает месяцы кнопкой «Пересчитать»"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_list
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
+#: model:ir.actions.act_window,name:workset_profit.action_months
+#: model:ir.ui.menu,name:workset_profit.menu_months
+msgid "Лінії × місяці"
+msgstr "Линии × месяцы"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_list
+msgid "Перерахувати"
+msgstr "Пересчитать"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_list
+msgid "Звірити"
+msgstr "Сверить"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_list
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_txn_list
+msgid "Разом"
+msgstr "Итого"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_form
+msgid "Лінія × місяць"
+msgstr "Линия × месяц"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_form
+msgid "Ланцюжок"
+msgstr "Цепочка"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_form
+msgid "Поруч, не в «чисто»"
+msgstr "Рядом, не в «чисто»"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_form
+msgid "Рядок компанії"
+msgstr "Строка компании"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_form
+msgid "Звірка"
+msgstr "Сверка"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_graph
+msgid "Чисто по місяцях"
+msgstr "Чисто по месяцам"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
+msgid "Без службових"
+msgstr "Без служебных"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
+msgid "Лінії"
+msgstr "Линии"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
+msgid "Рядки компанії"
+msgstr "Строки компании"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
+msgid "Службові"
+msgstr "Служебные"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
+msgid "Є години без ставки"
+msgstr "Есть часы без ставки"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
+msgid "Чисто нижче нуля"
+msgstr "Чисто ниже нуля"
+
+#. module: workset_profit
+#: model_terms:ir.actions.act_window,help:workset_profit.action_months
+msgid "Розрахунку ще немає"
+msgstr "Расчёта ещё нет"
+
+#. module: workset_profit
+#: model_terms:ir.actions.act_window,help:workset_profit.action_months
+msgid "Натисніть «Перерахувати»: останні місяці порахуються з табелів, ставок, аналітики й транзакцій DKV."
+msgstr "Нажмите «Пересчитать»: последние месяцы посчитаются из табелей, ставок, аналитики и транзакций DKV."
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_cost_rule_list
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_cost_rule_form
+msgid "уся лінія"
+msgstr "вся линия"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_cost_rule_form
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_cost_rule_search
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_card_form
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_card_search
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_map_search
+msgid "В архіві"
+msgstr "В архиве"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_cost_rule_form
+msgid "Лінія · вид: хто платить з дати"
+msgstr "Линия · вид: кто платит с даты"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_cost_rule_form
+msgid "Що"
+msgstr "Что"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_cost_rule_form
+msgid "Коли"
+msgstr "Когда"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_cost_rule_form
+msgid "Слово власника, дата"
+msgstr "Слово собственника, дата"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_cost_rule_search
+msgid "Не ми"
+msgstr "Не мы"
+
+#. module: workset_profit
+#: model_terms:ir.actions.act_window,help:workset_profit.action_cost_rules
+msgid "Правил ще немає — усі витрати ліній платимо ми"
+msgstr "Правил ещё нет — все расходы линий платим мы"
+
+#. module: workset_profit
+#: model_terms:ir.actions.act_window,help:workset_profit.action_cost_rules
+msgid "Хто несе авто, паливо, інструмент і перевезення лінії: ми, партнер з грошей лінії, фонд працівників або замовник."
+msgstr "Кто несёт авто, топливо, инструмент и перевозку линии: мы, партнёр из денег линии, фонд работников или заказчик."
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_card_list
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_card_search
+#: model:ir.actions.act_window,name:workset_profit.action_dkv_cards
+#: model:ir.ui.menu,name:workset_profit.menu_dkv_cards
+msgid "Картки DKV"
+msgstr "Карты DKV"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_card_form
+msgid "№ · номер картки"
+msgstr "№ · номер карты"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_card_form
+msgid "Зараз:"
+msgstr "Сейчас:"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_card_form
+msgid "Періоди: куди йдуть транзакції картки"
+msgstr "Периоды: куда идут транзакции карты"
+
+#. module: workset_profit
+#: model_terms:ir.actions.act_window,help:workset_profit.action_dkv_cards
+msgid "Карток DKV ще немає"
+msgstr "Карт DKV ещё нет"
+
+#. module: workset_profit
+#: model_terms:ir.actions.act_window,help:workset_profit.action_dkv_cards
+msgid "Картка, її машина й періоди: лінія, офіс або перевезення людей — так транзакції знаходять лінію самі."
+msgstr "Карта, её машина и периоды: линия, офис или перевозка людей — так транзакции находят линию сами."
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_txn_list
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_txn_search
+#: model:ir.actions.act_window,name:workset_profit.action_dkv_txns
+#: model:ir.ui.menu,name:workset_profit.menu_dkv_txns
+msgid "Транзакції DKV"
+msgstr "Транзакции DKV"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_txn_form
+msgid "Дата · картка · місто · брутто"
+msgstr "Дата · карта · город · брутто"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_txn_form
+msgid "Операція"
+msgstr "Операция"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_txn_form
+msgid "Гроші й рахунок"
+msgstr "Деньги и счёт"
+
+#. module: workset_profit
+#: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_txn_search
+msgid "Без рахунку в Odoo"
+msgstr "Без счёта в Odoo"
+
+#. module: workset_profit
+#: model_terms:ir.actions.act_window,help:workset_profit.action_dkv_txns
+msgid "Транзакцій DKV ще немає"
+msgstr "Транзакций DKV ещё нет"
+
+#. module: workset_profit
+#: model_terms:ir.actions.act_window,help:workset_profit.action_dkv_txns
+msgid "Їх запише інструмент штабу з PDF рахунків DKV, згодом — з API DKV."
+msgstr "Их запишет инструмент штаба из PDF счетов DKV, позже — из API DKV."
+
+#. module: workset_profit
+#: model_terms:ir.actions.act_window,help:workset_profit.action_map
+msgid "Розмітки ще немає — уся аналітика в «Не розподілено»"
+msgstr "Разметки ещё нет — вся аналитика в «Не распределено»"
+
+#. module: workset_profit
+#: model_terms:ir.actions.act_window,help:workset_profit.action_map
+msgid "Вузол плану, стаття, рахунок або контрагент → вид витрати й лінія."
+msgstr "Узел плана, статья, счёт или контрагент → вид расхода и линия."

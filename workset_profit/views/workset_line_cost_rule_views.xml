@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- «Хто платить»: правило лінії (замовник порожній) або замовника лінії з датами; одне на «лінія × замовник × вид» на дату. Правка на
+         місці — редактору прибутковості (іншим Odoo сам ховає «Новий» і правку за правами моделі). Житло — у «Ставки → Житло ліній» -->
+    <record id="view_cost_rule_list" model="ir.ui.view">
+        <field name="name">workset.line.cost.rule.list</field>
+        <field name="model">workset.line.cost.rule</field>
+        <field name="arch" type="xml">
+            <list string="Хто платить" editable="bottom" decoration-muted="not active" default_order="line_id, customer_id, kind, date_from desc">
+                <field name="active" column_invisible="1"/>
+                <field name="line_id" options="{'no_create': True}"/>
+                <field name="customer_id" options="{'no_create': True}" placeholder="уся лінія"/>
+                <field name="kind"/>
+                <field name="payer" widget="badge" decoration-success="payer == 'we'" decoration-info="payer in ('partner', 'worker_fund')"/>
+                <field name="date_from" options="{'numeric': True}"/>
+                <field name="date_to" options="{'numeric': True}"/>
+                <field name="note"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_cost_rule_form" model="ir.ui.view">
+        <field name="name">workset.line.cost.rule.form</field>
+        <field name="model">workset.line.cost.rule</field>
+        <field name="arch" type="xml">
+            <form string="Хто платить">
+                <sheet>
+                    <widget name="web_ribbon" title="В архіві" bg_color="text-bg-danger" invisible="active"/>
+                    <field name="active" invisible="1"/>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1" placeholder="Лінія · вид: хто платить з дати"/></h1>
+                    </div>
+                    <group>
+                        <group name="what" string="Що">
+                            <field name="line_id" options="{'no_create': True}"/>
+                            <field name="customer_id" options="{'no_create': True}" placeholder="уся лінія"/>
+                            <field name="kind"/>
+                            <field name="payer"/>
+                        </group>
+                        <group name="when" string="Коли">
+                            <field name="date_from" options="{'numeric': True}"/>
+                            <field name="date_to" options="{'numeric': True}"/>
+                            <field name="note" placeholder="Слово власника, дата"/>
+                        </group>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_cost_rule_search" model="ir.ui.view">
+        <field name="name">workset.line.cost.rule.search</field>
+        <field name="model">workset.line.cost.rule</field>
+        <field name="arch" type="xml">
+            <search string="Хто платить">
+                <field name="line_id"/>
+                <field name="customer_id"/>
+                <filter name="not_we" string="Не ми" domain="[('payer', '!=', 'we')]"/>
+                <separator/>
+                <filter name="archived" string="В архіві" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="groupby_line" string="Лінія" context="{'group_by': 'line_id'}"/>
+                    <filter name="groupby_kind" string="Вид витрати" context="{'group_by': 'kind'}"/>
+                    <filter name="groupby_payer" string="Хто платить" context="{'group_by': 'payer'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_cost_rules" model="ir.actions.act_window">
+        <field name="name">Хто платить</field>
+        <field name="res_model">workset.line.cost.rule</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_cost_rule_search"/>
+        <field name="context">{'search_default_groupby_line': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Правил ще немає — усі витрати ліній платимо ми</p>
+            <p>Хто несе авто, паливо, інструмент і перевезення лінії: ми, партнер з грошей лінії, фонд працівників або замовник.</p>
+        </field>
+    </record>
+</odoo>
