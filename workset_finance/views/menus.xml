@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Додаток «Фінанси»: бачить лише група «Власник» (редактор її містить); склад груп — дані, пише інструмент штабу. Круг 1 — прості списки;
+         екран «Власник» з плитками (круг 2) стане першим пунктом. Іконки додатка немає (картинка — навиком visual) -->
+    <menuitem id="menu_root" name="Фінанси" sequence="188" groups="workset_finance.group_owner"/>
+    <menuitem id="menu_months" name="Місяці драбини" parent="menu_root" action="action_months" sequence="10"/>
+    <menuitem id="menu_items" name="Рядки" parent="menu_root" action="action_items" sequence="20"/>
+    <menuitem id="menu_adjusts" name="Поправки" parent="menu_root" action="action_adjusts" sequence="30"/>
+    <menuitem id="menu_checks" name="Звірка" parent="menu_root" action="action_checks" sequence="40"/>
+</odoo>

@@ -1,0 +1,11 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_workset_finance_month_owner,workset.finance.month owner,model_workset_finance_month,workset_finance.group_owner,1,0,0,0
+access_workset_finance_month_system,workset.finance.month system,model_workset_finance_month,base.group_system,1,1,1,1
+access_workset_finance_item_owner,workset.finance.item owner,model_workset_finance_item,workset_finance.group_owner,1,0,0,0
+access_workset_finance_item_system,workset.finance.item system,model_workset_finance_item,base.group_system,1,1,1,1
+access_workset_finance_adjust_owner,workset.finance.adjust owner,model_workset_finance_adjust,workset_finance.group_owner,1,0,0,0
+access_workset_finance_adjust_editor,workset.finance.adjust editor,model_workset_finance_adjust,workset_finance.group_editor,1,1,1,0
+access_workset_finance_adjust_system,workset.finance.adjust system,model_workset_finance_adjust,base.group_system,1,1,1,1
+access_workset_finance_check_owner,workset.finance.check owner,model_workset_finance_check,workset_finance.group_owner,1,0,0,0
+access_workset_finance_check_system,workset.finance.check system,model_workset_finance_check,base.group_system,1,1,1,1
+access_workset_line_finance_owner,workset.line finance owner,workset_rates.model_workset_line,workset_finance.group_owner,1,0,0,0

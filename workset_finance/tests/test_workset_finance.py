@@ -1,0 +1,389 @@
+# -*- coding: utf-8 -*-
+"""Тести «Фінансів» (круг 1): Odoo.sh запускає їх на dev-збірці (локально: odoo-bin -i workset_finance --test-enable --test-tags
+workset_finance). Усі дані — вигадані в самому тесті («Customer 1», «Node A»; числа не збігаються з даними штабу); місяць — березень 2030
+(даних копії в ньому немає); корінь плану — план проєктів (як план рекрутингу на проді: статті в полі account_id рядка аналітики).
+
+Сценарій березня 2030 (див. setUpClass); дві фірми: A (рекрутинг) і U (Україна), обидві в периметрі:
+- рахунок клієнту 100 із розподілом 60/40 (Node A / Node B), неоплачений; рахунок Energy 20 і міжфірмовий 15 (на партнера фірми U) — теж із
+  часткою рекрутингу; рахунок 33 без частки рекрутингу (стаття іншого плану); оплачений рахунок 50 без аналітики (кандидат 1г);
+- пара проводок «доход по місяцю роботи»: −40 у лютому, +40 у березні; витрати −30 (A) і −5 (U); власник −10 (у ступінь 1 і 5), «частка» −6;
+- Україна −12 (фірма U, рахунок ліквідності); «II етап»: рядки аналітики статті без партнера, одержувач у тексті name; рядок статті — додатна
+  частка 10 %: +10 («PHRASE A», фраза з карти ліній), +4 (жодної фрази), +6 («Transit one», транзитна фраза, яка теж є в карті ліній) + рядки рахунку 10 і 4; конверт AN −8 (і +3, яке не рахується).
+- «Energy» — партнер третьої фірми (res.company.partner_id): його неоплачений рахунок 20 мусить іти в «Energy», а не в «міжфірмові».
+Очікується (березень): 1 = 130, 1а = 10, 2 = −12, до часток = 128; 5 = 16 (з них частка 6); 6 = 20 + 14 = 34; за грошима: 128 − (10 × 9 + 8) = 30;
+7: замовники 100, Energy 20 (міжфірмовий не показуємо); кандидати 1г: 1 на 50; дохід довідково 175."""
+import json
+
+from odoo.exceptions import AccessError, UserError, ValidationError
+from odoo.tests.common import TransactionCase, new_test_user, tagged
+
+from ..models import calc
+
+M = '2030-03-01'
+M_LAST = '2030-03-31'
+FEB = '2030-02-01'
+OLD = '2029-01-01'
+
+
+@tagged('post_install', '-at_install')
+class TestWorksetFinance(TransactionCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        env = cls.env
+        cls.eur = env.ref('base.EUR')
+        cls.eur.active = True
+        Company = env['res.company']
+        cls.co = Company.create({'name': 'Test firm A', 'currency_id': cls.eur.id})
+        cls.co_ua = Company.create({'name': 'Test firm U', 'currency_id': cls.eur.id})
+        cls.co_en = Company.create({'name': 'Test firm Energy', 'currency_id': cls.eur.id})
+        cls.cos = [cls.co.id, cls.co_ua.id, cls.co_en.id, env.company.id]
+        cls.env = env(context=dict(env.context, allowed_company_ids=cls.cos, finance_today=M_LAST))
+        env = cls.env
+        # планы: корінь — план проєктів, під ним вузли; окремий план без кореня-рекрутингу
+        Plan = env['account.analytic.plan']
+        root = Plan.browse(int(env['ir.config_parameter'].sudo().get_param('analytic.project_plan') or 0)).exists()
+        if not root and hasattr(Plan, '_get_all_plans'):
+            root = Plan._get_all_plans()[0]
+        cls.root = root or Plan.create({'name': 'Test recruiting root'})
+        cls.node_owners = Plan.create({'name': 'Owners', 'parent_id': cls.root.id})
+        cls.node_ua = Plan.create({'name': 'Ukraine', 'parent_id': cls.root.id})
+        cls.plan_other = Plan.create({'name': 'Other root'})
+        Acc = env['account.analytic.account']
+
+        def acc(name, plan):
+            return Acc.create({'name': name, 'plan_id': plan.id, 'company_id': False})
+        cls.a_node_a = acc('Node A', cls.root)
+        cls.a_node_b = acc('Node B', cls.root)
+        cls.a_owner = acc('Owner X', cls.node_owners)
+        cls.a_share = acc('Owner X share', cls.node_owners)
+        cls.a_ua = acc('Ukraine costs', cls.node_ua)
+        cls.a_stage2 = acc('Stage two', cls.root)
+        cls.a_an = acc('Envelope AN', cls.root)
+        cls.a_other = acc('Other plan', cls.plan_other)
+        # бухгалтерські рахунки й журнали (нова фірма без плану рахунків)
+        Account = env['account.account']
+
+        def account(co, code, name, kind):
+            return Account.with_company(co).create({'name': name, 'code': code, 'account_type': kind})
+        cls.income = account(cls.co, '799911', 'Test income', 'income')
+        cls.expense = account(cls.co, '699911', 'Test expense', 'expense')
+        cls.cash = account(cls.co, '199911', 'Test cash', 'asset_current')
+        cls.recv = account(cls.co, '129911', 'Test receivable', 'asset_receivable')
+        cls.st2_acc = account(cls.co, '199912', 'Test stage two', 'asset_current')
+        cls.expense_u = account(cls.co_ua, '699921', 'Test expense U', 'expense')
+        cls.cash_u = account(cls.co_ua, '199921', 'Test cash U', 'asset_current')
+        cls.liquidity = account(cls.co_ua, '199922', 'Test liquidity U', 'asset_current')
+        Journal = env['account.journal']
+        cls.misc = {co.id: Journal.with_company(co).create({'name': 'Test misc', 'code': 'TFM%d' % i, 'type': 'general', 'company_id': co.id})
+                    for i, co in enumerate((cls.co, cls.co_ua))}
+        cls.sale = Journal.with_company(cls.co).create({'name': 'Test sales', 'code': 'TFS', 'type': 'sale', 'company_id': cls.co.id,
+                                                       'default_account_id': cls.income.id})
+        Partner = env['res.partner']
+        cls.cust1, cls.cust3, cls.part_a, cls.part_b = [Partner.create({'name': n, 'is_company': True}) for n in
+                                                        ('Customer 1', 'Customer 3', 'Stage partner A', 'Stage partner B')]
+        cls.energy = cls.co_en.partner_id   # Energy — фірма в Odoo: її партнер є і серед «своїх фірм» (перевірка Energy раніше за міжфірмові)
+        for p in (cls.cust1, cls.energy, cls.cust3, cls.co_ua.partner_id):
+            p.with_company(cls.co).property_account_receivable_id = cls.recv
+        cls.line = env['workset.line'].create({'name': 'Line A'})
+        # проводки
+        d = {str(cls.a_node_a.id): 100}
+        cls.inv_cust = cls._invoice(cls.cust1, 100, '2030-03-10', {str(cls.a_node_a.id): 60, str(cls.a_node_b.id): 40})
+        cls.inv_energy = cls._invoice(cls.energy, 20, '2030-03-11', d)
+        cls.inv_ic = cls._invoice(cls.co_ua.partner_id, 15, '2030-03-12', d)
+        cls.inv_noshare = cls._invoice(cls.cust3, 33, '2030-03-13', {str(cls.a_other.id): 100})
+        cls.inv_paid = cls._invoice(cls.cust1, 50, '2030-03-12', None)
+        pay = cls._entry(cls.co, '2030-03-20', [{'account_id': cls.cash.id, 'debit': 50}, {'account_id': cls.recv.id, 'credit': 50, 'partner_id': cls.cust1.id}])
+        (cls.inv_paid.line_ids | pay.line_ids).filtered(lambda x: x.account_id == cls.recv and not x.reconciled).reconcile()
+        cls._entry(cls.co, '2030-02-15', [{'account_id': cls.income.id, 'debit': 40, 'analytic_distribution': d}, {'account_id': cls.cash.id, 'credit': 40}])
+        cls._entry(cls.co, '2030-03-15', [{'account_id': cls.income.id, 'credit': 40, 'analytic_distribution': d}, {'account_id': cls.cash.id, 'debit': 40}])
+        cls._entry(cls.co, '2030-03-16', [{'account_id': cls.expense.id, 'debit': 30, 'analytic_distribution': d}, {'account_id': cls.cash.id, 'credit': 30}])
+        cls._entry(cls.co, '2030-03-17', [{'account_id': cls.expense.id, 'debit': 10, 'analytic_distribution': {str(cls.a_owner.id): 100}},
+                                          {'account_id': cls.cash.id, 'credit': 10}])
+        cls._entry(cls.co_ua, '2030-03-18', [{'account_id': cls.expense_u.id, 'debit': 5, 'analytic_distribution': d}, {'account_id': cls.cash_u.id, 'credit': 5}])
+        cls._entry(cls.co, '2030-03-19', [{'account_id': cls.st2_acc.id, 'debit': 10, 'partner_id': cls.part_a.id},
+                                          {'account_id': cls.st2_acc.id, 'debit': 4, 'partner_id': cls.part_b.id}, {'account_id': cls.cash.id, 'credit': 14}])
+        # рядки аналітики без проводки (не входять у ступінь 1: потрібна проведена проводка)
+        cls._aal(cls.co_ua, cls.a_ua, -12, cls.liquidity)
+        cls._aal(cls.co_ua, cls.a_ua, -3, cls.cash_u)
+        cls._aal(cls.co, cls.a_share, -6, cls.expense)
+        # як на проді: партнера в рядках аналітики «II етапу» немає, одержувач — у тексті name
+        cls._aal(cls.co, cls.a_stage2, 10, cls.cash, name='Payout PHRASE A to X')
+        cls._aal(cls.co, cls.a_stage2, 4, cls.cash, name='Payout to nobody known')
+        cls._aal(cls.co, cls.a_stage2, 6, cls.cash, name='Transit one II')
+        cls._aal(cls.co, cls.a_an, -8, cls.cash)
+        cls._aal(cls.co, cls.a_an, 3, cls.cash)
+        # параметри
+        P = calc.P_PREFIX
+        params = {'recruting_plan_id': cls.root.id, 'owners_plan_id': cls.node_owners.id, 'owners_share_analytic_ids': str(cls.a_share.id),
+                  'ukraine_company_id': cls.co_ua.id, 'ukraine_plan_id': cls.node_ua.id, 'liquidity_account_id': cls.liquidity.id,
+                  'stage2_analytic_id': cls.a_stage2.id, 'stage2_account_id': cls.st2_acc.id,
+                  'stage2_partner_lines': json.dumps([['phrase a', cls.line.id], ['transit one', cls.line.id]]),
+                  'stage2_transit_phrases': json.dumps(['TRANSIT ONE']), 'an_envelope_analytic_id': cls.a_an.id,
+                  'energy_partner_ids': str(cls.energy.id)}
+        for k, v in params.items():
+            env['ir.config_parameter'].sudo().set_param(P + k, str(v))
+        cls.Month = env['workset.finance.month']
+        cls.Adjust = env['workset.finance.adjust']
+
+    @classmethod
+    def _entry(cls, co, day, lines):
+        move = cls.env['account.move'].with_company(co).create({
+            'move_type': 'entry', 'journal_id': cls.misc[co.id].id, 'date': day,
+            'line_ids': [(0, 0, dict({'name': 'test', 'debit': 0, 'credit': 0}, **l)) for l in lines]})
+        move.action_post()
+        return move
+
+    @classmethod
+    def _invoice(cls, partner, amount, day, dist):
+        move = cls.env['account.move'].with_company(cls.co).create({
+            'move_type': 'out_invoice', 'partner_id': partner.id, 'invoice_date': day, 'date': day, 'journal_id': cls.sale.id,
+            'invoice_line_ids': [(0, 0, {'name': 'service', 'quantity': 1, 'price_unit': amount, 'account_id': cls.income.id, 'tax_ids': [(6, 0, [])],
+                                         'analytic_distribution': dist or False})]})
+        move.action_post()
+        return move
+
+    @classmethod
+    def _aal(cls, co, analytic, amount, general, day='2030-03-14', name='test'):
+        return cls.env['account.analytic.line'].with_company(co).create({
+            'name': name, 'account_id': analytic.id, 'amount': amount, 'date': day, 'general_account_id': general.id, 'company_id': co.id})
+
+    def _run(self, months=(M,), model=None):
+        return (self.Month if model is None else model).finance_recompute(list(months))
+
+    @staticmethod
+    def _r(*values):
+        return [round(v, 2) for v in values]
+
+    def _month(self, month=M):
+        return self.Month.search([('month', '=', month)])
+
+    def _adjust(self, step, amount, month=M, **kw):
+        return self.Adjust.create(dict({'month': month, 'step': step, 'amount': amount, 'basis': 'test basis'}, **kw))
+
+    # ——— ступені до цента ———
+    def test_steps_match_to_the_cent(self):
+        res = self._run()
+        self.assertTrue(res['verify'][0]['ok'], res['verify'][0]['text'])
+        m = self._month()
+        self.assertEqual(len(m), 1)
+        self.assertAlmostEqual(m.s1_docs, 130, msg='доходи 135 + пара DRM 40 − витрати 30 − власник 10 − фірма U 5; стаття іншого плану не рахується')
+        self.assertAlmostEqual(m.s1a_owners_in_pl, 10, msg='власник в P&L повертається в прибуток (іде у ступінь 5)')
+        self.assertAlmostEqual(m.s1g_no_analytic, 0)
+        self.assertAlmostEqual(m.s2_ukraine, -12, msg='лише фірма U, рахунок ліквідності, вузол Ukraine')
+        self.assertAlmostEqual(m.base, 128)
+        self.assertEqual(self._r(m.s3_shares, m.s4_net, m.s4c_cash), [0, 128, 30], msg='4 = до часток; 4\' = 128 − (10 × 9 + 8)')
+        self.assertAlmostEqual(m.s5_owners, 16)
+        self.assertAlmostEqual(m.s5_owners_share, 6, msg='«частка» — статті з параметра, решта — витрати компанії')
+        self.assertAlmostEqual(m.s6_stage2, 34, msg='аналітика 10 + 4 + 6 + рядки рахунку 10 і 4')
+        self.assertAlmostEqual(m.cash_out, 98, msg='рядки аналітики «II етапу»: партнер з лінією 10 × 9 = 90 + конверт AN 8; без лінії (4) і транзит (6) не входять; '
+                                                   'рахунок «II етапу» в 4\' участі не бере')
+        self.assertEqual(self._r(m.s7_unpaid_customers, m.s7_unpaid_energy), [100, 20], msg='міжфірмовий (15) і рахунок без частки рекрутингу не показуємо')
+        self.assertAlmostEqual(m.revenue, 175)
+        self.assertEqual(m.g_cand_count, 1)
+        self.assertAlmostEqual(m.g_cand_amount, 50, msg='оплачений рахунок без аналітики — кандидат 1г за датою оплати')
+        self.assertEqual(self._r(m.q_ic, m.q_unplaced, m.q_ext), [35, 83, 183], msg='міжфірмові: 15 + рахунок Energy 20 (він теж фірма); оборот без своїх фірм')
+        self.assertAlmostEqual(m.q_pct, 64.5)
+        self.assertEqual((m.s1_docs_src, m.s2_ukraine_src, m.s3_shares_src, m.s4_net_src), ('fact', 'fact', 'calc', 'calc'))
+
+    def test_february_pair_shifts_income_between_months(self):
+        self._run((FEB, M))
+        self.assertAlmostEqual(self._month(FEB).s1_docs, -40, msg='ліва проводка пари «дохід за місяцем роботи» — у лютому')
+        self.assertAlmostEqual(self._month(M).s1_docs, 130)
+
+    def test_items_open_lists(self):
+        self._run()
+        items = self.env['workset.finance.item'].search([('month', '=', M)])
+        kinds = set(items.mapped('kind'))
+        self.assertTrue({'step', 'owner', 'owner_share', 'ukraine', 'stage2', 'cash', 'cash_other', 'unpaid', 'candidate', 'quality'} <= kinds, kinds)
+        unpaid = items.filtered(lambda i: i.kind == 'unpaid' and i.partner_id == self.cust1)
+        self.assertEqual((unpaid.amount, unpaid.count, unpaid.note), (100, 1, 'customer'))
+        act = unpaid.action_open()
+        self.assertEqual(act['res_model'], 'account.move')
+        self.assertEqual(self.env['account.move'].search(act['domain']), self.inv_cust)
+        cash = items.filtered(lambda i: i.kind == 'cash' and i.res_model == 'account.analytic.line')
+        other = items.filtered(lambda i: i.kind == 'cash_other')
+        self.assertEqual(len(cash), 1, 'в «за грошима» — только розпізнаний рядок')
+        unknown = other.filtered(lambda i: calc.t('unknown', 0) in i.note)
+        self.assertIn(calc.t('not_in_4', 0), unknown.note, 'нерозпізнані й транзит — окремий вид, з позначкою «в 4\' не входить»')
+        self.assertEqual((unknown.amount, unknown.count), (36, 1), 'рядок без збігу фрази — «не розпізнано», сума × 9, у переказ не входить')
+        net = cash.filtered(lambda i: i.line_id)
+        self.assertEqual((net.amount, net.line_id), (90, self.line), 'розпізнаний за фразою (без регістру): 10 × 9, лінія з карти; брутто (×10) — у примітці')
+        self.assertIn('100,00', net.note)
+        transit = other.filtered(lambda i: calc.t('transit', 0) in i.note)
+        self.assertEqual((transit.amount, transit.count), (54, 1))
+        self.assertEqual(self.env['account.analytic.line'].search(unknown.action_open()['domain']).mapped('name'), ['Payout to nobody known'])
+
+    def test_stage2_cash_excludes_transit_and_unknown_phrases(self):
+        P = calc.P_PREFIX
+        self._run()
+        self.assertAlmostEqual(self._month().cash_out, 98)
+        self.env['ir.config_parameter'].sudo().set_param(P + 'stage2_transit_phrases', '')
+        self._run()
+        self.assertAlmostEqual(self._month().cash_out, 152, msg='без фрази транзиту рядок «Transit one» (він у карті ліній) входить: 98 + 6 × 9')
+        self.env['ir.config_parameter'].sudo().set_param(P + 'stage2_partner_lines', json.dumps([['phrase a', 999999]]))
+        res = self._run()
+        self.assertAlmostEqual(self._month().cash_out, 98, msg='лінії 999999 у базі немає — розпізнаний рядок усе одно рахується')
+        item = self.env['workset.finance.item'].search([('month', '=', M), ('kind', '=', 'cash'), ('note', 'like', calc.t('line_gone', 0))])
+        self.assertFalse(item.line_id)
+        self.assertEqual(len(item), 1)
+        self.assertIn(calc.t('line_missing', 0) % 1, res['verify'][0]['text'], 'пометка про відсутню лінію — у звірці')
+
+    def test_stage2_order_of_pairs_and_partner_name_in_text(self):
+        P = calc.P_PREFIX
+        self._aal(self.co, self.a_stage2, 3, self.cash, name='nothing here')
+        self.env['account.analytic.line'].search([('name', '=', 'nothing here')]).partner_id = self.part_b
+        Param = self.env['ir.config_parameter'].sudo()
+        Param.set_param(P + 'stage2_partner_lines', json.dumps([['stage partner b', self.line.id], ['phrase a', self.line.id]]))
+        self._run()
+        self.assertAlmostEqual(self._month().cash_out, 125, msg="текст = name + імя партнера рядка: «Stage partner B» розпізнано (3 × 9 = 27) + 90 + AN 8")
+        other_line = self.env['workset.line'].create({'name': 'Line B'})
+        Param.set_param(P + 'stage2_partner_lines', json.dumps([['payout', other_line.id], ['phrase a', self.line.id]]))
+        self._run()
+        items = self.env['workset.finance.item'].search([('month', '=', M), ('kind', '=', 'cash')])
+        self.assertEqual(items.filtered(lambda i: i.line_id == other_line).amount, 126, 'перша за порядком масиву пара виграє: «payout» раніше за «phrase a» — обидва «Payout…»-рядки (10 + 4) × 9')
+        Param.set_param(P + 'stage2_partner_lines', json.dumps({'phrase a': self.line.id}))
+        self._run()
+        self.assertAlmostEqual(self._month().cash_out, 8, msg="обєкт замість масиву пар — нічого не розпізнано (посів такий файл відхиляє)")
+
+    def test_quality_transit_documents_excluded(self):
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_PREFIX + 'quality_transit_move_ids', str(self.inv_noshare.id))
+        self._run()
+        m = self._month()
+        self.assertEqual(self._r(m.q_ic, m.q_unplaced, m.q_ext), [35, 50, 150], msg='документ транзиту (33) — ні в «без місця», ні в оборот')
+        self.assertAlmostEqual(m.s1_docs, 130, msg='ступінь 1 транзит не змінює')
+
+    # ——— поправки ———
+    def test_adjust_changes_step3_and_step4_and_marks_adjust(self):
+        self._run()
+        self.assertEqual(self._month().s4_net_src, 'calc')
+        adj = self._adjust('s3', 20, line_id=self.line.id)
+        self._adjust('s1g', 5)
+        self._adjust('s3', 999).active = False
+        self._run()
+        m = self._month()
+        self.assertAlmostEqual(m.s3_shares, 20)
+        self.assertAlmostEqual(m.s1g_no_analytic, 5)
+        self.assertAlmostEqual(m.base, 133)
+        self.assertAlmostEqual(m.s4_net, 113, msg='4 = до часток 133 − частки 20; поправка в архіві не входить')
+        self.assertAlmostEqual(m.s4c_cash, 35)
+        self.assertEqual((m.s3_shares_src, m.s1g_no_analytic_src, m.s4_net_src, m.base_src), ('adjust', 'adjust', 'adjust', 'adjust'))
+        self.assertEqual(m.s1_docs_src, 'fact')
+        item = self.env['workset.finance.item'].search([('month', '=', M), ('kind', '=', 'adjust'), ('note', '=', 's3')])
+        self.assertEqual((item.amount, item.line_id), (20, self.line))
+        adj.active = False
+        self._run()
+        self.assertAlmostEqual(self._month().s4_net, 133, msg='поправку в архів — частки зникли, ступінь 1г лишилась')
+
+    def test_adjust_needs_basis_and_month_2026(self):
+        with self.assertRaises(ValidationError):
+            self._adjust('s3', 1, basis='   ')
+        with self.assertRaises(ValidationError):
+            self._adjust('s3', 1, month='2025-12-01')
+        with self.assertRaises(ValidationError):
+            self._adjust('s3', 1, month='2030-03-15')
+
+    # ——— пересчёт ———
+    def test_recompute_twice_does_not_multiply_rows(self):
+        self._run()
+        n_items = self.env['workset.finance.item'].search_count([('month', '=', M)])
+        self._run()
+        self.assertEqual(self.Month.search_count([('month', '=', M)]), 1)
+        self.assertEqual(self.env['workset.finance.item'].search_count([('month', '=', M)]), n_items)
+        self.assertEqual(self.env['workset.finance.check'].search_count([('month', '=', M)]), 1)
+
+    def test_months_before_2026_refused(self):
+        with self.assertRaises(ValidationError):
+            self.Month.finance_recompute(['2025-12-01'])
+        with self.assertRaises(ValidationError):
+            self.Month.create({'month': '2025-12-01'})
+        self.assertTrue(all(m >= calc.MIN_MONTH for m in self.Month._months(None)))
+
+    def test_missing_param_is_clear_error(self):
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_PREFIX + 'stage2_account_id', '')
+        with self.assertRaises(UserError) as cm:
+            self._run()
+        self.assertIn(calc.P_PREFIX + 'stage2_account_id', str(cm.exception))
+
+    # ——— звірка ———
+    def test_verify_returns_fresh_steps_and_flags_stale(self):
+        self._run()
+        full = self.Month.finance_verify([M])
+        got = full['months'][0]
+        self.assertTrue(got['ok'], got['text'])
+        self.assertFalse(got['stale'])
+        self.assertEqual(sorted(full['companies']), sorted(self.Month._perimeter()), 'периметр фірм віддає сам модуль')
+        self.assertTrue({self.co.id, self.co_ua.id, self.co_en.id} <= set(full['companies']))
+        self.assertTrue({self.energy.id, self.co_ua.partner_id.id, self.co.partner_id.id} <= set(full['intercompany_partner_ids']), 'партнери всіх фірм, і Energy')
+        self.assertAlmostEqual(got['steps']['s4_net'], 128)
+        self._entry(self.co, '2030-03-21', [{'account_id': self.expense.id, 'debit': 7, 'analytic_distribution': {str(self.a_node_a.id): 100}},
+                                            {'account_id': self.cash.id, 'credit': 7}])
+        later = self.Month.finance_verify([M])['months'][0]
+        self.assertTrue(later['stale'], 'в книгах з’явилось після перерахунку')
+        self.assertAlmostEqual(later['steps']['s1_docs'], 123)
+
+    def test_verify_control_catches_lost_analytic_line(self):
+        self._run()
+        move = self._entry(self.co, '2030-03-22', [{'account_id': self.expense.id, 'debit': 25, 'analytic_distribution': {str(self.a_node_a.id): 100}},
+                                                   {'account_id': self.cash.id, 'credit': 25}])
+        move.line_ids.analytic_line_ids.unlink()
+        got = self.Month.finance_verify([M])['months'][0]
+        self.assertFalse(got['ok'], 'проводка з розподілом без рядка аналітики: другий спосіб бачить 25, перший — ні')
+        self.assertIn('Ступінь 1', got['text'])
+
+    # ——— права ———
+    def test_rights(self):
+        base = 'base.group_user'
+        # всім тестовим користувачам — усі фірми теста: відмова має бути саме від перевірки групи модуля, а не від чужих фірм
+        co = {'company_id': self.co.id, 'company_ids': [(6, 0, self.cos)]}
+        none = new_test_user(self.env, login='fin_none', groups=base, **co)
+        owner = new_test_user(self.env, login='fin_owner', groups=base + ',workset_finance.group_owner', **co)
+        editor = new_test_user(self.env, login='fin_editor', groups=base + ',workset_finance.group_editor', **co)
+        admin = new_test_user(self.env, login='fin_admin', groups=base + ',base.group_system', **co)
+        self._run()
+        only_group = r'Цей екран бачить лише група|Этот экран видит только группа'   # calc.TX['only_group'] (ключ only_group)
+        only_editor = r'Перераховувати може лише редактор|Пересчитывать может только редактор'   # calc.TX['only_editor']
+        for user in (none, admin):
+            Model = self.Month.with_user(user)
+            with self.assertRaisesRegex(AccessError, only_group):
+                Model.finance_owner(M)
+            with self.assertRaisesRegex(AccessError, only_group):
+                Model.finance_verify([M])
+        with self.assertRaisesRegex(AccessError, only_editor):
+            self.Month.with_user(none).finance_recompute([M])
+        with self.assertRaisesRegex(AccessError, only_editor):
+            self.Month.with_user(owner).finance_recompute([M])
+        got = self.Month.with_user(owner).finance_owner(M)
+        self.assertTrue(got['has'])
+        self.assertAlmostEqual(got['steps']['s4_net'], 128)
+        self.assertEqual(got['src']['s1_docs'], 'fact')
+        self.assertTrue(self.Month.with_user(owner).finance_verify([M])['months'][0]['ok'])
+        with self.assertRaises(ValidationError):
+            self.Month.with_user(owner).finance_owner('2025-12-01')
+        self.assertTrue(self.Month.with_user(editor).finance_recompute([M])['verify'][0]['ok'])
+        self.assertTrue(self.Month.with_user(admin).finance_recompute([M])['verify'][0]['ok'], 'адміністратор перераховує, але екрани поза групою не бачить')
+        with self.assertRaises(AccessError):
+            self._month().with_user(owner).write({'s4_net': 1})
+        with self.assertRaises(AccessError):
+            self.Adjust.with_user(owner).create({'month': M, 'step': 's3', 'amount': 1, 'basis': 'x'})
+        self.assertTrue(self.Adjust.with_user(editor).create({'month': M, 'step': 's3', 'amount': 1, 'basis': 'x'}))
+
+    def test_cron_recompute_uses_last_months(self):
+        res = self.Month._cron_recompute()
+        self.assertEqual(res['months'], ['2029-12-01', '2030-01-01', '2030-02-01', '2030-03-01'], '3 останні місяці й поточний (сьогодні підмінено)')
+
+    def test_too_many_months_is_clear_error(self):
+        many = calc.month_list('2026-01-01', calc.add_months('2026-01-01', calc.MAX_MONTHS))   # MAX_MONTHS + 1 місяців
+        with self.assertRaisesRegex(ValidationError, r'Забагато місяців за раз|Слишком много месяцев за раз'):
+            self.Month.finance_recompute(many)
+        self.assertEqual(len(self.Month._months(calc.month_list('2026-01-01', calc.add_months('2026-01-01', calc.MAX_MONTHS - 1)))), calc.MAX_MONTHS)
+
+    def test_closed_takes_parent_company_lock_date(self):
+        Company = self.env['res.company']
+        if 'hard_lock_date' not in Company._fields:
+            self.skipTest('у цій збірці Odoo немає hard_lock_date')
+        parent = Company.create({'name': 'Test parent', 'currency_id': self.eur.id})
+        child = Company.create({'name': 'Test child', 'currency_id': self.eur.id, 'parent_id': parent.id})
+        self.assertFalse(self.Month._closed([child.id], M_LAST), 'блокувань немає')
+        parent.hard_lock_date = M_LAST
+        self.assertTrue(self.Month._closed([child.id], M_LAST), 'дата блокування батьківської фірми діє на дочірню')
