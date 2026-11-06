@@ -296,7 +296,7 @@ export class ProfitOverview extends ProfitScreen {
         this.openCard(line.id, this.data.month.value, line.name);
     }
 
-    /** Чип «Власники»: кожна стаття окремо — «BJ −1 275 · IP −5 385» (R05 власника: «по кожному»). */
+    /** Чип «Власники»: кожна стаття окремо — «AA −100 · BB −200» (умовні коди; R05 власника: «по кожному»). */
     ownerParts(alert) {
         return (alert.parts || []).map((p) => `${p.code} ${euros(p.amount)}`).join(" · ");
     }
