@@ -41,6 +41,7 @@
         'views/workset_rate_overview_views.xml',
         'views/menus.xml',
         'data/ir_cron.xml',
+        'data/mail_activity_data.xml',
     ],
     'assets': {
         'web.assets_backend': [

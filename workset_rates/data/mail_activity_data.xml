@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Тип задачі «Переговорити» (кнопка рядка списку «Працюють зараз», майстер workset.rate.talk) — лише для ставок: тривога «Огляду»
+         рахує відкриті задачі саме цього типу, а не будь-які задачі на ставці. noupdate — як у стандартних типів (назву, іконку можна
+         змінити в Odoo, оновлення модуля їх не поверне) -->
+    <data noupdate="1">
+        <record id="mail_activity_talk" model="mail.activity.type">
+            <field name="name">Переговорити</field>
+            <field name="res_model">workset.rate</field>
+            <field name="icon">fa-phone</field>
+            <field name="sequence">90</field>
+        </record>
+    </data>
+</odoo>

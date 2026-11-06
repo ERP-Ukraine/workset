@@ -272,13 +272,20 @@ export class RatesOverview extends Component {
         return this.openList(line.open);
     }
 
+    /** Заголовок тривоги — список; link === false (сервер: немає права читати ці записи, напр. табелі) — не посилання. */
     async openAlert(alert) {
+        if (alert.link === false) {
+            return;
+        }
         const action = await this.action.loadAction(ALERT_ACTIONS[alert.model] || ALL);
         this.action.doAction({ ...action, domain: [["id", "in", alert.ids]], context: {} });
     }
 
-    /** Рядок тривоги: запис; у «Працюють без ставки» — нова ставка цієї пари (форма з працівником і замовником). */
+    /** Рядок тривоги: запис; у «Працюють без ставки» — нова ставка цієї пари (форма з працівником і замовником); click === false — без кліку. */
     openRow(alert, row) {
+        if (row.click === false) {
+            return;
+        }
         return row.new ? this.openRecord("workset.rate", false, row.new) : this.openRecord(alert.model, row.id);
     }
 

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Версія договору (hr.version, Odoo 19) — лише додавання: позначка «Тимчасово (не база)», «Повна ставка» (сума фонду працівників за
-домовленістю — workset.rate._full_rate_on; зміна одразу перераховує ставки людини) і тригер А6 «договір → база».
+домовленістю — workset.rate._full_rate_on; зміна позначки, нова версія з дати, перенос «Дати версії» чи архів одразу перераховують ставки
+людини) і тригер А6 «договір → база».
 
 А6 (розділ 5 спеціфікації М2): версію створили або змінили поля A6_TRIGGERS — ставки пар, де ця картка — картка договору, отримують нову
 «На руки» (workset.rate._contract_to_base); ставка, створена з цієї версії, іде за нею (позначили «Тимчасово», архівували, перенесли дату —
@@ -22,6 +23,7 @@ from . import calc
 A6_TRIGGERS = frozenset(['hourly_wage', 'wage_type', 'date_version', 'active', 'workset_temporary'])
 TEMP_FIELD = 'workset_temporary'
 FULL_FIELD = 'workset_full_rate'
+FULL_MOVE = frozenset(['date_version', 'active'])  # без зміни позначки: на дату ставки може діяти інша версія — фонд одразу
 
 
 def add_temporary_row(arch):
@@ -74,6 +76,8 @@ class HrVersion(models.Model):
         recs = super().create(vals_list)
         # нова версія (і «нова з дати» копією поточної) — завжди: ставка договору в ній може бути скопійована, а не передана
         recs._workset_rates_a6()
+        # нова версія з дати може змінити «Повну ставку» людини з цього дня (позначена або ні, а попередня — навпаки) — фонд одразу
+        recs._workset_rates_full_rate(only_marked=True)
         return recs
 
     def write(self, vals):
@@ -82,15 +86,24 @@ class HrVersion(models.Model):
             self._workset_rates_a6()
         if FULL_FIELD in vals:
             self._workset_rates_full_rate()
+        elif FULL_MOVE & set(vals):
+            # перенесли «Дату версії» або архівували — на дату ставки може діяти інша версія з іншою «Повною ставкою»
+            self._workset_rates_full_rate(only_marked=True)
         return res
 
-    def _workset_rates_full_rate(self):
-        """«Повна ставка» змінилась — діючі й майбутні ставки людей цих версій перераховують ланцюжок одразу (фонд працівників і частка),
-        не чекаючи ночі. «Без автоматики» (workset_rates_no_sync) — нічого."""
+    def _workset_rates_full_rate(self, only_marked=False):
+        """«Повна ставка» людини могла змінитись — діючі й майбутні ставки людей цих версій перераховують ланцюжок одразу (фонд працівників
+        і частка), не чекаючи ночі. only_marked — лише люди, у яких хоч одна версія (і архівна) позначена «Повна ставка»: без позначок
+        фонд від версій не залежить (нова версія чи перенос дати в людини без позначок нічого не перераховує). «Без автоматики»
+        (workset_rates_no_sync) — нічого."""
         Rate = self.env['workset.rate']
         if Rate._no_sync():
             return 0
-        people = self.sudo().employee_id.work_contact_id.ids
+        emps = self.sudo().employee_id
+        if only_marked and emps:
+            marked = self.sudo().with_context(active_test=False).search([('employee_id', 'in', emps.ids), (FULL_FIELD, '=', True)])
+            emps = marked.employee_id
+        people = emps.work_contact_id.ids
         if not people:
             return 0
         return Rate.sudo().search([('person_id', 'in', people), ('state', 'in', ['current', 'future'])])._chain(full=False)

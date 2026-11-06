@@ -682,6 +682,30 @@ class TestWorksetRates(TransactionCase):
             self.assertEqual(r.net_share, 3.1)
             self.assertEqual(r.share_level, 'mid', 'W 5 не нижче мінімуму 4')
 
+    def test_c_office_bonus_without_card(self):
+        # людина офісу без картки працівника (на проді — частина офісу; картки без користувача не додаємо): правило за іменем, бонус у
+        # ставці — той самий (calc.office_bonus картку не читає). Ім'я — вигадане
+        self._quiet_bonuses()
+        Bonus = self.env['workset.office.bonus']
+        b = Bonus.create({'employee_label': 'Тест офіс без картки', 'kind': 'hour', 'amount': 0.6, 'customer_ids': [(6, 0, [self.cust.id])],
+                          'date_from': OLD, 'source': 'other'})
+        self.assertEqual((b.employee_id, b.employee_label, b.has_card), (self.env['hr.employee'], 'Тест офіс без картки', False))
+        self.assertTrue(b.name.startswith('Тест офіс без картки · '), b.name)
+        a, c = self._no_agents()
+        with a, c:
+            r = self._rate()
+        self.assertEqual((r.office_bonus, r.net_share), (0.6, 4.4), 'бонус від картки не залежить')
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            Bonus.create({'kind': 'hour', 'amount': 0.9, 'date_from': OLD, 'source': 'other'})  # ні картки, ні імені
+        # з карткою — ім'я з картки; «Бонуси офісу — перегляд» без прав кадрів читає обидва (ім'я — хранимий рядок)
+        b2 = Bonus.create({'employee_id': self.emp_a.id, 'kind': 'hour', 'amount': 0.3, 'customer_ids': [(6, 0, [self.cust2.id])], 'date_from': OLD,
+                           'source': 'other'})
+        self.assertEqual((b2.employee_label, b2.has_card), (self.emp_a.name, True))
+        viewer = new_test_user(self.env, login='ws_c_bonus_viewer', groups='base.group_user,workset_rates.group_bonus_viewer')
+        rows = Bonus.with_user(viewer).with_context(allowed_company_ids=viewer.company_ids.ids).search_read([('id', 'in', (b | b2).ids)],
+                                                                                                            ['employee_label', 'has_card'])
+        self.assertEqual(sorted((x['employee_label'], x['has_card']) for x in rows), sorted([('Тест офіс без картки', False), (self.emp_a.name, True)]))
+
     def test_m2_20_rights(self):
         lt = self.env['workset.line'].create({'name': 'Тест лінія права'})
         line_rule = self._rule(line_id=lt.id, anchor='tariff', share_we_found=5)
@@ -722,7 +746,12 @@ class TestWorksetRates(TransactionCase):
         as_(owner, bonus).write({'amount': 2.4})
         r = self._rate()
         self.assertTrue(as_(editor, r).read(['office_bonus', 'net_share']), 'на ставці редактор бачить підсумок')
-        tariff.unlink()
+        # видаляє лише системний адміністратор (права моделі, як до круга 06.11): tariff створено редактором — запис несе його оточення,
+        # тож видалення — явно від імені кожного (збірка Odoo.sh c326b874c: tariff.unlink() ішов від редактора)
+        with self.assertRaises(AccessError), self.env.cr.savepoint():
+            as_(owner, tariff).unlink()
+        admin = new_test_user(self.env, login='ws_m2_admin', groups='base.group_user,base.group_system')
+        as_(admin, tariff).unlink()
         self.assertFalse(tariff.exists(), 'видаляє системний адміністратор')
 
     def test_m2_21_averages(self):
@@ -1411,7 +1440,9 @@ class TestWorksetRates(TransactionCase):
 
     def test_m2c_views_and_menus(self):
         # редактор — як справжні редактори: бачить фірми ставок (фірма договору у вкладці «Контроль»), але без прав кадрів
-        firms = (self.co_a | self.co_b | self.co_uah | self.co_out | self.env.company).ids
+        # усі фірми контексту тесту: self.env.company тут — «Тест фірма А» (перша в allowed_company_ids), а головна фірма бази теж у
+        # контексті — без неї в користувача «Access to unauthorized or invalid companies» (збірка Odoo.sh 641665177)
+        firms = list(self.env.context['allowed_company_ids'])
         editor = new_test_user(self.env, login='ws_m2c_editor', groups='base.group_user,workset_rates.group_editor',
                                company_id=self.env.company.id, company_ids=[(6, 0, firms)])
         viewer = new_test_user(self.env, login='ws_m2c_viewer', groups='base.group_user,workset_rates.group_bonus_viewer')
@@ -1532,7 +1563,13 @@ class TestWorksetRates(TransactionCase):
     def test_m2c1b_review_access(self):
         """Ревю М2c-1, № 3–5: редактор без прав кадрів підбирає «Працівник» (поле workset_is_worker, а не employee_ids); «Бонуси офісу —
         перегляд» без прав кадрів читає список (ім'я — через sudo); «Нова з дати» правила лінії редактору не видно."""
-        editor = new_test_user(self.env, login='ws_m2c1b_editor', groups='base.group_user,workset_rates.group_editor')
+        # редактор — як справжні (фірми ставок у нього є): контекст тесту несе тестові фірми, а фірма контексту, якої в користувача немає,
+        # — «Access to unauthorized or invalid companies» на будь-якому пошуку з правилом фірм (збірка Odoo.sh c326b874c, name_search контактів)
+        # усі фірми контексту тесту: self.env.company тут — «Тест фірма А» (перша в allowed_company_ids), а головна фірма бази теж у
+        # контексті — без неї в користувача «Access to unauthorized or invalid companies» (збірка Odoo.sh 641665177)
+        firms = list(self.env.context['allowed_company_ids'])
+        editor = new_test_user(self.env, login='ws_m2c1b_editor', groups='base.group_user,workset_rates.group_editor',
+                               company_id=self.env.company.id, company_ids=[(6, 0, firms)])
         viewer = new_test_user(self.env, login='ws_m2c1b_viewer', groups='base.group_user,workset_rates.group_bonus_viewer')
         owner = new_test_user(self.env, login='ws_m2c1b_owner', groups='base.group_user,workset_rates.group_rule_editor')
         self.assertFalse(editor.has_group('hr.group_hr_user'))
@@ -1551,8 +1588,11 @@ class TestWorksetRates(TransactionCase):
         view = self.env.ref('workset_rates.view_bonus_list').id
 
         def list_fields(user):
-            m = self.env['workset.office.bonus'].with_user(user).get_views([(view, 'list')])['models']['workset.office.bonus']
-            return [f for f in m.get('fields', m) if f in bonus._fields]
+            # поля, які клієнт читає, — з розмітки виду цього користувача: в Odoo 19 «models» відповіді get_views кешується на вид без
+            # груп користувача (ir.ui.view._get_view_cache_key) і містить усі поля розмітки, а вузли з groups прибирає лише
+            # _postprocess_access_rights у розмітці (збірка Odoo.sh e638a73ce: employee_id був у «models» переглядача)
+            arch = self.env['workset.office.bonus'].with_user(user).get_views([(view, 'list')])['views']['list']['arch']
+            return [n.get('name') for n in etree.fromstring(arch).iter('field') if n.get('name') in bonus._fields]
         names = list_fields(viewer)
         self.assertIn('employee_label', names)
         self.assertNotIn('employee_id', names, 'поле картки (hr.employee) — лише «правила ліній»')
@@ -1566,6 +1606,10 @@ class TestWorksetRates(TransactionCase):
         self.assertTrue(self.line_rule.with_user(owner).can_edit_line)
         form = self.env['workset.rate.rule'].with_user(editor).get_views([(self.env.ref('workset_rates.view_rule_form').id, 'form')])['views']['form']['arch']
         self.assertIn("level == 'line' and not can_edit_line", form)
+        # у перемикачі фірм обрано не всі фірми користувача — ставка читається без помилки, «Картки у фірмах» — лише обраних
+        r = self._rate()
+        only_b = r.with_user(editor).with_context(allowed_company_ids=[self.co_b.id])
+        self.assertEqual(only_b.read(['employee_summary', 'wage'])[0]['employee_summary'], 'Тест фірма Б · діє')
 
     def test_m2c_rate_screen_texts(self):
         self._quiet_bonuses()
@@ -1743,7 +1787,9 @@ class TestWorksetRates(TransactionCase):
     def test_b_agent_deal_button(self):
         # «Домовленість» біля «Посередник»: моделі посередників немає (як на проді) — форма читається, кнопки не видно, дія — повідомлення;
         # домовленість є (адаптер підмінено) — кнопка видна, дія — картка (одна) або список (кілька)
-        firms = (self.co_a | self.co_b | self.co_uah | self.co_out | self.env.company).ids
+        # усі фірми контексту тесту: self.env.company тут — «Тест фірма А» (перша в allowed_company_ids), а головна фірма бази теж у
+        # контексті — без неї в користувача «Access to unauthorized or invalid companies» (збірка Odoo.sh 641665177)
+        firms = list(self.env.context['allowed_company_ids'])
         editor = new_test_user(self.env, login='ws_b_deal_editor', groups='base.group_user,workset_rates.group_editor',
                                company_id=self.env.company.id, company_ids=[(6, 0, firms)])
         form = self.R.with_user(editor).get_views([(self.env.ref('workset_rates.view_rate_form').id, 'form')])['views']['form']['arch']
@@ -1793,7 +1839,9 @@ class TestWorksetRates(TransactionCase):
             self.R.with_user(plain).with_context(allowed_company_ids=[plain.company_id.id]).rates_overview([], 6)
 
     def test_b_gantt_views_stop_and_move(self):
-        firms = (self.co_a | self.co_b | self.co_uah | self.co_out | self.env.company).ids
+        # усі фірми контексту тесту: self.env.company тут — «Тест фірма А» (перша в allowed_company_ids), а головна фірма бази теж у
+        # контексті — без неї в користувача «Access to unauthorized or invalid companies» (збірка Odoo.sh 641665177)
+        firms = list(self.env.context['allowed_company_ids'])
         editor = new_test_user(self.env, login='ws_b_editor', groups='base.group_user,workset_rates.group_editor',
                                company_id=self.env.company.id, company_ids=[(6, 0, firms)])
         admin = self.env.ref('base.user_admin')
@@ -1866,7 +1914,9 @@ class TestWorksetRates(TransactionCase):
     def test_m2c1b_internal_context_only_superuser(self):
         """Контекст workset_rates_internal (службові поля ланцюжка без автоматики) — лише суперкористувачу: редактор через RPC з ним
         не обходить ланцюжок і А1 — усе як без контексту (ревю рівня B)."""
-        firms = (self.co_a | self.co_b | self.co_uah | self.co_out | self.env.company).ids
+        # усі фірми контексту тесту: self.env.company тут — «Тест фірма А» (перша в allowed_company_ids), а головна фірма бази теж у
+        # контексті — без неї в користувача «Access to unauthorized or invalid companies» (збірка Odoo.sh 641665177)
+        firms = list(self.env.context['allowed_company_ids'])
         editor = new_test_user(self.env, login='ws_m2c1b_internal', groups='base.group_user,workset_rates.group_editor',
                                company_id=self.env.company.id, company_ids=[(6, 0, firms)])
         self._quiet_bonuses()
@@ -1983,12 +2033,41 @@ class TestWorksetRates(TransactionCase):
             plan = self.R._plan_at([(self.person.id, self.cust.id)], DAY)[(self.person.id, self.cust.id)]
             self.assertEqual((plan['worker_fund_share'], plan['car_rent_share'], plan['our_share']), (1.5, 0.5, 2.25),
                              '«Прибутковість»: фонд і оренда поруч із часткою (частка — уже без них)')
+            # нова версія з дати (неповна ставка) і перенос її дати — фонд одразу, не чекаючи ночі
+            v2 = self.emp_a.create_version({'date_version': calc.add_days(DAY, -5), 'workset_full_rate': False})
+            self.assertEqual((r.worker_fund_share, r.our_share), (2.5, 1.25), 'на сьогодні діє нова версія без «Повної ставки» — фонд неповної')
+            v2.write({'date_version': LATER})
+            self.assertEqual(r.worker_fund_share, 1.5, 'версію перенесли на потім — на сьогодні знову повна ставка')
         with patch.object(agent_deals, 'read_deals', return_value=self._fund_deals(rate_full=None)), patch.object(agent_deals, 'read_people', return_value=[]):
             r._chain(full=False)
             self.assertEqual(r.worker_fund_share, 2.5, 'поля «на повну ставку» в домовленості немає — завжди основна сума')
-        with self.assertRaises(UserError), self.env.cr.savepoint():
-            editor = new_test_user(self.env, login='ws_c_fund_editor', groups='base.group_user,workset_rates.group_editor')
-            self.line_rule.with_user(editor).with_context(allowed_company_ids=[editor.company_id.id]).write({'car_rent': 1.5})
+        # оренду авто в тарифі замовника змінює лише власник (захищене поле, як частки); правило лінії редактор не змінює й так — тому тариф
+        editor = new_test_user(self.env, login='ws_c_fund_editor', groups='base.group_user,workset_rates.group_editor')
+        ct = self._cust('Тест замовник оренда')
+        tariff = self._rule(customer_id=ct.id, anchor='tariff', price=23, date_from=DAY)
+        as_editor = tariff.with_user(editor).with_context(allowed_company_ids=[editor.company_id.id])
+        with self.assertRaisesRegex(UserError, 'Оренда авто'), self.env.cr.savepoint():
+            as_editor.write({'car_rent': 1.5})
+        as_editor.write({'price': 24})
+        self.assertEqual((tariff.price, tariff.car_rent), (24, 0), 'ціну тарифу редактор править, оренду — ні')
+
+    def test_c_fixed_month_without_fund_and_car(self):
+        # «Фікс за місяць»: фонд і оренда авто з частки не віднімаються (calc.shares) — і в ставці 0, щоб стовпець, «Переговорити» й
+        # «Прибутковість» не показували суму, якої в частці немає
+        self._quiet_bonuses()
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_MONTH_HOURS, '')
+        lf = self.env['workset.line'].create({'name': 'Тест лінія фікс'})
+        cf = self._cust('Тест замовник фікс', lf)
+        self._rule(line_id=lf.id, price_mode='fixed_month', fixed_month=336, car_rent=0.5)
+        deals = [dict(d, customer_ids=[cf.id]) for d in self._fund_deals()]
+        with patch.object(agent_deals, 'read_deals', return_value=deals), patch.object(agent_deals, 'read_people', return_value=[]), \
+                patch.object(type(self.R), '_pair_hour_rows', return_value=[]):
+            r = self._rate(customer_id=cf.id)
+            self.assertEqual((r.price_mode, r.price, r.agent_client_share), ('fixed_month', 14, 0.75))
+            self.assertEqual((r.worker_fund_share, r.car_rent_share, r.our_share), (0, 0, 2), 'фікс 336 ÷ 168 год; фонд 2,5 й оренда 0,5 — не в ставці')
+            plan = self.R._plan_at([(self.person.id, cf.id)], DAY)[(self.person.id, cf.id)]
+            self.assertEqual((plan['worker_fund_share'], plan['car_rent_share'], plan['our_share']), (0, 0, 2))
+            self.assertEqual(calc.talk_text(r._talk_numbers(), 'uk'), 'зарплата 14, платять 14, посередник 0,75, частка 2', 'без фонду й авто')
 
     def test_c_edit_from_list(self):
         self._quiet_bonuses()
@@ -1997,14 +2076,19 @@ class TestWorksetRates(TransactionCase):
         with a, b:
             r = self._rate()
             act = r.action_edit_wage()
-            self.assertEqual((act['res_model'], act['context']['default_value'], act['context']['default_date']), ('workset.rate.edit', 14, DAY))
+            # дата за замовчуванням — сьогодні, але ставка почалась сьогодні — завтра (нова ставка з того самого дня — відмова)
+            self.assertEqual((act['res_model'], act['context']['default_value'], act['context']['default_date']), ('workset.rate.edit', 14, NEXT))
             # «Нова ставка з дати»: нова ставка пари з дати, попередня закінчується напередодні, частка — одразу
             Edit.create({'rate_id': r.id, 'what': 'wage', 'value': 15, 'date': NEXT, 'reason': 'тест: розмова', 'source': 'call'}).action_new_from_date()
             new = self.R.search([('person_id', '=', self.person.id), ('customer_id', '=', self.cust.id), ('date_from', '=', NEXT)])
             self.assertEqual((len(new), new.wage, new.price, new.our_share, new.state, new.source), (1, 15, 20, 5, 'future', 'call'))
             self.assertEqual((r.wage, calc.iso(r.date_to)), (14, DAY), 'попередня не переписана, закінчується напередодні')
-            with self.assertRaises(UserError), self.env.cr.savepoint():
+            with self.assertRaisesRegex(UserError, 'уже є'), self.env.cr.savepoint():
                 Edit.create({'rate_id': r.id, 'what': 'wage', 'value': 16, 'date': DAY}).action_new_from_date()
+            # дата раніше «Ставка з»: нова ставка встала б перед цією й укоротила б попередню — минулі місяці змінились би
+            with self.assertRaisesRegex(UserError, 'пізніше'), self.env.cr.savepoint():
+                Edit.create({'rate_id': new.id, 'what': 'wage', 'value': 16, 'date': DAY}).action_new_from_date()
+            self.assertEqual((calc.iso(r.date_to), self.R.search_count([('person_id', '=', self.person.id), ('customer_id', '=', self.cust.id)])), (DAY, 2))
             # «Виправити помилку»: без причини — ні; з причиною — число в цій самій ставці й причина в історії
             fix = Edit.create({'rate_id': r.id, 'what': 'price', 'value': 21, 'date': DAY})
             with self.assertRaises(UserError), self.env.cr.savepoint():
@@ -2020,6 +2104,41 @@ class TestWorksetRates(TransactionCase):
             self.assertIn('тест: домовились', r.agent_client_note)
             r.action_agent_by_deal()
             self.assertEqual((r.agent_own, r.agent_client_share, r.our_share), (False, 0, 7))
+            # минула ставка — історія пари: олівці сховані, а сервер відмовляє й при виклику повз список
+            old = self._rate(date_from=calc.add_days(DAY, -10), wage=12)
+            self.assertEqual(old.state, 'past')
+            with self.assertRaisesRegex(UserError, 'минула'), self.env.cr.savepoint():
+                old.action_edit_wage()
+            for method in ('action_new_from_date', 'action_fix'):
+                with self.assertRaisesRegex(UserError, 'минула'), self.env.cr.savepoint():
+                    getattr(Edit.create({'rate_id': old.id, 'what': 'wage', 'value': 13, 'date': DAY3, 'reason': 'тест'}), method)()
+            self.assertEqual((old.wage, self.R.search_count([('person_id', '=', self.person.id), ('customer_id', '=', self.cust.id)])), (12, 3))
+        # те саме — від редактора без прав кадрів (як справжні редактори: фірми ставок у нього є): відкрити майстер, прочитати його форму
+        # так, як клієнт, нова ставка з дати, виправлення, «Переговорити» — без помилки доступу (прошла збірка Odoo.sh падала саме на
+        # полі hr.employee у формі для такого користувача). «Сьогодні» в редактора — справжнє (rates_today — лише адміністратору), тож
+        # тут перевіряються числа й межі ставок, а не статуси
+        # усі фірми контексту тесту: self.env.company тут — «Тест фірма А» (перша в allowed_company_ids), а головна фірма бази теж у
+        # контексті — без неї в користувача «Access to unauthorized or invalid companies» (збірка Odoo.sh 641665177)
+        firms = list(self.env.context['allowed_company_ids'])
+        editor = new_test_user(self.env, login='ws_c_edit_editor', groups='base.group_user,workset_rates.group_editor',
+                               company_id=self.env.company.id, company_ids=[(6, 0, firms)])
+        self.assertFalse(editor.has_group('hr.group_hr_user'))
+        a, b = self._no_agents()
+        with a, b:
+            act = new.with_user(editor).action_edit_wage()
+            self.assertEqual(act['context']['default_rate_id'], new.id)
+            w = Edit.with_user(editor).create({'rate_id': new.id, 'what': 'wage', 'value': 16, 'date': LATER, 'reason': 'тест: редактор', 'source': 'call'})
+            self.assertEqual(self._web_read_form(editor, w, 'view_rate_edit_form')[0]['old_value'], 15)
+            w.action_new_from_date()
+            later = self.R.search([('person_id', '=', self.person.id), ('customer_id', '=', self.cust.id), ('date_from', '=', LATER)])
+            self.assertEqual((len(later), later.wage, later.price, later.source), (1, 16, 21, 'call'))
+            self.assertEqual(calc.iso(new.date_to), calc.add_days(LATER, -1), 'попередня закінчується напередодні')
+            Edit.with_user(editor).create({'rate_id': later.id, 'what': 'price', 'value': 22, 'date': LATER, 'reason': 'тест: редактор виправив'}).action_fix()
+            self.assertEqual((later.price, later.is_own, later.our_share), (22, True, 6))
+            talk = self.env['workset.rate.talk'].with_user(editor).create({'rate_id': later.id})
+            self.assertEqual(talk.user_id, editor, '«Кому» за замовчуванням — сам')
+            self.assertTrue(self._web_read_form(editor, talk, 'view_rate_talk_form'))
+            talk.action_create()
         # права: кадри читають ставки, але майстер правки не відкривають
         hr_user = new_test_user(self.env, login='ws_c_edit_hr', groups='base.group_user,hr.group_hr_user')
         with self.assertRaises(AccessError):
@@ -2034,13 +2153,27 @@ class TestWorksetRates(TransactionCase):
         with a, b:
             r = self._rate()
         admin = self.env.ref('base.user_admin')
+        # назва задачі рахується на сервері й без форми (precompute): обов'язкове поле не йде в базу порожнім (збірка Odoo.sh c326b874c)
         talk = self.env['workset.rate.talk'].create({'rate_id': r.id, 'user_id': admin.id})
         self.assertEqual(talk.summary, 'Переговорити: зарплата 14, платять 19, частка 5')
         talk.action_create()
         acts = self.env['mail.activity'].search([('res_model', '=', 'workset.rate'), ('res_id', '=', r.id)])
-        self.assertEqual((len(acts), acts.user_id, acts.summary), (1, admin, talk.summary), 'задача на ставці для обраного користувача')
+        self.assertEqual((len(acts), acts.user_id, acts.summary, acts.activity_type_id), (1, admin, talk.summary, self.env.ref('workset_rates.mail_activity_talk')),
+                         'задача типу «Переговорити» на ставці для обраного користувача')
+        # задача іншого типу на ставці (з чаттера) — не «Переговорити»
+        r.activity_schedule('mail.mail_activity_data_todo', summary='Тест інша задача', user_id=admin.id)
         alert = [x for x in self.R.rates_overview([], 6)['alerts'] if x['key'] == 'talk'][0]
         self.assertEqual((alert['count'], alert['ids'], alert['rows'][0]['id']), (1, r.ids, r.id), '«Тривоги» «Огляду» — рядок «Переговорити»')
+        # «Кому» — лише ті, хто читає ставки: у виборі немає, а переданий повз вибір — пояснення, а не помилка доступу Odoo
+        plain = new_test_user(self.env, login='ws_c_talk_plain', groups='base.group_user')
+        editor = new_test_user(self.env, login='ws_c_talk_editor', groups='base.group_user,workset_rates.group_editor')
+        bad = self.env['workset.rate.talk'].create({'rate_id': r.id, 'user_id': plain.id})
+        self.assertIn(editor, bad.reader_ids)
+        self.assertIn(admin, bad.reader_ids)
+        self.assertNotIn(plain, bad.reader_ids)
+        with self.assertRaisesRegex(UserError, 'не бачить ставок'), self.env.cr.savepoint():
+            bad.action_create()
+        self.assertEqual(len(self.env['mail.activity'].search([('res_model', '=', 'workset.rate'), ('res_id', '=', r.id)])), 2)
 
     def test_c_norate_pairs_without_map_row(self):
         # людина з табелями в проєкті замовника, а рядка карти й ставки немає — раніше звірка її не бачила (лише рядки карти)
@@ -2051,11 +2184,19 @@ class TestWorksetRates(TransactionCase):
             self._rate()
         other = self.env['hr.employee'].with_company(self.co_a).create({'name': 'Тест без карти', 'company_id': self.co_a.id})
         groups = [(other, self.p_a, 16.0, calc.to_date(DAY), 77), (self.emp_a, self.p_a, 8.0, calc.to_date(DAY), 78)]
-        with patch.object(type(self.env['account.analytic.line']), '_read_group', return_value=groups):
+        Aal = type(self.env['account.analytic.line'])
+        with patch.object(Aal, '_read_group', return_value=groups):
             pairs = self.R._norate_pairs(DAY)
             res = self.R.rates_check()
             ov = self.R.rates_overview([], 6)
             ov_other = self.R.rates_overview([('customer_id', '=', self.cust2.id)], 6)
+            # без права читати табелі: заголовок — не посилання; рядок — нова ставка пари, а без права створювати ставки — без кліку
+            with patch.object(Aal, 'has_access', return_value=False):
+                no_ts = [x for x in self.R.rates_overview([], 6)['alerts'] if x['key'] == 'no_rate'][0]
+                with patch.object(type(self.R), 'has_access', return_value=False):
+                    reader = [x for x in self.R.rates_overview([], 6)['alerts'] if x['key'] == 'no_rate'][0]
+        self.assertEqual((no_ts['count'], no_ts['link'], no_ts['rows'][0]['click'], bool(no_ts['rows'][0]['new'])), (1, False, True, True))
+        self.assertEqual((reader['link'], reader['rows'][0]['click'], reader['rows'][0]['new']), (False, False, False))
         self.assertEqual([(p['person'], p['cust'], p['hours']) for p in pairs], [(other.work_contact_id.id, self.cust.id, 16)], 'пара зі ставкою — ні')
         self.assertEqual(res['sections']['nomap'], 1)
         body = self.env['workset.rate.check'].search([('date', '=', DAY)]).body
@@ -2064,6 +2205,7 @@ class TestWorksetRates(TransactionCase):
         alert = [x for x in ov['alerts'] if x['key'] == 'no_rate'][0]
         self.assertEqual((alert['count'], alert['model'], alert['rows'][0]['new']['default_person_id']), (1, 'account.analytic.line', other.work_contact_id.id),
                          'тривога «Працюють без ставки»: рядок — нова ставка цієї пари')
+        self.assertEqual((alert['link'], alert['rows'][0]['click']), (True, True), 'з правом на табелі — заголовок і рядок клікаються')
         self.assertEqual([x for x in ov_other['alerts'] if x['key'] == 'no_rate'][0]['count'], 0, 'фільтр сторінки за іншим замовником — ні')
 
     def test_c_wage_from_contract(self):

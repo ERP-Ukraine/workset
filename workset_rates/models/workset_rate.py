@@ -37,6 +37,7 @@ MAP = 'project.sale.line.employee.map'
 RULE = 'workset.rate.rule'
 RAISE = 'workset.rate.raise'
 INTERNAL = 'workset_rates_internal'  # запис службових полів ланцюжка — без автоматики
+TALK_TYPE = 'workset_rates.mail_activity_talk'  # тип задачі «Переговорити» (data/mail_activity_data.xml): тривога «Огляду» рахує лише його
 # А1 М1: пара заново й карта проєктів; CHAIN_TRIGGERS — ще й ланцюжок цін (М2)
 TRIGGERS = frozenset(['person_id', 'customer_id', 'date_from', 'wage', 'price', 'active'])
 CHAIN_TRIGGERS = TRIGGERS | frozenset(['price_mode', 'fixed_month', 'client_price', 'is_own', 'found_by', 'line_id', 'people_agent_payer',
@@ -384,11 +385,14 @@ class WorksetRate(models.Model):
         else:
             a_c, used = calc.agent_share_for(deals or [], cust, line.id, day)
             a_note = calc.agent_client_note(deals, used, lang)
-        # фонд працівників: сума «на повну ставку» — лише якщо така є в домовленості (тоді читаємо версію договору людини на day)
-        full = self._full_rate_on(person, cust, day) if calc.fund_needs_full(deals or [], cust, line.id, day) else False
-        fund, _fund_ids = calc.worker_fund_for(deals or [], cust, line.id, day, full)
+        # фонд працівників: сума «на повну ставку» — лише якщо така є в домовленості (тоді читаємо версію договору людини на day).
+        # «Фікс за місяць»: фонд і оренда авто з частки не віднімаються (calc.shares) — тож і в ставці 0: стовпець, «Переговорити» й
+        # «Прибутковість» (_plan_at) не показують суму, якої в частці немає
+        fixed = nums['price_mode'] == 'fixed_month'
+        full = self._full_rate_on(person, cust, day) if (not fixed and calc.fund_needs_full(deals or [], cust, line.id, day)) else False
+        fund = 0.0 if fixed else calc.worker_fund_for(deals or [], cust, line.id, day, full)[0]
         rule = nums['rule']
-        car = round(float(rule.sudo().car_rent or 0.0), 2) if rule else 0.0
+        car = round(float(rule.sudo().car_rent or 0.0), 2) if (rule and not fixed) else 0.0
         a_p, _ppl = calc.people_share_for(data['people'], person, day)
         hours = self._month_hours(person, cust, day)
         bonus = calc.office_bonus(data['bonuses'], cust, line.id, person, day, hours, data['hours_default'])
