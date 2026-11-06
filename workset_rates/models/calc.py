@@ -1347,3 +1347,231 @@ def migration_rate_vals(have, by_rule, agent_share, agent_source, wage_source, l
         else:
             vals['own_reason'] = t('mig_price', lang) % money(by_rule['price'])
     return vals
+
+
+# ——— Рівень B (розділ 6б): «Огляд ставок» і «Стрічка» ———
+OVERVIEW_MONTHS = (6, 12, 24)  # період графіків «Огляду», місяців; інше — 12
+OVERVIEW_DEFAULT = 12
+SPARK_MONTHS = 6               # міні-графік частки в картці лінії
+FUTURE_SOON_DAYS = 7           # тривога «Майбутні ставки на 7 днів»
+GANTT_OPEN_DAYS = 30           # «Стрічка»: смуга без «Ставка до» — чинна до сьогодні + стільки днів, майбутня — від своєї «Ставка з»
+BUCKETS_MAX = 40               # стовпців у «Розподілі частки» не більше: вищі частки — в останньому
+GANTT_OPS = ('<', '<=', '>', '>=')
+
+# кольори смуги «Стрічки» — номери штатної палітри Odoo (поле color виду gantt): 0 без кольору, 2 помаранчевий, 4 блакитний,
+# 9 малиновий, 10 зелений
+GANTT_COLORS = {('past', ''): 0, ('current', ''): 10, ('current', 'low'): 2, ('future', ''): 4, ('future', 'low'): 9}
+
+TX.update({
+    # ряди й підписи графіків «Огляду» (рядки для JS приходять з сервера мовою користувача)
+    'ov_count': ['Ставок діяло на 1-е', 'Ставок действовало на 1-е'],
+    'ov_wage': ['Сер. на руки', 'Сред. на руки'],
+    'ov_price': ['Сер. ціна', 'Сред. цена'],
+    'ov_share': ['Сер. частка WorkSET', 'Сред. доля WorkSET'],
+    'ov_net': ['Сер. чиста частка', 'Сред. чистая доля'],
+    'ov_people': ['Ставок', 'Ставок'],
+    'ov_found_us': ['Знайшли ми', 'Нашли мы'], 'ov_found_line': ['Знайшла лінія', 'Нашла линия'], 'ov_found_none': ['Не вказано', 'Не указано'],
+    # «Стрічка»: перенос смуги
+    'gantt_move': ['У «Стрічці» минулі та чинні ставки не пересуваються: нова ціна з дати — «Нова ставка з дати», помилкову дату виправте в картці '
+                   'ставки через «Ставки → Усі ставки».',
+                   'В «Ленте» прошлые и действующие ставки не передвигаются: новая цена с даты — «Новая ставка с даты», ошибочную дату исправьте в карточке '
+                   'ставки через «Ставки → Все ставки».'],
+    'gantt_past': ['У «Стрічці» майбутню ставку можна пересунути лише на дату після сьогодні (%s) — історію не переписуємо.',
+                   'В «Ленте» будущую ставку можно передвинуть только на дату после сегодня (%s) — историю не переписываем.'],
+    'gantt_row': ['У «Стрічці» смугу можна лише пересунути в часі: працівника, замовника й лінію змінюють у картці ставки.',
+                  'В «Ленте» полосу можно только передвинуть во времени: работника, заказчика и линию меняют в карточке ставки.'],
+})
+
+
+def overview_months(months):
+    """Період «Огляду»: 6 / 12 / 24 місяці; інше (і сміття) — 12."""
+    try:
+        n = int(months)
+    except (TypeError, ValueError):
+        return OVERVIEW_DEFAULT
+    return n if n in OVERVIEW_MONTHS else OVERVIEW_DEFAULT
+
+
+def month_starts(today, months):
+    """Перші числа months місяців, що закінчуються поточним: «2026-03-02», 3 → ['2026-01-01', '2026-02-01', '2026-03-01']."""
+    y, m = int(today[0:4]), int(today[5:7])
+    out = []
+    for _i in range(int(months)):
+        out.append('%04d-%02d-01' % (y, m))
+        m -= 1
+        if m == 0:
+            y, m = y - 1, 12
+    return list(reversed(out))
+
+
+def in_force(date_from, date_to, day):
+    """Ставка діяла на day: «Ставка з» ≤ day і («Ставка до» порожня або ≥ day)."""
+    return bool(date_from) and date_from <= day and (not date_to or day <= date_to)
+
+
+def month_series(rates, days):
+    """Помісячні середні «Огляду»: rates — [{'date_from', 'date_to', 'wage', 'price', 'share', 'net'}] (усі ставки за фільтром, з історією);
+    на кожне перше число з days — ставки, що діяли того дня, і середні як у полосі підсумків (summary: частка й чиста — без часток ≤ 0).
+    → [{'day', 'count', 'avg_wage', 'avg_price', 'avg_share', 'avg_net'}]"""
+    out = []
+    for d in days:
+        rows = [{'work': 'work', 'wage': r.get('wage'), 'price': r.get('price'), 'share': r.get('share'), 'net': r.get('net')}
+                for r in rates if in_force(r.get('date_from'), r.get('date_to'), d)]
+        s = summary(rows)
+        out.append({'day': d, 'count': s['working'], 'avg_wage': s['avg_wage'], 'avg_price': s['avg_price'], 'avg_share': s['avg_share'],
+                    'avg_net': s['avg_net']})
+    return out
+
+
+def share_buckets(shares, cap=BUCKETS_MAX):
+    """«Розподіл частки WorkSET»: стовпці по €/год з кроком 1 (частка 5,40 → стовпець 5–6) без пропусків між найменшою й найбільшою;
+    стовпців не більше cap — вищі частки йдуть в останній («N+»). → [{'from', 'label', 'count'}]; часток немає — []."""
+    vals = [int(float(s or 0) // 1) for s in shares]
+    if not vals:
+        return []
+    lo, hi = min(vals), max(vals)
+    top = min(hi, lo + cap - 1)
+    counts = {k: 0 for k in range(lo, top + 1)}
+    for v in vals:
+        counts[min(v, top)] += 1
+    return [{'from': k, 'label': ('%d+' % k) if (k == top and hi > top) else '%d–%d' % (k, k + 1), 'count': counts[k]}
+            for k in range(lo, top + 1)]
+
+
+def overview_summary(rows, only_working):
+    """Плитки й картки «Огляду» по діючих ставках фільтра: rows — як для summary (+ 'work'). «Тільки працюють» — summary як є (ті самі числа,
+    що полоса підсумків); вимкнено — середні, «нижче мінімуму», «тимчасових» і «Договір ≠ база» (той самий підрахунок summary, 'contract')
+    по всіх діючих ставках, а «Працюють» — як і було, лише ті, хто працює. → словник summary."""
+    if only_working:
+        return summary(rows)
+    s = summary([dict(r, work='work') for r in rows])
+    s['working'] = len([r for r in rows if r.get('work') in ('work', 'work_new')])
+    s['total'] = len(rows)
+    return s
+
+
+def share_tone(value, have, min_default, good_default):
+    """Колір плитки середньої частки: є ставки й середня нижче мінімуму за замовчуванням — 'low'; не нижче «доброї» (якщо задана) — 'good';
+    інакше ''. Пороги — параметри min_share_default / good_share_default."""
+    if not have:
+        return ''
+    v = float(value or 0)
+    if v <= 0 or (min_default and v < min_default - 0.005):
+        return 'low'
+    if good_default and v >= good_default - 0.005:
+        return 'good'
+    return ''
+
+
+def gantt_moved(old, new):
+    """Перенос смуги «Стрічки» в інший рядок: old — поточні значення полів рядка запису ({поле: id або значення}), new — що прислав gantt
+    (many2one — id, [id, назва] або False). → імена полів, де значення справді інше (gantt 19 може прислати й незмінені поля рядка)."""
+    out = []
+    for name, v in new.items():
+        if isinstance(v, (list, tuple)):
+            v = v[0] if v else False
+        if (v or False) != (old.get(name) or False):
+            out.append(name)
+    return sorted(out)
+
+
+def found_split(values):
+    """«Хто знайшов» серед ставок: values — значення found_by → {'us', 'line', 'none'} (порожнє чи інше — «не вказано»)."""
+    out = {'us': 0, 'line': 0, 'none': 0}
+    for v in values:
+        out[v if v in ('us', 'line') else 'none'] += 1
+    return out
+
+
+def agent_status(has_deal, expected):
+    """Посередник у картці лінії: є діюча домовленість хоч в одній ставці — 'yes'; ні, а лінія чекає посередника — 'expected'; інакше 'no'."""
+    if has_deal:
+        return 'yes'
+    return 'expected' if expected else 'no'
+
+
+def _pt(x):
+    return ('%.1f' % x).rstrip('0').rstrip('.')
+
+
+def spark_path(values, width=100, height=24):
+    """Міні-графік частки (SVG path у полі width × height, без бібліотек): найменше значення — внизу, найбільше — вгорі, рівний ряд — посередині;
+    одна точка — горизонтальна риска. Значень немає — ''."""
+    vals = [float(v or 0) for v in values]
+    if not vals:
+        return ''
+    lo, hi = min(vals), max(vals)
+    span = hi - lo
+    step = float(width) / (len(vals) - 1) if len(vals) > 1 else float(width)
+    pts = []
+    for i, v in enumerate(vals):
+        y = height / 2.0 if span < 0.005 else (height - 1) - (v - lo) / span * (height - 2)
+        pts.append('%s%s,%s' % ('M' if i == 0 else 'L', _pt(i * step), _pt(y)))
+    if len(vals) == 1:
+        pts.append('L%s,%s' % (_pt(width), _pt(height / 2.0)))
+    return ' '.join(pts)
+
+
+def check_sections(body):
+    """Розділи запису «Звірки» з його html (заголовки «<h3>Розділ — N</h3>», sections_html) → [{'title', 'count'}] у тому ж порядку."""
+    import html as html_lib
+    import re
+    return [{'title': html_lib.unescape(m.group(1)).strip(), 'count': int(m.group(2))}
+            for m in re.finditer(r'<h3>(.*?) — (\d+)</h3>', str(body or ''))]
+
+
+def gantt_stop(state, date_from, date_to, today, days=GANTT_OPEN_DAYS):
+    """Кінець смуги «Стрічки»: «Ставка до», якщо є; без неї чинна — сьогодні + days, майбутня — «Ставка з» + days, минула (архівна) — «Ставка з»."""
+    if date_to:
+        return date_to
+    if state == 'future' and date_from:
+        return add_days(date_from, days)
+    if state == 'current':
+        return add_days(today, days)
+    return date_from or ''
+
+
+def date_cmp(a, op, b):
+    return {'<': a < b, '<=': a <= b, '>': a > b, '>=': a >= b}[op]
+
+
+def gantt_stop_domain(op, value, today, days=GANTT_OPEN_DAYS):
+    """Пошук за нехранимим «Смуга до» (вид gantt шукає смуги періоду: «Ставка з» < кінець, «Смуга до» > початок) тими самими правилами,
+    що й gantt_stop → домен Odoo (список кортежів). value — дата або дата з часом."""
+    day = iso(value)
+    branches = [['&', ('date_to', '!=', False), ('date_to', op, day)],
+                ['&', '&', ('date_to', '=', False), ('state', '=', 'future'), ('date_from', op, add_days(day, -days))],
+                ['&', '&', ('date_to', '=', False), ('state', '=', 'past'), ('date_from', op, day)]]
+    if date_cmp(add_days(today, days), op, day):
+        branches.append(['&', ('date_to', '=', False), ('state', '=', 'current')])
+    out = ['|'] * (len(branches) - 1)
+    for b in branches:
+        out += b
+    return out
+
+
+def gantt_search(op, value, today, days=GANTT_OPEN_DAYS):
+    """Будь-який пошук за «Смуга до» без помилки: <, <=, >, >= — gantt_stop_domain; = / != порожньо — за «Ставка з» (смуга порожня лише
+    без «Ставка з»); = / != дата — через >= і <= (або < і >); інше (in, like…) — наближено за «Ставка з» тим самим оператором."""
+    if op in GANTT_OPS:
+        return gantt_stop_domain(op, value, today, days)
+    if op in ('=', '!=') and not value:
+        return [('date_from', op, False)]
+    if op == '=':
+        return ['&'] + gantt_stop_domain('>=', value, today, days) + gantt_stop_domain('<=', value, today, days)
+    if op == '!=':
+        return ['|'] + gantt_stop_domain('<', value, today, days) + gantt_stop_domain('>', value, today, days)
+    return [('date_from', op, value)]
+
+
+def gantt_color(state, level):
+    """Колір смуги: статус (минула — без кольору, чинна — зелена, майбутня — блакитна) з відтінком низької частки (W або Ч нижче мінімуму)."""
+    if state not in ('past', 'current', 'future'):
+        return 0
+    key = (state, 'low' if level == 'low' and state != 'past' else '')
+    return GANTT_COLORS[key]
+
+
+def gantt_label(state_label, formula_text):
+    """Підпис смуги: «Діє · на руки + частка = ціна €/год» (formula ставки)."""
+    return ' · '.join([p for p in [state_label, formula_text] if p])

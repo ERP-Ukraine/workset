@@ -216,6 +216,7 @@ msgstr "От этой доли WorkSET (€/час) доля подсвечив�
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate_avg__work_count
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_avg_list
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 #: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
 msgid "Працюють"
 msgstr "Работают"
@@ -230,6 +231,7 @@ msgstr "Сколько людей линии работает сейчас (по
 #: model:ir.model.fields,field_description:workset_rates.field_workset_line__avg_wage
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 #: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
 msgid "Сер. на руки"
 msgstr "Сред. на руки"
@@ -244,6 +246,7 @@ msgstr "Среднее «На руки», €/час, по тем, кто раб
 #: model:ir.model.fields,field_description:workset_rates.field_workset_line__avg_price
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_line_list
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 #: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
 msgid "Сер. ціна"
 msgstr "Сред. цена"
@@ -393,6 +396,7 @@ msgid "Платить партнер"
 msgstr "Платит партнёр"
 
 #. module: workset_rates
+#. odoo-javascript
 #: model:ir.model.fields.selection,name:workset_rates.selection__workset_line_housing__payer__customer
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__customer_id
 #: model:ir.model.fields.selection,name:workset_rates.selection__workset_rate_avg__dim__customer
@@ -411,6 +415,7 @@ msgstr "Платит партнёр"
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_map_list
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_map_form
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_map_search
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 msgid "Замовник"
 msgstr "Заказчик"
 
@@ -662,9 +667,11 @@ msgid "Підставляється сама за замовником (спис
 msgstr "Подставляется сама по заказчику (список «Заказчики» линии); можно изменить"
 
 #. module: workset_rates
+#. odoo-javascript
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__found_by
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 msgid "Хто знайшов"
 msgstr "Кто нашёл"
 
@@ -1282,10 +1289,12 @@ msgid "Ціна в замовленні"
 msgstr "Цена в заказе"
 
 #. module: workset_rates
+#. odoo-javascript
 #: model:ir.model.fields,field_description:workset_rates.field_workset_rate__to_check
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_list
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_form
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 msgid "Перевірити"
 msgstr "Проверить"
 
@@ -1505,6 +1514,21 @@ msgstr "Расхождений"
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_check_form
 msgid "Розібрано"
 msgstr "Разобрано"
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__gantt_stop
+msgid "Смуга до"
+msgstr "Полоса до"
+
+#. module: workset_rates
+#: model:ir.model.fields,help:workset_rates.field_workset_rate__gantt_stop
+msgid "Кінець смуги у «Стрічці»: «Ставка до»; без неї діюча — сьогодні + 30 днів, майбутня — «Ставка з» + 30 днів."
+msgstr "Конец полосы в «Ленте»: «Ставка до»; без неё действующая — сегодня + 30 дней, будущая — «Ставка с» + 30 дней."
+
+#. module: workset_rates
+#: model:ir.model.fields,field_description:workset_rates.field_workset_rate__gantt_color
+msgid "Колір смуги"
+msgstr "Цвет полосы"
 
 #. module: workset_rates
 #: model:ir.model,name:workset_rates.model_workset_rate_raise
@@ -1869,6 +1893,7 @@ msgstr "В архиве"
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_line_form
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rule_form
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_raise_form
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_gantt
 #: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
 msgid "€/год"
 msgstr "€/час"
@@ -2019,6 +2044,7 @@ msgstr "Прошлые"
 #. module: workset_rates
 #. odoo-javascript
 #: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_search
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 #: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
 msgid "Нижче мінімуму"
 msgstr "Ниже минимума"
@@ -2077,6 +2103,7 @@ msgstr "Доля WorkSET по линиям"
 #: model_terms:ir.actions.act_window,help:workset_rates.action_rates_current
 #: model_terms:ir.actions.act_window,help:workset_rates.action_rates_all
 #: model_terms:ir.actions.act_window,help:workset_rates.action_rates_analytics
+#: model_terms:ir.actions.act_window,help:workset_rates.action_rates_gantt
 msgid "Ставок ще немає"
 msgstr "Ставок пока нет"
 
@@ -2436,6 +2463,38 @@ msgid "Без табелів 60 днів"
 msgstr "Без табелей 60 дней"
 
 #. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_gantt
+#: model:ir.actions.act_window,name:workset_rates.action_rates_gantt
+#: model:ir.ui.menu,name:workset_rates.menu_gantt
+msgid "Стрічка"
+msgstr "Лента"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_gantt
+msgid "Частка WorkSET:"
+msgstr "Доля WorkSET:"
+
+#. module: workset_rates
+#: model_terms:ir.ui.view,arch_db:workset_rates.view_rate_gantt
+msgid "Чиста частка:"
+msgstr "Чистая доля:"
+
+#. module: workset_rates
+#: model_terms:ir.actions.act_window,help:workset_rates.action_rates_gantt
+msgid "Смуги з’являться, коли в ставок будуть дати: перетягнути можна лише майбутню ставку."
+msgstr "Полосы появятся, когда у ставок будут даты: перетащить можно только будущую ставку."
+
+#. module: workset_rates
+#: model:ir.actions.client,name:workset_rates.action_overview
+msgid "Огляд ставок"
+msgstr "Обзор ставок"
+
+#. module: workset_rates
+#: model:ir.ui.menu,name:workset_rates.menu_overview
+msgid "Огляд"
+msgstr "Обзор"
+
+#. module: workset_rates
 #: model:ir.ui.menu,name:workset_rates.menu_checks
 msgid "Звіти звірки"
 msgstr "Отчёты сверки"
@@ -2447,30 +2506,215 @@ msgstr "Настройки"
 
 #. module: workset_rates
 #. odoo-javascript
-#: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
-msgid "з"
-msgstr "из"
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Лінії:"
+msgstr "Линии:"
 
 #. module: workset_rates
 #. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Усі лінії"
+msgstr "Все линии"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Усі замовники"
+msgstr "Все заказчики"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Період"
+msgstr "Период"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "міс."
+msgstr "мес."
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Тільки працюють"
+msgstr "Только работают"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 #: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
 msgid "Сер. частка WorkSET"
 msgstr "Сред. доля WorkSET"
 
 #. module: workset_rates
 #. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 #: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
 msgid "Сер. чиста частка"
 msgstr "Сред. чистая доля"
 
 #. module: workset_rates
 #. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 #: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
 msgid "Тимчасових"
 msgstr "Временных"
 
 #. module: workset_rates
 #. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 #: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
 msgid "Договір ≠ база"
 msgstr "Договор ≠ база"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Без лінії"
+msgstr "Без линии"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "нижче мінімуму"
+msgstr "ниже минимума"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "ціна"
+msgstr "цена"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "частка"
+msgstr "доля"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Посередник:"
+msgstr "Посредник:"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "є"
+msgstr "есть"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "очікується"
+msgstr "ожидается"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "немає"
+msgstr "нет"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "За цим фільтром діючих ставок немає."
+msgstr "По этому фильтру действующих ставок нет."
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "На руки, ціна, частка по місяцях"
+msgstr "На руки, цена, доля по месяцам"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Ряди"
+msgstr "Ряды"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Загалом"
+msgstr "В целом"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "По лініях"
+msgstr "По линиям"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Ставки, що діяли на 1-ше число місяця; по лініях — сер. частка WorkSET."
+msgstr "Ставки, действовавшие на 1-е число месяца; по линиям — сред. доля WorkSET."
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Розподіл частки WorkSET"
+msgstr "Распределение доли WorkSET"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Діючі ставки за часткою, €/год."
+msgstr "Действующие ставки по доле, €/час."
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Тривоги"
+msgstr "Тревоги"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Звірка від"
+msgstr "Сверка от"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "· розібрано"
+msgstr "· разобрано"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Тимчасові зміни закінчуються ≤ 3 дні"
+msgstr "Временные изменения заканчиваются ≤ 3 дня"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Майбутні ставки на 7 днів"
+msgstr "Будущие ставки на 7 дней"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Ставки без лінії"
+msgstr "Ставки без линии"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+#: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
+msgid "з"
+msgstr "из"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Тривог немає"
+msgstr "Тревог нет"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "по всіх діючих"
+msgstr "по всем действующим"

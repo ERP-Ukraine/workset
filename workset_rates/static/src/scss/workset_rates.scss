@@ -50,3 +50,70 @@
         max-width: calc(50% - #{map-get($spacers, 1)});
     }
 }
+
+// «Огляд ставок» (рівень B): сітки на всю ширину без порожніх полів — плитки (1 / 2 / 5 у ряд), картки ліній і панелі графіків
+// (auto-fit: стільки колонок, скільки влазить, решта розтягується); кольори — лише класи Bootstrap теми в шаблоні.
+// Класи — у своєму просторі .o_workset_rates_ov_*: плитки полоси підсумків (свої класи гілки М2a) сюди не дістають
+.o_workset_rates_ov {
+    .o_workset_rates_ov_tiles {
+        display: grid;
+        gap: map-get($spacers, 2);
+        grid-template-columns: 1fr;
+    }
+    .o_workset_rates_ov_tile {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 6.5rem;
+    }
+    .o_workset_rates_ov_lines {
+        display: grid;
+        gap: map-get($spacers, 2);
+        grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    }
+    .o_workset_rates_ov_line {
+        display: flex;
+        flex-direction: column;
+    }
+    .o_workset_rates_ov_spark {
+        height: 1.75rem;
+    }
+    // панелі: вузько — графік по місяцях і тривоги на всю ширину, «Розподіл» і «Хто знайшов» поруч; широко (3 колонки) —
+    // «по місяцях» (2) + «Розподіл», далі «Хто знайшов» + тривоги (2): сітка без дірок
+    .o_workset_rates_ov_panels {
+        display: grid;
+        gap: map-get($spacers, 3);
+        grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    }
+    .o_workset_rates_ov_panel_wide,
+    .o_workset_rates_ov_panel_alerts {
+        grid-column: 1 / -1;
+    }
+    .o_workset_rates_ov_chart {
+        position: relative;
+        height: 16rem;
+    }
+    @include media-breakpoint-up(sm) {
+        .o_workset_rates_ov_tiles {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    @include media-breakpoint-up(lg) {
+        .o_workset_rates_ov_tiles {
+            grid-template-columns: repeat(5, 1fr);
+        }
+        .o_workset_rates_ov_panels {
+            grid-template-columns: repeat(3, 1fr);
+        }
+        .o_workset_rates_ov_panel_wide,
+        .o_workset_rates_ov_panel_alerts {
+            grid-column: span 2;
+        }
+    }
+    @include media-breakpoint-down(sm) {
+        .o_workset_rates_ov_lines,
+        .o_workset_rates_ov_panels {
+            grid-template-columns: 1fr;
+        }
+    }
+}

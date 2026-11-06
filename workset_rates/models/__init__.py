@@ -3,6 +3,7 @@
 from . import calc
 from . import workset_line
 from . import workset_rate
+from . import workset_rate_overview
 from . import workset_rate_rule
 from . import workset_office_bonus
 from . import workset_line_housing
