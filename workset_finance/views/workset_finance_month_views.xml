@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- «Місяці» (круг 1 — прості види; екран «Власник» з плитками й графіками — круг 2). Рядки місяця пише лише код: створення, правка й
+         видалення вимкнені. Ланцюжок зліва направо: 1, 1а, 1г, 2, до часток, 3, 4, за грошима; поруч — власники, II етап, неоплачено;
+         довідкові стовпці — у «Додаткових стовпцях» -->
+    <record id="view_month_list" model="ir.ui.view">
+        <field name="name">workset.finance.month.list</field>
+        <field name="model">workset.finance.month</field>
+        <field name="arch" type="xml">
+            <list string="Місяці драбини" create="0" edit="0" delete="0" default_order="month desc" decoration-muted="state == 'open'">
+                <header>
+                    <button name="action_recompute" type="object" string="Перерахувати" class="btn-primary" display="always"
+                            groups="workset_finance.group_editor,base.group_system"/>
+                </header>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="month" widget="date" options="{'numeric': True}"/>
+                <field name="state"/>
+                <field name="s1_docs" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" sum="Разом"/>
+                <field name="s1a_owners_in_pl" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" sum="Разом"/>
+                <field name="s1g_no_analytic" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" sum="Разом"/>
+                <field name="s2_ukraine" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" sum="Разом"/>
+                <field name="base" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="fw-semibold" sum="Разом"/>
+                <field name="s3_shares" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" sum="Разом"/>
+                <field name="s4_net" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="fw-semibold" sum="Разом"/>
+                <field name="s4c_cash" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" sum="Разом"/>
+                <field name="s5_owners" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" sum="Разом"/>
+                <field name="s6_stage2" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" sum="Разом"/>
+                <field name="s7_unpaid_customers" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" sum="Разом"/>
+                <field name="s7_unpaid_energy" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" sum="Разом"/>
+                <field name="q_pct" optional="show"/>
+                <field name="s5_owners_share" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" optional="hide" sum="Разом"/>
+                <field name="revenue" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" optional="hide" sum="Разом"/>
+                <field name="payroll" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" optional="hide" sum="Разом"/>
+                <field name="contrib_zus" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" optional="hide" sum="Разом"/>
+                <field name="cash_out" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" optional="hide" sum="Разом"/>
+                <field name="recomputed_at" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Картка місяця: драбина зверху вниз із пометкою «звідки» біля кожного числа; нульове — сховано -->
+    <record id="view_month_form" model="ir.ui.view">
+        <field name="name">workset.finance.month.form</field>
+        <field name="model">workset.finance.month</field>
+        <field name="arch" type="xml">
+            <form string="Місяць драбини" create="0" edit="0" delete="0">
+                <header>
+                    <button name="action_recompute" type="object" string="Перерахувати" class="btn-primary"
+                            groups="workset_finance.group_editor,base.group_system"/>
+                    <field name="state" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <field name="currency_id" invisible="1"/>
+                    <div class="oe_title">
+                        <h1><field name="month" widget="date" options="{'numeric': True}" readonly="1"/></h1>
+                        <div class="text-muted">Перераховано: <field name="recomputed_at" readonly="1" class="w-auto"/></div>
+                    </div>
+                    <group>
+                        <group name="ladder" string="Драбина">
+                            <field name="s1_docs" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                            <field name="s1_docs_src" nolabel="1" class="text-muted"/>
+                            <field name="s1a_owners_in_pl" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not s1a_owners_in_pl"/>
+                            <field name="s1g_no_analytic" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not s1g_no_analytic"/>
+                            <field name="s2_ukraine" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not s2_ukraine"/>
+                            <field name="base" widget="monetary" options="{'currency_field': 'currency_id'}" class="fw-semibold"/>
+                            <field name="s3_shares" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not s3_shares"/>
+                            <field name="s3_shares_src" nolabel="1" class="text-muted" invisible="not s3_shares"/>
+                            <field name="s4_net" widget="monetary" options="{'currency_field': 'currency_id'}" class="fw-semibold"/>
+                            <field name="s4_net_src" nolabel="1" class="text-muted"/>
+                            <field name="s4c_cash" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                            <field name="cash_out" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not cash_out"/>
+                        </group>
+                        <group name="aside" string="Окремо, не в драбині">
+                            <field name="s5_owners" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not s5_owners"/>
+                            <field name="s5_owners_share" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not s5_owners_share"/>
+                            <field name="s6_stage2" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not s6_stage2"/>
+                            <field name="s7_unpaid_customers" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not s7_unpaid_customers"/>
+                            <field name="s7_unpaid_energy" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not s7_unpaid_energy"/>
+                            <field name="mediation_income" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not mediation_income"/>
+                            <field name="mediation_cost" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not mediation_cost"/>
+                            <field name="mediation_net" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not mediation_net"/>
+                        </group>
+                    </group>
+                    <group name="quality" string="Якість даних і кандидати 1г" invisible="not q_ext and not g_cand_count">
+                        <field name="q_pct" invisible="not q_ext"/>
+                        <field name="q_ic" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not q_ic"/>
+                        <field name="q_unplaced" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not q_unplaced"/>
+                        <field name="q_nodoc" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not q_nodoc"/>
+                        <field name="q_ext" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not q_ext"/>
+                        <field name="g_cand_count" invisible="not g_cand_count"/>
+                        <field name="g_cand_amount" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not g_cand_count"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_month_pivot" model="ir.ui.view">
+        <field name="name">workset.finance.month.pivot</field>
+        <field name="model">workset.finance.month</field>
+        <field name="arch" type="xml">
+            <pivot string="Драбина по місяцях" sample="1">
+                <field name="month" interval="month" type="row"/>
+                <field name="base" type="measure"/>
+                <field name="s4_net" type="measure"/>
+                <field name="s4c_cash" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_month_search" model="ir.ui.view">
+        <field name="name">workset.finance.month.search</field>
+        <field name="model">workset.finance.month</field>
+        <field name="arch" type="xml">
+            <search string="Місяці драбини">
+                <filter name="closed" string="Закриті" domain="[('state', '=', 'closed')]"/>
+                <filter name="open" string="Не закриті" domain="[('state', '=', 'open')]"/>
+                <separator/>
+                <filter name="month_filter" string="Місяць" date="month"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_months" model="ir.actions.act_window">
+        <field name="name">Місяці драбини</field>
+        <field name="res_model">workset.finance.month</field>
+        <field name="view_mode">list,pivot,form</field>
+        <field name="search_view_id" ref="view_month_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Розрахунку ще немає</p>
+            <p>Натисніть «Перерахувати»: останні місяці порахуються з аналітики, проводок і банку.</p>
+        </field>
+    </record>
+</odoo>

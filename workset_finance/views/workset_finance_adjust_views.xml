@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- «Поправки»: рука штабу в драбині (1г, частки партнерів) — з підставою, автором і листуванням; видаляти не можна, лише в архів -->
+    <record id="view_adjust_list" model="ir.ui.view">
+        <field name="name">workset.finance.adjust.list</field>
+        <field name="model">workset.finance.adjust</field>
+        <field name="arch" type="xml">
+            <list string="Поправки" default_order="month desc, step">
+                <field name="currency_id" column_invisible="1"/>
+                <field name="month" widget="date" options="{'numeric': True}"/>
+                <field name="step"/>
+                <field name="line_id" optional="show"/>
+                <field name="amount" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" sum="Разом"/>
+                <field name="basis"/>
+                <field name="source_date" optional="show"/>
+                <field name="create_uid" string="Автор" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_adjust_form" model="ir.ui.view">
+        <field name="name">workset.finance.adjust.form</field>
+        <field name="model">workset.finance.adjust</field>
+        <field name="arch" type="xml">
+            <form string="Поправка">
+                <sheet>
+                    <field name="currency_id" invisible="1"/>
+                    <widget name="web_ribbon" title="В архіві" bg_color="text-bg-danger" invisible="active"/>
+                    <field name="active" invisible="1"/>
+                    <group>
+                        <group>
+                            <field name="month" widget="date" options="{'numeric': True}"/>
+                            <field name="step"/>
+                            <field name="line_id" invisible="step != 's3'"/>
+                            <field name="amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                        </group>
+                        <group>
+                            <field name="source_date"/>
+                            <field name="create_uid" string="Автор" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Підстава">
+                        <field name="basis" nolabel="1" placeholder="Звідки число: документ, розрахунок, рішення"/>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_adjust_search" model="ir.ui.view">
+        <field name="name">workset.finance.adjust.search</field>
+        <field name="model">workset.finance.adjust</field>
+        <field name="arch" type="xml">
+            <search string="Поправки">
+                <field name="basis"/>
+                <field name="line_id"/>
+                <filter name="s1g" string="1г Дохід без аналітики" domain="[('step', '=', 's1g')]"/>
+                <filter name="s3" string="3 Частки партнерів" domain="[('step', '=', 's3')]"/>
+                <separator/>
+                <filter name="archived" string="В архіві" domain="[('active', '=', False)]"/>
+                <filter name="month_filter" string="Місяць" date="month"/>
+                <group>
+                    <filter name="groupby_month" string="Місяць" context="{'group_by': 'month:month'}"/>
+                    <filter name="groupby_step" string="Ступінь" context="{'group_by': 'step'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_adjusts" model="ir.actions.act_window">
+        <field name="name">Поправки</field>
+        <field name="res_model">workset.finance.adjust</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_adjust_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Поправок немає</p>
+            <p>Поправка потрібна, коли число драбини не береться з книг: дохід без аналітики (1г) і частки партнерів (3). Кожна — з підставою.</p>
+        </field>
+    </record>
+</odoo>
