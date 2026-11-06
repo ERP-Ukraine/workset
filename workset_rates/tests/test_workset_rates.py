@@ -1440,7 +1440,9 @@ class TestWorksetRates(TransactionCase):
 
     def test_m2c_views_and_menus(self):
         # редактор — як справжні редактори: бачить фірми ставок (фірма договору у вкладці «Контроль»), але без прав кадрів
-        firms = (self.co_a | self.co_b | self.co_uah | self.co_out | self.env.company).ids
+        # усі фірми контексту тесту: self.env.company тут — «Тест фірма А» (перша в allowed_company_ids), а головна фірма бази теж у
+        # контексті — без неї в користувача «Access to unauthorized or invalid companies» (збірка Odoo.sh 641665177)
+        firms = list(self.env.context['allowed_company_ids'])
         editor = new_test_user(self.env, login='ws_m2c_editor', groups='base.group_user,workset_rates.group_editor',
                                company_id=self.env.company.id, company_ids=[(6, 0, firms)])
         viewer = new_test_user(self.env, login='ws_m2c_viewer', groups='base.group_user,workset_rates.group_bonus_viewer')
@@ -1563,7 +1565,9 @@ class TestWorksetRates(TransactionCase):
         перегляд» без прав кадрів читає список (ім'я — через sudo); «Нова з дати» правила лінії редактору не видно."""
         # редактор — як справжні (фірми ставок у нього є): контекст тесту несе тестові фірми, а фірма контексту, якої в користувача немає,
         # — «Access to unauthorized or invalid companies» на будь-якому пошуку з правилом фірм (збірка Odoo.sh c326b874c, name_search контактів)
-        firms = (self.co_a | self.co_b | self.co_uah | self.co_out | self.env.company).ids
+        # усі фірми контексту тесту: self.env.company тут — «Тест фірма А» (перша в allowed_company_ids), а головна фірма бази теж у
+        # контексті — без неї в користувача «Access to unauthorized or invalid companies» (збірка Odoo.sh 641665177)
+        firms = list(self.env.context['allowed_company_ids'])
         editor = new_test_user(self.env, login='ws_m2c1b_editor', groups='base.group_user,workset_rates.group_editor',
                                company_id=self.env.company.id, company_ids=[(6, 0, firms)])
         viewer = new_test_user(self.env, login='ws_m2c1b_viewer', groups='base.group_user,workset_rates.group_bonus_viewer')
@@ -1780,7 +1784,9 @@ class TestWorksetRates(TransactionCase):
     def test_b_agent_deal_button(self):
         # «Домовленість» біля «Посередник»: моделі посередників немає (як на проді) — форма читається, кнопки не видно, дія — повідомлення;
         # домовленість є (адаптер підмінено) — кнопка видна, дія — картка (одна) або список (кілька)
-        firms = (self.co_a | self.co_b | self.co_uah | self.co_out | self.env.company).ids
+        # усі фірми контексту тесту: self.env.company тут — «Тест фірма А» (перша в allowed_company_ids), а головна фірма бази теж у
+        # контексті — без неї в користувача «Access to unauthorized or invalid companies» (збірка Odoo.sh 641665177)
+        firms = list(self.env.context['allowed_company_ids'])
         editor = new_test_user(self.env, login='ws_b_deal_editor', groups='base.group_user,workset_rates.group_editor',
                                company_id=self.env.company.id, company_ids=[(6, 0, firms)])
         form = self.R.with_user(editor).get_views([(self.env.ref('workset_rates.view_rate_form').id, 'form')])['views']['form']['arch']
@@ -1830,7 +1836,9 @@ class TestWorksetRates(TransactionCase):
             self.R.with_user(plain).with_context(allowed_company_ids=[plain.company_id.id]).rates_overview([], 6)
 
     def test_b_gantt_views_stop_and_move(self):
-        firms = (self.co_a | self.co_b | self.co_uah | self.co_out | self.env.company).ids
+        # усі фірми контексту тесту: self.env.company тут — «Тест фірма А» (перша в allowed_company_ids), а головна фірма бази теж у
+        # контексті — без неї в користувача «Access to unauthorized or invalid companies» (збірка Odoo.sh 641665177)
+        firms = list(self.env.context['allowed_company_ids'])
         editor = new_test_user(self.env, login='ws_b_editor', groups='base.group_user,workset_rates.group_editor',
                                company_id=self.env.company.id, company_ids=[(6, 0, firms)])
         admin = self.env.ref('base.user_admin')
@@ -1903,7 +1911,9 @@ class TestWorksetRates(TransactionCase):
     def test_m2c1b_internal_context_only_superuser(self):
         """Контекст workset_rates_internal (службові поля ланцюжка без автоматики) — лише суперкористувачу: редактор через RPC з ним
         не обходить ланцюжок і А1 — усе як без контексту (ревю рівня B)."""
-        firms = (self.co_a | self.co_b | self.co_uah | self.co_out | self.env.company).ids
+        # усі фірми контексту тесту: self.env.company тут — «Тест фірма А» (перша в allowed_company_ids), а головна фірма бази теж у
+        # контексті — без неї в користувача «Access to unauthorized or invalid companies» (збірка Odoo.sh 641665177)
+        firms = list(self.env.context['allowed_company_ids'])
         editor = new_test_user(self.env, login='ws_m2c1b_internal', groups='base.group_user,workset_rates.group_editor',
                                company_id=self.env.company.id, company_ids=[(6, 0, firms)])
         self._quiet_bonuses()
@@ -2104,7 +2114,9 @@ class TestWorksetRates(TransactionCase):
         # так, як клієнт, нова ставка з дати, виправлення, «Переговорити» — без помилки доступу (прошла збірка Odoo.sh падала саме на
         # полі hr.employee у формі для такого користувача). «Сьогодні» в редактора — справжнє (rates_today — лише адміністратору), тож
         # тут перевіряються числа й межі ставок, а не статуси
-        firms = (self.co_a | self.co_b | self.co_uah | self.co_out | self.env.company).ids
+        # усі фірми контексту тесту: self.env.company тут — «Тест фірма А» (перша в allowed_company_ids), а головна фірма бази теж у
+        # контексті — без неї в користувача «Access to unauthorized or invalid companies» (збірка Odoo.sh 641665177)
+        firms = list(self.env.context['allowed_company_ids'])
         editor = new_test_user(self.env, login='ws_c_edit_editor', groups='base.group_user,workset_rates.group_editor',
                                company_id=self.env.company.id, company_ids=[(6, 0, firms)])
         self.assertFalse(editor.has_group('hr.group_hr_user'))
