@@ -323,6 +323,12 @@ class TestWorksetRates(TransactionCase):
             none = self._rate(person_id=self._person('Тест П без').id, found_by=False)
         self.assertEqual(us.rule_id, self.line_rule, 'загальна ставка лінії на «Ставка з»')
         self.assertEqual(us.anchor, 'markup')
+        # діюче правило лінії шукається (ревю D: без пошуку Odoo 19 попереджає про залежність «Якоря» лінії від rule_id)
+        L = self.env['workset.line']
+        self.assertEqual((self.line.rule_id, self.line.anchor), (self.line_rule, 'markup'))
+        self.assertIn(self.line, L.search([('rule_id', '=', self.line_rule.id)]))
+        self.assertNotIn(self.line, L.search([('rule_id', '=', False)]))
+        self.assertIn(self.line, L.search([('rule_id', '!=', False)]))
         self.assertEqual((us.price, us.our_share), (19, 5), 'надбавка, «знайшли ми»: Р 14 + 5')
         self.assertEqual((line.price, line.our_share), (18, 4), '«знайшла лінія»: Р 14 + 4')
         self.assertEqual((none.price, none.our_share), (18, 4), '«Хто знайшов» порожньо — за «знайшла лінія»')

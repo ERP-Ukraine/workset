@@ -20,7 +20,7 @@ class WorksetLine(models.Model):
     rule_ids = fields.One2many('workset.rate.rule', 'line_id', string='Загальні ставки')
     # житло лінії (розділ 3.13): вкладка «Житло» форми лінії; правити — група «Ставки: правила ліній» (права моделі)
     housing_ids = fields.One2many('workset.line.housing', 'line_id', string='Житло')
-    rule_id = fields.Many2one('workset.rate.rule', string='Правило лінії', compute='_compute_rule',
+    rule_id = fields.Many2one('workset.rate.rule', string='Правило лінії', compute='_compute_rule', search='_search_rule_id',
                               help='Діюча сьогодні «Загальна ставка» лінії (без замовника)')
     anchor = fields.Selection(related='rule_id.anchor', string='Якір')
     share_line_found = fields.Float(string='Знайшла лінія', compute='_compute_rule',
@@ -61,6 +61,17 @@ class WorksetLine(models.Model):
             line.share_line_found = rule.sudo().share_line_found if rid else 0.0
             line.share_we_found = rule.sudo().share_we_found if rid else 0.0
             line.min_share = rule.sudo().min_share if rid else 0.0
+
+    def _search_rule_id(self, operator, value):
+        # пошук за діючим правилом лінії: ліній мало — рахуємо правило кожної й порівнюємо (без цього Odoo 19 попереджає, що залежність
+        # «Якоря» від rule_id не можна відстежити; ревю D, сборки «Test: Warning»)
+        if operator not in ('in', 'not in'):
+            return NotImplemented
+        # Odoo 19 нормалізує «=» / «!=» в in / not in, значення — OrderedSet, кортеж чи одиночне
+        want = {value} if value is None or isinstance(value, (bool, int, str)) else set(value)
+        want = {v.id if hasattr(v, 'id') else (v or False) for v in want}
+        ids = [line.id for line in self.with_context(active_test=False).search([]) if (line.rule_id.id or False) in want]
+        return [('id', operator, ids)]
 
     def _compute_work(self):
         # один запит на всі лінії: діючі ставки → підсумок по кожній лінії (та сама функція, що й полоса підсумків)
