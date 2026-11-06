@@ -58,8 +58,11 @@
                     </group>
                     <group invisible="what == 'agent' and agent_scope == 'deal'">
                         <field name="date" options="{'numeric': True}"/>
-                        <!-- посередник лише цій людині — своє значення з причиною (без причини ставку не збереже й сервер) -->
-                        <field name="reason" placeholder="Напр.: розмова з посередником, дата; помилка при введенні" required="what == 'agent' and agent_scope != 'deal'"/>
+                        <!-- посередник лише цій людині — своє значення з причиною. Не required у виді: кнопки type="object" (ім'я посередника
+                             — посилання на домовленість) спершу зберігають майстер, і порожня причина зупинила б посилання (ревю 06.11).
+                             Причину вимагає сервер — action_new_from_date і action_fix; тут — підказка під полем -->
+                        <field name="reason" placeholder="Напр.: розмова з посередником, дата; помилка при введенні"/>
+                        <div colspan="2" class="text-muted small" invisible="what != 'agent' or agent_scope == 'deal'">Причина обов'язкова: своє значення посередника без неї не збережеться.</div>
                         <field name="source"/>
                     </group>
                 </group>

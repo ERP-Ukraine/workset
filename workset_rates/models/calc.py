@@ -368,6 +368,15 @@ def num(x):
     return ('%g' % round(float(x or 0), 2)).replace('.', ',')
 
 
+def num_group(x):
+    """Число для підписів «Огляду» (тривоги): як num — до 2 знаків без зайвих нулів, кома, — але з роздільником тисяч (нерозривний пробіл):
+    1234 → «1 234», 1234.5 → «1 234,5», 14 → «14». num лишається для підписів ставок, де роздільник не потрібен."""
+    v = round(float(x or 0), 2)
+    whole, _dot, frac = ('%.2f' % abs(v)).partition('.')
+    frac = frac.rstrip('0')
+    return ('-' if v < 0 else '') + '{:,}'.format(int(whole)).replace(',', ' ') + (',' + frac if frac else '')
+
+
 def same_money(a, b):
     return abs(float(a or 0) - float(b or 0)) < 0.005
 
@@ -1496,7 +1505,7 @@ TX.update({
     # «Переговорити»: з ким говорити (роль, ім'я, телефон, Telegram) — у майстрі й першим абзацом нотатки задачі (слово власника 06.11)
     'talk_who_worker': ['Працівник', 'Работник'], 'talk_who_agent': ['Посередник', 'Посредник'], 'talk_who_customer': ['Замовник', 'Заказчик'],
     'talk_who_partner': ['Партнер лінії', 'Партнёр линии'],
-    'talk_no_phone': ['телефону немає', 'телефона нет'], 'talk_tg': ['Telegram %s', 'Telegram %s'],
+    'talk_no_phone': ['телефон: —', 'телефон: —'], 'talk_tg': ['Telegram %s', 'Telegram %s'],
     'talk_with': ['З ким говорити — %s: %s', 'С кем говорить — %s: %s'],
     'talk_who_none': ['«З ким говорити»: у цієї ставки такої людини немає — оберіть іншу.',
                       '«С кем говорить»: у этой ставки такого человека нет — выберите другого.'],
@@ -1554,7 +1563,7 @@ def first_filled(values):
 
 
 def talk_reach(name, phone, tg, lang):
-    """Як зв'язатися: «Ім'я · телефон · Telegram 123»; телефону немає — «телефону немає», Telegram — лише коли є."""
+    """Як зв'язатися: «Ім'я · телефон · Telegram 123»; телефону немає — «телефон: —», Telegram — лише коли є."""
     parts = [str(name or '').strip() or '—', str(phone or '').strip() or t('talk_no_phone', lang)]
     if str(tg or '').strip():
         parts.append(t('talk_tg', lang) % str(tg).strip())

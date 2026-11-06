@@ -102,16 +102,19 @@ class WorksetRateActions(models.Model):
 
     def _talk_phone(self, role, partner):
         """Телефон для дзвінка. Працівник — картки з цим робочим контактом (sudo; читаються лише поля телефонів): мобільний, робочий, далі
-        телефон контакту, наостанок особистий. Решта — телефон контакту (у Odoo 19 в res.partner лише phone)."""
+        телефон контакту, наостанок особистий — лише користувачу з групою кадрів (поле кадрів: інакше редактор ставок побачив би його в
+        майстрі, а нотатка задачі — бухгалтерія й проєкти; ревю 06.11). Решта — телефон контакту (у Odoo 19 в res.partner лише phone)."""
         phones = []
         if role == 'worker':
             Emp = self.env['hr.employee'].sudo()
-            names = [f for f in EMP_PHONES if f in Emp._fields]
+            own = self.env.user.has_group('hr.group_hr_user')
+            names = [f for f in EMP_PHONES if f in Emp._fields and (f != 'private_phone' or own)]
             cards = Emp.search_read([('work_contact_id', '=', partner.id)], names, order='id') if names else []
             for f in ('mobile_phone', 'work_phone'):
                 phones += [c.get(f) for c in cards]
             phones.append(partner.phone)
-            phones += [c.get('private_phone') for c in cards]
+            if own:
+                phones += [c.get('private_phone') for c in cards]
         else:
             phones.append(partner.phone)
         return calc.first_filled(phones)

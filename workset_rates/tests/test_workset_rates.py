@@ -2277,10 +2277,48 @@ class TestWorksetRates(TransactionCase):
                 self.assertEqual((w.agent_name, w.agent_deal_name), ('', 'Тест посередник 0611'), 'ім\'я — посиланням на домовленість')
                 self.assertEqual(link.call_args[0][1], [7], 'посилання — на домовленість, з якої сума')
                 self.assertEqual(w.action_open_agent_link()['type'], 'ir.actions.act_window')
+                # шлях виду: майстер із дії олівця, причина порожня — кнопка type="object" спершу зберігає майстер; збереження не падає на
+                # обов'язковій причині, посилання відкривається (ревю 06.11)
+                f = Form(Edit.with_context(**r.action_edit_agent()['context']), view='workset_rates.view_rate_edit_form')
+                self.assertFalse(f.reason)
+                self.assertEqual(f.save().action_open_agent_link()['type'], 'ir.actions.act_window')
             t = Talk.create({'rate_id': r.id, 'user_id': admin.id})
             self.assertEqual((t.who_options, t.who), ('worker,agent,customer,partner', 'agent'), 'посередник є — він за замовчуванням')
             self.assertIn('Тест посередник 0611 · +48 000 000 002', t.contact_text)
         self.assertIsNone(agent_deals.deal_link(self.env, [], 'тест'), 'без домовленостей — без посилання')
+
+    def test_c_0611_talk_private_phone_only_hr(self):
+        """Особистий телефон картки (поле кадрів) — у «Переговорити» лише користувачу з групою кадрів: редактор ставок без неї його не бачить
+        ні в майстрі, ні в нотатці задачі (її читають бухгалтерія й проєкти); робочий — бачить (ревю 06.11)."""
+        self._isolate()
+        self._quiet_bonuses()
+        if 'private_phone' not in self.env['hr.employee']._fields:
+            self.skipTest('у hr.employee немає private_phone')
+        a, b = self._no_agents()
+        with a, b:
+            r = self._rate()
+        self.person.phone = False
+        (self.emp_a | self.emp_b | self.emp_uah | self.emp_out).sudo().write({'mobile_phone': False, 'work_phone': False})
+        self.emp_a.sudo().private_phone = '+48 000 000 009'
+        firms = list(self.env.context['allowed_company_ids'])
+        editor = new_test_user(self.env, login='ws_c_0611_editor', groups='base.group_user,workset_rates.group_editor',
+                               company_id=self.env.company.id, company_ids=[(6, 0, firms)])
+        hr_editor = new_test_user(self.env, login='ws_c_0611_hr', groups='base.group_user,workset_rates.group_editor,hr.group_hr_user',
+                                  company_id=self.env.company.id, company_ids=[(6, 0, firms)])
+        self.assertFalse(editor.has_group('hr.group_hr_user'))
+        with a, b:
+            t = self.env['workset.rate.talk'].with_user(editor).create({'rate_id': r.id, 'who': 'worker'})
+            self.assertNotIn('000 009', t.contact_text)
+            self.assertIn('телефон: —', t.contact_text)
+            t.action_create()
+            note = str(self.env['mail.activity'].search([('res_model', '=', 'workset.rate'), ('res_id', '=', r.id)]).note)
+            self.assertNotIn('000 009', note, 'нотатка — лише те, що бачить користувач')
+            self.emp_a.sudo().work_phone = '+48 000 000 008'
+            t = self.env['workset.rate.talk'].with_user(editor).create({'rate_id': r.id, 'who': 'worker'})
+            self.assertIn('+48 000 000 008', t.contact_text, 'робочий телефон — бачить')
+            self.emp_a.sudo().work_phone = False
+            t = self.env['workset.rate.talk'].with_user(hr_editor).create({'rate_id': r.id, 'who': 'worker'})
+            self.assertIn('+48 000 000 009', t.contact_text, 'кадри — бачать особистий')
 
     def test_c_0611_current_list_without_state(self):
         """«Працюють зараз» — свій вид без стовпця «Статус ставки»; «Усі ставки» — зі статусом (слово власника 06.11 «статус: убрать»)."""
