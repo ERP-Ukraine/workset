@@ -21,7 +21,9 @@
         font-variant-numeric: tabular-nums;
     }
     .o_workset_finance_tile_num {
-        font-size: clamp(1.5rem, 1rem + 1.2vw, 2.25rem);
+        // libsass Odoo 19 рахує вирази в clamp() сам і падає на «rem + vw» (Incompatible units — увесь бандл стилів без CSS, копія 20
+        // 07.11.2026): вираз віддаємо браузеру як є через unquote
+        font-size: unquote("clamp(1.5rem, 1rem + 1.2vw, 2.25rem)");
     }
     // сіра дрібна позначка: «розрахунок штабу» / «з поправкою» у плиток і стовпців водоспаду, «по ДД.ММ» у шапці колонки
     .o_workset_finance_note {
