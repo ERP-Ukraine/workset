@@ -15,8 +15,11 @@ from .workset_rate import SOURCES, cust_of
 HOUSING = 'workset.line.housing'
 KINDS = [('hour_deduction', 'Вирахування: години житла × €'), ('payment_buffer', 'Буфер житла з оплати замовника'),
          ('invoice_buffer', 'Буфер житла з пари рахунків'), ('customer_deducts', 'Вираховує замовник'), ('none', 'Житло не наше')]
-UNITS = [('hour', '€ за годину житла'), ('month', "€ за місяць (об'єкт)"), ('day_person', '€ за добу за особу'), ('pct', '% з оплати')]
-PAYERS = [('we_buffer', 'Платимо ми з буфера лінії'), ('partner', 'Платить партнер'), ('customer', 'Замовник')]
+UNITS = [('hour', '€ за годину житла'), ('month', "€ за місяць (об'єкт)"), ('month_person', '€ за місяць за особу'), ('day_person', '€ за добу за особу'), ('pct', '% з оплати')]
+# worker_fund — житло з «фонду працівників» (SoMa: таблиця власника 06.11 12:05 — житло, паливо, інструмент, спецодяг із фонду; читає М3
+# workset_profit через _housing_at; у частці WorkSET не бере участі — фонд уже відраховано в ланцюжку ставки)
+PAYERS = [('we_buffer', 'Платимо ми з буфера лінії'), ('partner', 'Платить партнер'), ('customer', 'Замовник'),
+          ('worker_fund', 'З фонду працівників')]
 
 
 class WorksetLineHousing(models.Model):
@@ -32,9 +35,10 @@ class WorksetLineHousing(models.Model):
                                   help="Порожньо — правило всієї лінії; замовник (об'єкт) — його правило, точніше за правило лінії")
     kind = fields.Selection(KINDS, string='Як рахуємо', required=True, tracking=3)
     currency_id = fields.Many2one('res.currency', string='Валюта', default=lambda self: self.env.ref('base.EUR', raise_if_not_found=False))
-    amount = fields.Monetary(string='Сума', currency_field='currency_id', tracking=4, aggregator='avg', help='У одиниці з поля «Одиниця»; порожньо — суми ще немає')
+    # без підсумку в рядку групи: суми в різних одиницях (€ за годину, € за місяць, %) не складаються й не усереднюються (розбір вигляду 06.11)
+    amount = fields.Monetary(string='Сума', currency_field='currency_id', tracking=4, aggregator=False, help='У одиниці з поля «Одиниця»; порожньо — суми ще немає')
     amount_unit = fields.Selection(UNITS, string='Одиниця', tracking=5)
-    hours_per_person = fields.Float(string='Годин житла на особу', tracking=6,
+    hours_per_person = fields.Float(string='Годин житла на особу', tracking=6, aggregator=False,
                                     help='Лише для «Вирахування: години житла × €»: скільки годин житла на особу за період. Порожньо — не задано')
     payer = fields.Selection(PAYERS, string='Хто платить', tracking=7)
     date_from = fields.Date(string='З', required=True, index=True, tracking=8)

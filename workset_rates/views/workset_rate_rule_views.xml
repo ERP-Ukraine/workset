@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!-- «Загальні ставки» (розділ 6 спеціфікації М2): правило лінії (замовник порожній — сірим «усі замовники лінії») і тарифи замовників з
-         датами; групування за лінією за замовчуванням. Захищене (правило лінії, частки, мінімуми, якір, фікс) перевіряє код при збереженні -->
+         датами. Розбір вигляду 06.11: без групування за замовчуванням (згорнуті групи ховали правила, а середнє групи — (7 + 0) / 2 —
+         вводило в оману) — сортування за лінією й датою, фільтр «Діють»; без підсумків-середніх; нуль — порожня комірка; рідкі стовпці
+         («Фікс», «Мінімум», «Ціна клієнта») — у додаткових; статус — лише «Минула» / «Майбутня». Захищене (правило лінії, частки, мінімуми,
+         якір, фікс) перевіряє код при збереженні -->
     <record id="view_rule_list" model="ir.ui.view">
         <field name="name">workset.rate.rule.list</field>
         <field name="model">workset.rate.rule</field>
@@ -13,18 +16,18 @@
                 <field name="customer_text" string="Замовник" decoration-muted="level == 'line'"/>
                 <field name="anchor" widget="badge" decoration-info="anchor == 'markup'"/>
                 <field name="price_mode" widget="badge" decoration-info="price_mode == 'fixed_month'"/>
-                <field name="share_line_found" string="Знайшла" widget="monetary" options="{'currency_field': 'currency_id'}" avg="Середнє"/>
-                <field name="share_we_found" string="Ми" widget="monetary" options="{'currency_field': 'currency_id'}" avg="Середнє"/>
-                <field name="price" widget="monetary" options="{'currency_field': 'currency_id'}" avg="Середнє"/>
-                <field name="fixed_month" string="Фікс" widget="monetary" options="{'currency_field': 'currency_id'}" optional="show"/>
-                <field name="min_share" string="Мінімум" widget="monetary" options="{'currency_field': 'currency_id'}" optional="show"/>
-                <field name="client_price" widget="monetary" options="{'currency_field': 'currency_id'}" optional="show"/>
-                <field name="car_rent" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide"/>
-                <field name="date_from" options="{'numeric': True}"/>
-                <field name="date_to" options="{'numeric': True}" optional="show"/>
-                <field name="state" widget="badge" decoration-success="state == 'current'" decoration-info="state == 'future'" decoration-muted="state == 'past'"/>
-                <field name="inherit_count" optional="show"/>
-                <field name="own_count" optional="show"/>
+                <field name="share_line_found" string="Знайшла" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not share_line_found"/>
+                <field name="share_we_found" string="Ми" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not share_we_found"/>
+                <field name="price" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not price"/>
+                <field name="fixed_month" string="Фікс" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" invisible="not fixed_month"/>
+                <field name="min_share" string="Мінімум" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" invisible="not min_share"/>
+                <field name="client_price" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" invisible="not client_price"/>
+                <field name="car_rent" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" invisible="not car_rent"/>
+                <field name="date_from" string="З" options="{'numeric': True}" width="90px"/>
+                <field name="date_to" string="До" options="{'numeric': True}" optional="show" width="90px"/>
+                <field name="state" widget="badge" decoration-info="state == 'future'" decoration-muted="state == 'past'" optional="hide" invisible="state == 'current'"/>
+                <field name="inherit_count" string="Людей наслідує" optional="show" invisible="not inherit_count" width="130px"/>
+                <field name="own_count" string="Своїх ставок" optional="show" invisible="not own_count" width="120px"/>
             </list>
         </field>
     </record>
@@ -47,10 +50,10 @@
                 <sheet>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_open_inherit" type="object" class="oe_stat_button" icon="fa-link" invisible="not id">
-                            <field name="inherit_count" widget="statinfo" string="Наслідують"/>
+                            <field name="inherit_count" widget="statinfo" string="Людей наслідує"/>
                         </button>
                         <button name="action_open_own" type="object" class="oe_stat_button" icon="fa-user" invisible="not id">
-                            <field name="own_count" widget="statinfo" string="Своїх"/>
+                            <field name="own_count" widget="statinfo" string="Своїх ставок"/>
                         </button>
                     </div>
                     <widget name="web_ribbon" title="В архіві" bg_color="text-bg-danger" invisible="active"/>
@@ -189,7 +192,7 @@
         <field name="res_model">workset.rate.rule</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_rule_search"/>
-        <field name="context">{'search_default_groupby_line': 1}</field>
+        <field name="context">{'search_default_current': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">Загальних ставок ще немає</p>
             <p>Додайте правило лінії (частка для надбавки) або тариф замовника.</p>

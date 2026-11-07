@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Список ставок: гроші — хранимі поля з усередненням (у рядку групи — середнє, у підвалі — середнє по списку); над списком — полоса
-         підсумків (js_class). Минула — сірим; частка WorkSET або «Після бонусів офісу» нижче мінімуму — червоним; «Добра частка» — зелена
-         комірка частки. Гроші — ланцюжком зліва направо: Зарплата працівника · Платять нам · Посередник · Фонд працівників · Частка WorkSET ·
-         Після бонусів офісу (видно, що віднімається); решта ланцюжка — у «Додаткових стовпцях» (optional="hide"). Олівець біля зарплати, ціни
-         й посередника — майстер правки (нова ставка з дати або виправлення помилки з причиною), «Переговорити» — задача на ставці; лише тим, хто
-         пише ставки. Рядок списку відкриває картку, як і раніше: кнопки — окремі стовпці, правка в самому рядку не вмикається -->
+    <!-- Список ставок (рішення власника 06.11 «вид: А–В до проду» — «лише важлива інформація»): за замовчуванням 9 стовпців — Працівник ·
+         Замовник · Лінія (код) · Зарплата · Платять нам · Частка · Після бонусів · З · Перевірити; решта — у «Додаткових стовпцях»
+         (optional="hide"), гроші там — ланцюжком, як і раніше (Посередник і Фонд — між «Платять нам» і «Частка»). Заголовки — короткі, без
+         обрізання; нуль там, де він означає «немає» (посередник, фонд, ціна клієнта тощо), — порожня комірка. Статус — лише «Минула» /
+         «Майбутня» (діюча — без бейджа). Гроші — хранимі поля з усередненням (у рядку групи — середнє, у підвалі — середнє по списку); над
+         списком — полоса підсумків (js_class). Минула — сірим; частка WorkSET або «Після бонусів офісу» нижче мінімуму — червоним; «Добра
+         частка» — зелена комірка частки. Олівець біля зарплати й ціни — майстер правки (нова ставка з дати або виправлення помилки з
+         причиною); посередник (стовпець схований) — значком у кінці рядка поруч із «Переговорити»: кнопки в списку не ховаються разом зі
+         стовпцем, окремий олівець без числа збивав би рядок. Лише тим, хто пише ставки. Рядок списку відкриває картку, як і раніше: кнопки —
+         окремі стовпці, правка в самому рядку не вмикається -->
     <record id="view_rate_list" model="ir.ui.view">
         <field name="name">workset.rate.list</field>
         <field name="model">workset.rate</field>
@@ -17,41 +21,89 @@
                 <field name="share_level" column_invisible="1"/>
                 <field name="net_level" column_invisible="1"/>
                 <field name="active" column_invisible="1"/>
-                <field name="person_id" width="220px"/>
-                <field name="others_note" optional="show" width="80px"/>
-                <field name="customer_id" width="190px"/>
-                <field name="line_id"/>
-                <field name="work" widget="badge" decoration-success="work == 'work'" decoration-info="work == 'work_new'" decoration-warning="work == 'z_none'" decoration-muted="work == 'z_idle'" optional="show"/>
-                <field name="last_hours" options="{'numeric': True}" optional="show"/>
+                <field name="person_id" width="200px"/>
+                <field name="others_note" optional="hide" width="90px"/>
+                <field name="customer_id" width="180px"/>
+                <field name="line_code" string="Лінія" width="70px"/>
+                <field name="line_id" string="Лінія (назва)" optional="hide"/>
+                <field name="work" widget="badge" decoration-success="work == 'work'" decoration-info="work == 'work_new'" decoration-warning="work == 'z_none'" decoration-muted="work == 'z_idle'"
+                       optional="show" width="90px"/>
+                <field name="last_hours" options="{'numeric': True}" optional="hide"/>
                 <field name="firms_text" optional="hide"/>
                 <field name="projects_text" optional="hide"/>
-                <field name="found_by" optional="show"/>
+                <field name="found_by" optional="hide"/>
                 <field name="price_mode" widget="badge" decoration-info="price_mode == 'fixed_month'" optional="hide"/>
                 <field name="is_own" widget="boolean_icon" options="{'icon': 'fa-user'}" readonly="1" optional="hide"/>
-                <field name="client_price" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" avg="Середнє"/>
-                <field name="line_share" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" avg="Середнє"/>
-                <field name="wage" widget="monetary" options="{'currency_field': 'currency_id'}" avg="Середнє"/>
+                <field name="client_price" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" avg="Середнє" invisible="not client_price"/>
+                <field name="line_share" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" avg="Середнє" invisible="not line_share"/>
+                <field name="wage" widget="monetary" options="{'currency_field': 'currency_id'}" string="Зарплата" avg="Середнє"/>
                 <button name="action_edit_wage" type="object" icon="fa-pencil" title="Змінити зарплату працівника" class="btn-link text-muted p-0"
                         invisible="state == 'past' or not active" groups="workset_rates.group_editor,base.group_system"/>
-                <field name="price" widget="monetary" options="{'currency_field': 'currency_id'}" avg="Середнє"/>
+                <field name="price" string="Платять нам" widget="monetary" options="{'currency_field': 'currency_id'}" avg="Середнє"/>
                 <button name="action_edit_price" type="object" icon="fa-pencil" title="Змінити «Платять нам»" class="btn-link text-muted p-0"
                         invisible="state == 'past' or not active" groups="workset_rates.group_editor,base.group_system"/>
-                <field name="agent_client_share" widget="monetary" options="{'currency_field': 'currency_id'}" optional="show" avg="Середнє"/>
-                <button name="action_edit_agent" type="object" icon="fa-pencil" title="Змінити посередника" class="btn-link text-muted p-0"
-                        invisible="state == 'past' or not active" groups="workset_rates.group_editor,base.group_system"/>
-                <field name="worker_fund_share" widget="monetary" options="{'currency_field': 'currency_id'}" optional="show" avg="Середнє"/>
-                <field name="car_rent_share" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" avg="Середнє"/>
-                <field name="our_share" widget="monetary" options="{'currency_field': 'currency_id'}" class="fw-semibold" decoration-success="share_level == 'good'" avg="Середнє"/>
-                <field name="net_share" widget="monetary" options="{'currency_field': 'currency_id'}" class="fw-semibold" decoration-danger="net_level == 'low'" avg="Середнє"/>
-                <field name="office_bonus" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" avg="Середнє"/>
-                <field name="date_from" options="{'numeric': True}"/>
-                <field name="date_to" options="{'numeric': True}" optional="show"/>
-                <field name="state" widget="badge" decoration-success="state == 'current'" decoration-info="state == 'future'" decoration-muted="state == 'past'"/>
+                <field name="agent_client_share" string="Посередник" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" avg="Середнє"
+                       invisible="not agent_client_share"/>
+                <field name="worker_fund_share" string="Фонд" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" avg="Середнє"
+                       invisible="not worker_fund_share"/>
+                <field name="car_rent_share" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" avg="Середнє" invisible="not car_rent_share"/>
+                <field name="our_share" string="Частка" widget="monetary" options="{'currency_field': 'currency_id'}" class="fw-semibold" decoration-success="share_level == 'good'" avg="Середнє"/>
+                <field name="net_share" string="Після бонусів" widget="monetary" options="{'currency_field': 'currency_id'}" class="fw-semibold" decoration-danger="net_level == 'low'" avg="Середнє"/>
+                <field name="office_bonus" widget="monetary" options="{'currency_field': 'currency_id'}" optional="hide" avg="Середнє" invisible="not office_bonus"/>
+                <field name="date_from" string="З" options="{'numeric': True}" width="90px"/>
+                <field name="date_to" string="До" options="{'numeric': True}" optional="hide" width="90px"/>
+                <!-- діюча — без бейджа (на екрані їх більшість): видно лише «Минула» / «Майбутня» -->
+                <field name="state" widget="badge" decoration-info="state == 'future'" decoration-muted="state == 'past'" optional="hide" invisible="state == 'current'"/>
                 <field name="issues" string="Перевірити" decoration-warning="issues" optional="show"/>
                 <field name="to_check" optional="hide"/>
-                <button name="action_talk" type="object" icon="fa-phone" string="Переговорити" title="Поставити задачу «Переговорити» з цифрами людини"
-                        class="btn-link p-0" invisible="state == 'past' or not active" groups="workset_rates.group_editor,base.group_system"/>
+                <!-- «Змінити посередника» й «Переговорити» — значки в одному вузькому стовпці в кінці рядка (слово власника 06.11: «значок»),
+                     підказка — назва -->
+                <button name="action_edit_agent" type="object" icon="fa-handshake-o" title="Змінити посередника" class="btn-link text-muted p-0"
+                        invisible="state == 'past' or not active" groups="workset_rates.group_editor,base.group_system"/>
+                <button name="action_talk" type="object" icon="fa-phone" title="Переговорити"
+                        class="btn-link text-muted p-0" invisible="state == 'past' or not active" groups="workset_rates.group_editor,base.group_system"/>
             </list>
+        </field>
+    </record>
+
+    <!-- «Працюють зараз»: той самий список без стовпців «Статус ставки» й «Робота» — тут усі ставки діючі й люди працюють (слово власника 06.11
+         «статус: убрать»; розбір 06.11 — «Робота» при фільтрі «Працюють» однакова в усіх). Окремий вид дії (view_id), а не column_invisible за
+         контекстом: «Огляд» відкриває цю дію зі своїм контекстом (openList), а вид дії лишається. priority 20 — типовим списком моделі
+         лишається view_rate_list («Усі ставки», форма лінії тощо) -->
+    <record id="view_rate_list_current" model="ir.ui.view">
+        <field name="name">workset.rate.list.current</field>
+        <field name="model">workset.rate</field>
+        <field name="inherit_id" ref="view_rate_list"/>
+        <field name="mode">primary</field>
+        <field name="priority">20</field>
+        <field name="arch" type="xml">
+            <field name="state" position="attributes">
+                <attribute name="column_invisible">1</attribute>
+            </field>
+            <field name="work" position="attributes">
+                <attribute name="column_invisible">1</attribute>
+            </field>
+        </field>
+    </record>
+
+    <!-- «Ставки з розбіжностями»: «Перевірити» — другим стовпцем, текст цілком (переноситься в рядку, не обрізається); «Робота» — у
+         додаткових. Свій вид дії, як «Працюють зараз». Стовпці замінено цілими вузлами, а не attribute: текст attribute потрапив би в
+         терміни перекладу -->
+    <record id="view_rate_list_review" model="ir.ui.view">
+        <field name="name">workset.rate.list.review</field>
+        <field name="model">workset.rate</field>
+        <field name="inherit_id" ref="view_rate_list"/>
+        <field name="mode">primary</field>
+        <field name="priority">20</field>
+        <field name="arch" type="xml">
+            <field name="issues" position="replace"/>
+            <field name="person_id" position="after">
+                <field name="issues" string="Перевірити" decoration-warning="issues" class="text-wrap" width="320px"/>
+            </field>
+            <field name="work" position="replace">
+                <field name="work" widget="badge" decoration-success="work == 'work'" decoration-info="work == 'work_new'" decoration-warning="work == 'z_none'" decoration-muted="work == 'z_idle'"
+                       optional="hide" width="90px"/>
+            </field>
         </field>
     </record>
 
@@ -67,6 +119,9 @@
                     <button name="action_back_to_rule" type="object" string="Повернути до загальної" class="btn-secondary" invisible="not id or not is_own or not rule_id"
                             groups="workset_rates.group_editor,base.group_system" confirm="«Платять нам», тип ціни й фікс стануть як у загальній ставці. Продовжити?"/>
                     <button name="action_new_raise" type="object" string="Тимчасова зміна" class="btn-secondary" invisible="not id or not active or state == 'past'"
+                            groups="workset_rates.group_editor,base.group_system"/>
+                    <!-- «Переговорити» — лише значок телефону, як у списку (слово власника 06.11: «значок»); підказка — назва -->
+                    <button name="action_talk" type="object" icon="fa-phone" title="Переговорити" class="btn-secondary" invisible="not id or not active or state == 'past'"
                             groups="workset_rates.group_editor,base.group_system"/>
                     <field name="state" widget="statusbar" statusbar_visible="future,current,past"/>
                 </header>
@@ -92,6 +147,12 @@
                             <field name="subtitle" readonly="1" class="w-auto"/>
                             <field name="others_note" readonly="1" invisible="not others_note" class="w-auto fw-semibold"/>
                         </div>
+                        <!-- позначка «Перевірити» — одним рядком під назвою, а не окремою групою з одного прапорця (розбір вигляду 06.11) -->
+                        <div class="d-flex align-items-baseline gap-2 flex-wrap mt-1" invisible="not id">
+                            <field name="to_check" nolabel="1" class="w-auto"/>
+                            <label for="to_check" string="Перевірити" class="fw-normal"/>
+                            <field name="check_reason" nolabel="1" placeholder="Що перевірити" class="w-auto flex-grow-1" invisible="not to_check"/>
+                        </div>
                     </div>
                     <!-- М2: чотири цифри «Зарплата працівника · Платять нам · Частка WorkSET · Після бонусів офісу»; під зарплатою сірим — «зараз 17
                          до 30.11», коли діє тимчасова зміна (у карту проєктів і частки вона не входить) -->
@@ -111,7 +172,12 @@
                                 <div class="fs-6 fw-normal text-muted">€/год</div>
                             </div>
                         </div>
-                        <div class="col-6 col-lg-3" invisible="not price">
+                        <!-- частка й «після бонусів» рахуються при збереженні: у новій ставці («Нова ставка з дати», «Новий») замість нулів —
+                             рядок «порахуються після збереження» (розбір вигляду 06.11) -->
+                        <div class="col-12 col-lg-6 align-self-end text-muted" invisible="id or not price">
+                            Частка WorkSET і «Після бонусів офісу» порахуються після збереження
+                        </div>
+                        <div class="col-6 col-lg-3" invisible="not id or not price">
                             <div class="text-muted text-uppercase small">Частка WorkSET</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
                                 <field name="our_share" nolabel="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="fs-1 fw-semibold o_input_5ch w-auto text-end" readonly="1"
@@ -119,7 +185,7 @@
                                 <div class="fs-6 fw-normal text-muted">€/год</div>
                             </div>
                         </div>
-                        <div class="col-6 col-lg-3" invisible="not price">
+                        <div class="col-6 col-lg-3" invisible="not id or not price">
                             <div class="text-muted text-uppercase small">Після бонусів офісу</div>
                             <div class="d-flex align-items-baseline gap-2 flex-wrap fs-1 fw-semibold lh-1">
                                 <field name="net_share" nolabel="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="fs-1 fw-semibold o_input_5ch w-auto text-end" readonly="1"
@@ -151,11 +217,13 @@
                             <field name="date_to" string="Ставка до" readonly="1" invisible="not date_to" options="{'numeric': True}"/>
                             <field name="employee_summary" string="Картки у фірмах" readonly="1" invisible="not employee_summary"/>
                         </group>
-                        <!-- Ланцюжок цін згори вниз — лише заповнене; «Ціна клієнта» видно завжди: з неї ланцюжок починається, її вносять тут.
-                             Підписи полів лише для читання — звичайні (o_form_label без for): ті самі поля стоять у великих цифрах (ревю М2c-1, № 9) -->
+                        <!-- Ланцюжок цін згори вниз — лише заповнене. «Ціна клієнта» — у новій ставці (її вносять тут) і коли вона є; у збереженій
+                             без ціни рядка «0,00» немає (розбір вигляду 06.11): нова ціна клієнта — «Нова ставка з дати» або загальна ставка.
+                             Частка й «після бонусів» — після збереження. Підписи полів лише для читання — звичайні (o_form_label без for): ті самі
+                             поля стоять у великих цифрах (ревю М2c-1, № 9) -->
                         <group name="chain" string="Ланцюжок">
-                            <label for="client_price" string="Ціна клієнта"/>
-                            <div class="d-flex align-items-baseline gap-2 flex-wrap">
+                            <label for="client_price" string="Ціна клієнта" invisible="id and not client_price"/>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap" invisible="id and not client_price">
                                 <field name="client_price" nolabel="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
                                 <div class="text-muted">€/год</div>
                                 <field name="client_price_source" nolabel="1" placeholder="джерело" class="w-auto text-muted" invisible="not client_price" required="client_price"/>
@@ -215,8 +283,8 @@
                                 <field name="wage_before_contract" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
                                 <div>€/год</div>
                             </div>
-                            <div class="o_form_label" invisible="not price">Частка WorkSET</div>
-                            <div class="d-flex align-items-baseline gap-2 flex-wrap" invisible="not price">
+                            <div class="o_form_label" invisible="not id or not price">Частка WorkSET</div>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap" invisible="not id or not price">
                                 <field name="our_share" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"/>
                                 <div class="text-muted">€/год</div>
                             </div>
@@ -227,8 +295,8 @@
                                 <field name="bonus_norm" invisible="1"/>
                                 <div class="text-muted" invisible="not bonus_norm">за нормою годин</div>
                             </div>
-                            <div class="o_form_label" invisible="not price">Після бонусів офісу</div>
-                            <div class="d-flex align-items-baseline gap-2 flex-wrap fw-semibold" invisible="not price">
+                            <div class="o_form_label" invisible="not id or not price">Після бонусів офісу</div>
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap fw-semibold" invisible="not id or not price">
                                 <field name="net_share" nolabel="1" readonly="1" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="o_input_7ch w-auto"
                                        decoration-danger="net_level == 'low'"/>
                                 <div class="text-muted fw-normal">€/год</div>
@@ -263,14 +331,11 @@
                             <field name="firms_text" string="У фірмах" readonly="1" invisible="not firms_text"/>
                             <field name="projects_text" string="На об'єктах" readonly="1" invisible="not projects_text"/>
                         </group>
-                        <group name="check" string="Перевірка" invisible="not id">
-                            <field name="to_check" string="Перевірити"/>
-                            <field name="check_reason" string="Що перевірити" invisible="not to_check"/>
-                        </group>
                     </group>
-                    <!-- Тимчасові зміни пари: список і «Додати» (нова зміна цієї пари у вікні); база, частки й карта проєктів від них не змінюються -->
-                    <separator string="Тимчасові зміни" invisible="not id"/>
-                    <div class="mb-3" name="raises" invisible="not id">
+                    <!-- Тимчасові зміни пари: список і «Додати» (нова зміна цієї пари у вікні); база, частки й карта проєктів від них не змінюються.
+                         Змін немає — блоку немає: додають кнопкою «Тимчасова зміна» в шапці (розбір вигляду 06.11) -->
+                    <separator string="Тимчасові зміни" invisible="not id or not raise_ids"/>
+                    <div class="mb-3" name="raises" invisible="not id or not raise_ids">
                         <field name="raise_ids" readonly="1" nolabel="1">
                             <list create="0" delete="0" decoration-muted="state in ('paid', 'cancel', 'nothing', 'nohours')" decoration-warning="soon">
                                 <field name="currency_id" column_invisible="1"/>
@@ -495,6 +560,7 @@
         <field name="res_model">workset.rate</field>
         <field name="view_mode">list,kanban,form,pivot,graph</field>
         <field name="mobile_view_mode">kanban</field>
+        <field name="view_id" ref="view_rate_list_current"/>
         <field name="search_view_id" ref="view_rate_search"/>
         <field name="context">{'search_default_current': 1, 'searchpanel_default_work_group': 'g1_work'}</field>
         <field name="help" type="html">
@@ -519,6 +585,7 @@
         <field name="name">Ставки з розбіжностями</field>
         <field name="res_model">workset.rate</field>
         <field name="view_mode">list,form</field>
+        <field name="view_id" ref="view_rate_list_review"/>
         <field name="search_view_id" ref="view_rate_search"/>
         <field name="domain">[('state', 'in', ['current', 'future']), '|', '|', '|', '|', '|', ('to_check', '=', True), ('contract_ok', '=', False), ('map_mismatch', '>', 0), ('order_price_ok', '=', False), ('rule_ok', '=', False), ('our_share', '&lt;=', 0)]</field>
         <field name="help" type="html">
