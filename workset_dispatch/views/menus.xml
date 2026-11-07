@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- «Співробітники → Виїзди»: бачать ті, хто веде підбір -->
+    <menuitem id="menu_dispatch" name="Виїзди" parent="hr.menu_hr_root" action="action_workset_dispatch" sequence="4"
+              groups="hr_recruitment.group_hr_recruitment_user"/>
+</odoo>

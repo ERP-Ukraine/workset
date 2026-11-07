@@ -1,0 +1,279 @@
+# Russian translation of the Odoo module workset_dispatch.
+# Згенеровано tools/odoo_addon_po.py — не правити вручну.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Language: ru\n"
+"Plural-Forms: \n"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_applicant__workset_pd_deal_id
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_employee__workset_pd_deal_id
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_employee_form_workset_dispatch
+msgid "Угода Pipedrive"
+msgstr "Сделка Pipedrive"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_applicant__workset_departure_date
+msgid "Дата виїзду"
+msgstr "Дата выезда"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_applicant__workset_birthday
+msgid "Дата народження"
+msgstr "Дата рождения"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_applicant__workset_country_id
+msgid "Громадянство"
+msgstr "Гражданство"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_applicant__workset_profession
+msgid "Професія"
+msgstr "Профессия"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_applicant__workset_customer_id
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_search
+msgid "Замовник"
+msgstr "Заказчик"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_applicant__workset_customer_name
+msgid "Замовник (назва з Pipedrive)"
+msgstr "Заказчик (название из Pipedrive)"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_applicant__workset_firm_id
+#: model:ir.model.fields,field_description:workset_dispatch.field_res_company__workset_dispatch_firm
+msgid "Фірма для ZUS"
+msgstr "Фирма для ZUS"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_applicant__workset_state
+msgid "Статус виїзду"
+msgstr "Статус выезда"
+
+#. module: workset_dispatch
+#: model:ir.model.fields.selection,name:workset_dispatch.selection__hr_applicant__workset_state__wait_firm
+msgid "Чекає фірму"
+msgstr "Ждёт фирму"
+
+#. module: workset_dispatch
+#: model:ir.model.fields.selection,name:workset_dispatch.selection__hr_applicant__workset_state__check_dup
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_search
+msgid "Перевірити дубль"
+msgstr "Проверить дубль"
+
+#. module: workset_dispatch
+#: model:ir.model.fields.selection,name:workset_dispatch.selection__hr_applicant__workset_state__done
+msgid "Картка є"
+msgstr "Карточка есть"
+
+#. module: workset_dispatch
+#: model:ir.model.fields.selection,name:workset_dispatch.selection__hr_applicant__workset_state__cancel
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_search
+msgid "Не поїхав"
+msgstr "Не поехал"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_applicant__workset_dup_employee_ids
+msgid "Можливі дублі"
+msgstr "Возможные дубли"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_applicant__workset_same_employee_ids
+msgid "Ця ж людина (за контактом чи телефоном)"
+msgstr "Тот же человек (по контакту или телефону)"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_applicant__workset_pick_no
+msgid "Номер картки зі списку"
+msgstr "Номер карточки из списка"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,help:workset_dispatch.field_hr_applicant__workset_pick_no
+msgid "Яка картка зі списку схожих — та сама людина (якщо схожа одна, номер не потрібен)"
+msgstr "Какая карточка из списка похожих — тот же человек (если похожая одна, номер не нужен)"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_applicant__workset_dup_text
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_form
+msgid "Схожі картки"
+msgstr "Похожие карточки"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_applicant__workset_same_text
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_form
+msgid "Ця ж людина вже є"
+msgstr "Этот же человек уже есть"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_applicant__workset_cancel_source
+msgid "Хто скасував"
+msgstr "Кто отменил"
+
+#. module: workset_dispatch
+#: model:ir.model.fields.selection,name:workset_dispatch.selection__hr_applicant__workset_cancel_source__pipedrive
+msgid "Угода закрита в Pipedrive"
+msgstr "Сделка закрыта в Pipedrive"
+
+#. module: workset_dispatch
+#: model:ir.model.fields.selection,name:workset_dispatch.selection__hr_applicant__workset_cancel_source__human
+msgid "Позначила людина"
+msgstr "Отметил человек"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_applicant__workset_name_check
+msgid "Звірити ім'я з паспортом"
+msgstr "Сверить имя с паспортом"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_applicant__workset_pd_url
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_employee__workset_pd_url
+msgid "Угода в Pipedrive"
+msgstr "Сделка в Pipedrive"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,field_description:workset_dispatch.field_hr_employee__workset_dispatch_count
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_list
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_kanban
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_search
+#: model:ir.actions.act_window,name:workset_dispatch.action_workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_employee_form_workset_dispatch
+#: model:ir.ui.menu,name:workset_dispatch.menu_dispatch
+msgid "Виїзди"
+msgstr "Выезды"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,help:workset_dispatch.field_res_company__workset_dispatch_firm
+msgid "Фірма, у якій Юля може оформити людину з Виїзду (одна з трьох плашок вибору)"
+msgstr "Фирма, в которой Юля может оформить человека из Выезда (одна из плашек выбора)"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,field_description:workset_dispatch.field_res_company__workset_name_suffix
+msgid "Позначка в імені"
+msgstr "Пометка в имени"
+
+#. module: workset_dispatch
+#: model:ir.model.fields,help:workset_dispatch.field_res_company__workset_name_suffix
+msgid "Додається до імені нової картки: «ПРІЗВИЩЕ ІМ'Я | позначка»"
+msgstr "Добавляется к имени новой карточки: «ФАМИЛИЯ ИМЯ | пометка»"
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_list
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_form
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_search
+msgid "Ім'я"
+msgstr "Имя"
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_list
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_form
+msgid "Картка"
+msgstr "Карточка"
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_form
+msgid "Виїзд"
+msgstr "Выезд"
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_form
+msgid "Це та сама людина"
+msgstr "Это тот же человек"
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_form
+msgid "Нова людина"
+msgstr "Новый человек"
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_form
+msgid "Створити картку"
+msgstr "Создать карточку"
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_form
+msgid "Не наш / не поїхав"
+msgstr "Не наш / не поехал"
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_form
+msgid "Позначити «Не наш / не поїхав»? Картку не буде створено, Виїзд піде в архів."
+msgstr "Отметить «Не наш / не поехал»? Карточка не будет создана, Выезд уйдёт в архив."
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_form
+msgid "В архіві"
+msgstr "В архиве"
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_form
+msgid "Звірити"
+msgstr "Сверить"
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_form
+msgid "Ім'я записано з кирилиці — звірте з паспортом"
+msgstr "Имя записано с кириллицы — сверьте с паспортом"
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_form
+msgid "Схожі картки — вирішує Оля"
+msgstr "Похожие карточки — решает Оля"
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_form
+msgid "Номер зі списку"
+msgstr "Номер из списка"
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_form
+msgid "Замовник (з Pipedrive)"
+msgstr "Заказчик (из Pipedrive)"
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_form
+msgid "Людина"
+msgstr "Человек"
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_search
+msgid "Не скасовані"
+msgstr "Не отменённые"
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_search
+msgid "Чекають фірму"
+msgstr "Ждут фирму"
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_search
+msgid "Групувати"
+msgstr "Группировать"
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_search
+msgid "Фірма"
+msgstr "Фирма"
+
+#. module: workset_dispatch
+#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_search
+msgid "Місяць виїзду"
+msgstr "Месяц выезда"
+
+#. module: workset_dispatch
+#: model_terms:ir.actions.act_window,help:workset_dispatch.action_workset_dispatch
+msgid "Виїздів поки немає"
+msgstr "Выездов пока нет"
+
+#. module: workset_dispatch
+#: model_terms:ir.actions.act_window,help:workset_dispatch.action_workset_dispatch
+msgid "Виїзд заводиться сам у день «Дати відправки» в Pipedrive."
+msgstr "Выезд заводится сам в день «Даты отправки» в Pipedrive."

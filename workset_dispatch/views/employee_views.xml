@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Смарт-кнопки на картці працівника — лише додавання в button_box (xpath за name, position inside), як у «Ставок» -->
+    <record id="view_employee_form_workset_dispatch" model="ir.ui.view">
+        <field name="name">hr.employee.form.workset.dispatch</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="priority">2000</field>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="workset_dispatch_open_list" type="object" class="oe_stat_button" icon="fa-plane" invisible="not workset_dispatch_count"
+                        groups="hr_recruitment.group_hr_recruitment_user">
+                    <field name="workset_dispatch_count" widget="statinfo" string="Виїзди"/>
+                </button>
+                <button name="workset_dispatch_open_pd" type="object" class="oe_stat_button" icon="fa-external-link" invisible="not workset_pd_url"
+                        groups="hr_recruitment.group_hr_recruitment_user">
+                    <div class="o_stat_info"><span class="o_stat_text">Угода Pipedrive</span></div>
+                    <field name="workset_pd_url" invisible="1"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

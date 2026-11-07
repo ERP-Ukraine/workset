@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Два етапи підбору для Виїздів; стандартні етапи не чіпаємо. noupdate: перейменування в Odoo не повертається оновленням -->
+    <data noupdate="1">
+        <record id="stage_dispatch" model="hr.recruitment.stage">
+            <field name="name">Виїзд</field>
+            <field name="sequence">90</field>
+        </record>
+        <!-- «Оформлено» — останній і найнятий: стандарт сам ставить «Дата найму» (date_closed) -->
+        <record id="stage_hired" model="hr.recruitment.stage">
+            <field name="name">Оформлено</field>
+            <field name="sequence">91</field>
+            <field name="hired_stage" eval="True"/>
+        </record>
+    </data>
+</odoo>
