@@ -12,22 +12,21 @@
                 <div class="container-fluid py-3" t-if="data">
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                         <span class="fs-4">Прибутковість ліній</span>
-                        <Dropdown>
-                            <button class="btn btn-secondary"><i class="fa fa-calendar me-2"/><t t-esc="data.month.title"/></button>
-                            <t t-set-slot="content">
-                                <t t-foreach="data.months" t-as="m" t-key="m.value">
-                                    <DropdownItem onSelected="() => this.setMonth(m.value)"><t t-esc="m.title"/></DropdownItem>
-                                </t>
-                            </t>
-                        </Dropdown>
+                        <!-- круг 5: період — місяць, квартал, рік або «з–по»; праворуч — «Лінії × місяці» за цей самий період -->
+                        <div class="d-flex flex-wrap align-items-center gap-1">
+                            <t t-call="workset_profit.SpanPicker"/>
+                            <button type="button" class="btn btn-secondary" title="Лінії × місяці за цей період" aria-label="Лінії × місяці за цей період" t-on-click="() => this.openMatrix()"><i class="fa fa-table"/></button>
+                        </div>
                     </div>
 
                     <!-- сервер не відповів на зміну місяця — дані попередні, з позначкою (і повідомлення Odoo) -->
                     <div t-if="state.failed" class="alert alert-warning py-2">Не вдалося оновити — на екрані попередні дані</div>
                     <t t-if="data.has">
-                        <!-- вісім підсумків місяця по лініях (круг 4: широко — 4 × 2, вузько — 2 в ряд): «Чисто» і «Залишається» — головні
-                             числа кольором бренду (нижче нуля — червоним); «ZUS і загальні» — мінусом, клік — окремо «ZUS» і «загальні» -->
+                        <!-- вісім підсумків періоду по лініях (круг 4: широко — 4 × 2, вузько — 2 в ряд): «Чисто» і «Залишається» — головні
+                             числа кольором бренду (нижче нуля — червоним); «ZUS і загальні» — мінусом, клік — вікно «Що входить» (круг 5) -->
                         <t t-set="tot" t-value="data.totals"/>
+                        <t t-set="multi" t-value="data.span.kind !== 'month'"/>
+                        <div t-if="data.span.text" class="small text-muted mb-1" t-esc="data.span.text"/>
                         <!-- круг 3в: кожен підсумок відкриває свої записи (сервер: opens) — клітинка як кнопка, вигляд числа той самий;
                              круг 4: і з клавіатури (role, tabindex, Enter / пробіл) -->
                         <t t-set="op" t-value="data.opens"/>
@@ -49,26 +48,24 @@
                                 <span class="d-block text-muted text-truncate">Чисто</span>
                                 <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" t-att-class="tot.net &lt; 0 ? 'text-danger' : 'text-primary'"><t t-esc="perHour(tot.net_ph)"/><span t-if="hasPh(tot.net_ph)" class="o_workset_profit_unit text-muted fw-normal">€ год</span></span>
                             </div>
-                            <!-- круг 4: «ZUS і загальні» — частки ліній за годинами табеля (версія 1); число — сума обох, клік — кожна окремо -->
-                            <div class="o_workset_profit_band_cell text-center">
+                            <!-- круг 4: «ZUS і загальні» — частки ліній за годинами табеля (версія 1); число — сума обох; круг 5: клік — вікно
+                                 «Що входить» (ZUS за фірмами, загальні за статтями, як поділено) -->
+                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.overhead)" t-att-title="hint(op.overhead)" t-att-role="role(op.overhead)" t-att-tabindex="tab(op.overhead)" t-on-click="() => this.openList(op.overhead)" t-on-keydown="(ev) => this.keyOpen(ev, op.overhead)">
                                 <span class="d-block text-muted text-truncate" title="ZUS і загальні розподілено за годинами табеля (версія 1)">ZUS і загальні</span>
-                                <!-- круг 4б: число — частка ліній за годинами, а клік «ZUS» — усі рахунки місяця (сума списку більша на частку «без лінії») -->
-                                <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" title="частка ліній за годинами; клік — усі рахунки місяця"><t t-esc="perHour(tot.overhead_ph)"/><span t-if="hasPh(tot.overhead_ph)" class="o_workset_profit_unit text-muted fw-normal">€ год</span></span>
-                                <span class="small text-muted text-nowrap">
-                                    <span t-att-class="clickCls(op.zus)" t-att-title="hint(op.zus)" t-att-role="role(op.zus)" t-att-tabindex="tab(op.zus)" t-on-click="() => this.openList(op.zus)" t-on-keydown="(ev) => this.keyOpen(ev, op.zus)">ZUS <t t-esc="perHour(tot.zus_ph)"/></span>
-                                    · <span t-att-class="clickCls(op.office)" t-att-title="hint(op.office)" t-att-role="role(op.office)" t-att-tabindex="tab(op.office)" t-on-click="() => this.openList(op.office)" t-on-keydown="(ev) => this.keyOpen(ev, op.office)">загальні <t t-esc="perHour(tot.office_ph)"/></span>
-                                </span>
+                                <!-- круг 4б: число — частка ліній за годинами (у вікні — і частка «без лінії» в сумах компанії) -->
+                                <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" title="частка ліній за годинами; клік — що входить"><t t-esc="perHour(tot.overhead_ph)"/><span t-if="hasPh(tot.overhead_ph)" class="o_workset_profit_unit text-muted fw-normal">€ год</span></span>
+                                <span class="small text-muted text-nowrap">ZUS <t t-esc="perHour(tot.zus_ph)"/> · загальні <t t-esc="perHour(tot.office_ph)"/></span>
                             </div>
                             <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.remain)" t-att-title="hint(op.remain)" t-att-role="role(op.remain)" t-att-tabindex="tab(op.remain)" t-on-click="() => this.openList(op.remain)" t-on-keydown="(ev) => this.keyOpen(ev, op.remain)">
                                 <span class="d-block text-muted text-truncate">Залишається</span>
                                 <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" t-att-class="tot.remain &lt; 0 ? 'text-danger' : 'text-primary'"><t t-esc="perHour(tot.remain_ph)"/><span t-if="hasPh(tot.remain_ph)" class="o_workset_profit_unit text-muted fw-normal">€ год</span></span>
                             </div>
                             <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.net_month)" t-att-title="hint(op.net_month)" t-att-role="role(op.net_month)" t-att-tabindex="tab(op.net_month)" t-on-click="() => this.openList(op.net_month)" t-on-keydown="(ev) => this.keyOpen(ev, op.net_month)">
-                                <span class="d-block text-muted text-truncate">Чисто за місяць</span>
+                                <span class="d-block text-muted text-truncate"><t t-if="multi">Чисто за період</t><t t-else="">Чисто за місяць</t></span>
                                 <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" t-att-class="tot.net &lt; 0 ? 'text-danger' : ''"><t t-esc="euros(tot.net)"/><span class="o_workset_profit_unit text-muted fw-normal">€</span></span>
                             </div>
                             <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.remain_month)" t-att-title="hint(op.remain_month)" t-att-role="role(op.remain_month)" t-att-tabindex="tab(op.remain_month)" t-on-click="() => this.openList(op.remain_month)" t-on-keydown="(ev) => this.keyOpen(ev, op.remain_month)">
-                                <span class="d-block text-muted text-truncate">Залишається за місяць</span>
+                                <span class="d-block text-muted text-truncate"><t t-if="multi">Залишається за період</t><t t-else="">Залишається за місяць</t></span>
                                 <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" t-att-class="tot.remain &lt; 0 ? 'text-danger' : ''"><t t-if="tot.remain === null">—</t><t t-else=""><t t-esc="euros(tot.remain)"/><span class="o_workset_profit_unit text-muted fw-normal">€</span></t></span>
                             </div>
                         </div>
@@ -109,6 +106,10 @@
                                         </span>
                                         <span class="badge rounded-pill o_workset_profit_count"><t t-esc="euros(a.amount)"/> €</span>
                                     </t>
+                                    <!-- круг 5: за кілька місяців — «Звірка: зійшлося 9 з 9», клік — звірки місяців періоду -->
+                                    <t t-elif="a.key === 'check' and a.summary">
+                                        <span class="flex-grow-1 text-truncate" t-att-title="a.text">Звірка: <t t-esc="a.summary"/><i t-if="a.state === 'ok'" class="fa fa-check ms-1"/></span>
+                                    </t>
                                     <t t-elif="a.key === 'check'">
                                         <span t-if="a.state === 'ok'" class="flex-grow-1 text-truncate" t-att-title="a.text">Звірка зійшлася <i class="fa fa-check ms-1"/></span>
                                         <span t-else="" class="flex-grow-1 text-truncate" t-att-title="a.text">Звірка: розбіжність</span>
@@ -131,16 +132,17 @@
                                         <span t-elif="line.housing_from === 'worker_fund'" class="badge rounded-pill o_workset_profit_count">житло з фонду працівників</span>
                                     </div>
                                     <div class="o_workset_profit_big" t-att-class="line.tone === 'neg' ? 'text-danger' : ''"><t t-esc="perHour(line.net_ph)"/><span t-if="hasPh(line.net_ph)" class="o_workset_profit_unit text-muted fw-normal">€ год</span></div>
+                                    <!-- круг 5: за кілька місяців — «€ за період», стрілка — до попереднього періоду того самого виду -->
                                     <div class="text-nowrap" t-att-class="line.tone === 'neg' ? 'text-danger' : 'text-muted'">
-                                        <t t-esc="euros(line.net)"/> € за місяць
-                                        <span t-if="line.trend and line.trend.dir !== 'same'" class="ms-1" title="до минулого місяця, € год">
+                                        <t t-esc="euros(line.net)"/> <t t-if="multi">€ за період</t><t t-else="">€ за місяць</t>
+                                        <span t-if="line.trend and line.trend.dir !== 'same'" class="ms-1" t-att-title="data.span.trend">
                                             <i t-att-class="line.trend.dir === 'down' ? 'fa fa-arrow-down' : 'fa fa-arrow-up'"/>
                                             <t t-esc="plain(line.trend.delta)"/>
                                         </span>
                                     </div>
                                     <!-- круг 4: після ZUS і загальних (частка лінії за годинами) — дрібно; мінус — червоним -->
                                     <div class="small text-nowrap" t-att-class="line.remain_tone === 'neg' ? 'text-danger' : 'text-muted'">
-                                        залишається <t t-if="hasPh(line.remain_ph)"><t t-esc="perHour(line.remain_ph)"/> € год</t><t t-elif="line.remain === null">—</t><t t-else=""><t t-esc="euros(line.remain)"/> € за місяць</t>
+                                        залишається <t t-if="hasPh(line.remain_ph)"><t t-esc="perHour(line.remain_ph)"/> € год</t><t t-elif="line.remain === null">—</t><t t-else=""><t t-esc="euros(line.remain)"/> <t t-if="multi">€ за період</t><t t-else="">€ за місяць</t></t>
                                     </div>
                                 </button>
                             </t>
@@ -150,7 +152,8 @@
 
                     <div class="o_workset_profit_panels">
                         <!-- «Чисто по місяцях»: лише закриті місяці, вісь без викидів (викид — біля краю з підписом), легенда під графіком;
-                             вище за графік картки лінії й тягнеться до висоти сусідньої «Куди йде частка» (круг 3б) -->
+                             вище за графік картки лінії й тягнеться до висоти сусідньої «Куди йде частка» (круг 3б); круг 5 — обраний період
+                             підсвічено смугою, клік по місяцю — «Огляд» за цей місяць -->
                         <div t-if="hasSeries" class="card">
                             <div class="card-header fw-semibold">Чисто по місяцях, <span class="text-muted fw-normal">€ год</span></div>
                             <div class="card-body d-flex flex-column">
@@ -199,16 +202,15 @@
                 <div class="container-fluid py-3" t-if="data">
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                         <span class="fs-4 text-truncate"><t t-if="data.line" t-esc="data.line.name"/><t t-else="">Ліній за місяць немає</t></span>
-                        <div class="d-flex align-items-center gap-1">
-                            <span class="btn btn-secondary pe-none" t-esc="data.month.title"/>
-                            <button type="button" class="btn btn-secondary" t-att-disabled="!data.prev" title="Минулий місяць" t-on-click="() => this.go(data.prev)"><i class="fa fa-chevron-left"/></button>
-                            <button type="button" class="btn btn-secondary" t-att-disabled="!data.next" title="Наступний місяць" t-on-click="() => this.go(data.next)"><i class="fa fa-chevron-right"/></button>
-                        </div>
+                        <!-- круг 5: той самий перемикач періоду, що в «Огляді» (з «Огляду» картка відкривається за його періодом) -->
+                        <t t-call="workset_profit.SpanPicker"/>
                     </div>
 
                     <div t-if="state.failed" class="alert alert-warning py-2">Не вдалося оновити — на екрані попередні дані</div>
                     <t t-if="data.has">
                         <t t-set="tot" t-value="data.totals"/>
+                        <t t-set="multi" t-value="data.span.kind !== 'month'"/>
+                        <div t-if="data.span.text" class="small text-muted mb-1" t-esc="data.span.text"/>
                         <!-- круг 3в: підсумки відкривають свої записи (сервер: opens): години — табелі лінії, решта — рядок лінії місяця -->
                         <t t-set="op" t-value="data.opens"/>
                         <!-- круг 4: шість підсумків — шостий «Залишається» (після ZUS і загальних за годинами табеля) -->
@@ -237,7 +239,7 @@
                                 <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" t-att-class="tot.net &lt; 0 ? 'text-danger' : 'text-primary'"><t t-esc="perHour(tot.net_ph)"/><span t-if="hasPh(tot.net_ph)" class="o_workset_profit_unit text-muted fw-normal">€ год</span></span>
                             </div>
                             <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.net_month)" t-att-title="hint(op.net_month)" t-att-role="role(op.net_month)" t-att-tabindex="tab(op.net_month)" t-on-click="() => this.openList(op.net_month)" t-on-keydown="(ev) => this.keyOpen(ev, op.net_month)">
-                                <span class="d-block text-muted text-truncate">Чисто за місяць</span>
+                                <span class="d-block text-muted text-truncate"><t t-if="multi">Чисто за період</t><t t-else="">Чисто за місяць</t></span>
                                 <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" t-att-class="tot.net &lt; 0 ? 'text-danger' : ''"><t t-esc="euros(tot.net)"/><span class="o_workset_profit_unit text-muted fw-normal">€</span></span>
                             </div>
                             <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.remain)" t-att-title="hint(op.remain)" t-att-role="role(op.remain)" t-att-tabindex="tab(op.remain)" t-on-click="() => this.openList(op.remain)" t-on-keydown="(ev) => this.keyOpen(ev, op.remain)">
@@ -254,8 +256,9 @@
                                 <div class="card-header fw-semibold">Від частки до чистого, <t t-esc="data.month.title_in"/></div>
                                 <div class="card-body">
                                     <div class="o_workset_profit_fall">
-                                        <!-- круг 3в: стовпець — записи свого виду (як група «Рядків»), частка й «Чисто» — рядок лінії; круг 4: далі
-                                             − ZUS, PIT-4 (рахунки місяця) → − Загальні фірм (рядки «Офіс») → = Залишається (рядок лінії, як «Чисто») -->
+                                        <!-- круг 3в: стовпець — записи свого виду (як група «Рядків»), частка й «Чисто» — рядки лінії; круг 4: далі
+                                             − ZUS, PIT-4 → − Загальні фірм → = Залишається (рядки лінії, як «Чисто»); круг 5: ZUS і загальні —
+                                             вікно «Що входить» з часткою лінії -->
                                         <t t-foreach="data.waterfall.bars" t-as="b" t-key="b.key">
                                             <div class="o_workset_profit_fall_col" t-att-class="clickCls(b.open)" t-att-title="hint(b.open)" t-att-role="role(b.open)" t-att-tabindex="tab(b.open)" t-on-click="() => this.openList(b.open)" t-on-keydown="(ev) => this.keyOpen(ev, b.open)">
                                                 <div class="o_workset_profit_fall_area">
@@ -330,7 +333,7 @@
                                 <t t-foreach="mainRows" t-as="r" t-key="r_index">
                                     <t t-call="workset_profit.CardRow"/>
                                 </t>
-                                <!-- круг 4: частки лінії ZUS, PIT-4 і загальних фірм — за годинами табеля (версія 1); клік — рахунки / рядки «Офіс» -->
+                                <!-- круг 4: частки лінії ZUS, PIT-4 і загальних фірм — за годинами табеля (версія 1); круг 5: клік — вікно «Що входить» -->
                                 <t t-set="overhead" t-value="overheadRows"/>
                                 <t t-if="overhead.length">
                                     <div class="list-group-item small fw-semibold text-muted bg-body-tertiary" title="ZUS і загальні розподілено за годинами табеля (версія 1)">ZUS і загальні (за годинами)</div>
@@ -449,8 +452,8 @@
                                         <td class="text-end text-nowrap o_workset_profit_click" title="Відкрити записи" role="button" tabindex="0" t-on-click="() => this.openList(data.unallocated.open)"
                                             t-on-keydown="(ev) => this.keyOpen(ev, data.unallocated.open)" t-esc="euros(data.unallocated.total)"/>
                                     </tr>
-                                    <!-- круг 4: ZUS і PIT-4 (рахунки за місяцем роботи) і загальні фірм — суми місяця всієї компанії; клік — рахунки /
-                                         рядки «Офіс»; у лінії вони вже частками за годинами (показник «Залишається») -->
+                                    <!-- круг 4: ZUS і PIT-4 (рахунки за місяцем роботи) і загальні фірм — суми місяця всієї компанії; у лінії вони
+                                         вже частками за годинами (показник «Залишається»); круг 5: клік — вікно «Що входить» місяця чи періоду -->
                                     <tr t-if="data.zus">
                                         <th class="o_workset_profit_sticky fw-normal text-nowrap">ZUS, PIT-4</th>
                                         <t t-set="row" t-value="data.zus"/>
@@ -516,6 +519,188 @@
         </td>
         <td class="text-end text-nowrap" t-att-class="clickCls(row.open)" t-att-title="hint(row.open)" t-att-role="role(row.open)" t-att-tabindex="tab(row.open)"
             t-on-click="() => this.openList(row.open)" t-on-keydown="(ev) => this.keyOpen(ev, row.open)" t-esc="euros(row.total)"/>
+    </t>
+
+    <!-- круг 5: перемикач періоду A і B (data.span, data.choices, data.prev / data.next — сервер: calc.screen_span, span_choices,
+         span_step): вид — «Місяць | Квартал | Рік | Період», стрілки — крок обраного виду, поруч — вибір місяця, кварталу, року або «з — по» -->
+    <t t-name="workset_profit.SpanPicker">
+        <t t-set="sp" t-value="data.span"/>
+        <div class="d-flex flex-wrap align-items-center gap-1">
+            <div class="btn-group" role="group" aria-label="Період">
+                <button type="button" class="btn" t-att-class="sp.kind === 'month' ? 'btn-primary' : 'btn-secondary'" t-on-click="() => this.setKind('month')">Місяць</button>
+                <button type="button" class="btn" t-att-class="sp.kind === 'quarter' ? 'btn-primary' : 'btn-secondary'" t-on-click="() => this.setKind('quarter')">Квартал</button>
+                <button type="button" class="btn" t-att-class="sp.kind === 'year' ? 'btn-primary' : 'btn-secondary'" t-on-click="() => this.setKind('year')">Рік</button>
+                <button type="button" class="btn" t-att-class="sp.kind === 'range' ? 'btn-primary' : 'btn-secondary'" t-on-click="() => this.setKind('range')">Період</button>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-1">
+                <button type="button" class="btn btn-secondary" t-att-disabled="!data.prev" title="Попередній" aria-label="Попередній" t-on-click="() => this.go(data.prev)"><i class="fa fa-chevron-left"/></button>
+                <t t-if="sp.kind === 'month'">
+                    <Dropdown>
+                        <button class="btn btn-secondary"><i class="fa fa-calendar me-2"/><t t-esc="data.month.title"/></button>
+                        <t t-set-slot="content">
+                            <t t-foreach="data.choices.months" t-as="m" t-key="m.value">
+                                <DropdownItem onSelected="() => this.setMonth(m.value)"><t t-esc="m.title"/></DropdownItem>
+                            </t>
+                        </t>
+                    </Dropdown>
+                </t>
+                <t t-elif="sp.kind === 'quarter'">
+                    <Dropdown>
+                        <button class="btn btn-secondary"><i class="fa fa-calendar me-2"/><t t-esc="sp.title"/></button>
+                        <t t-set-slot="content">
+                            <t t-foreach="data.choices.quarters" t-as="q" t-key="q.value">
+                                <DropdownItem onSelected="() => this.setSpan({ kind: 'quarter', from: q.value, to: false })"><t t-esc="q.title"/></DropdownItem>
+                            </t>
+                        </t>
+                    </Dropdown>
+                    <Dropdown t-if="data.choices.years.length &gt; 1">
+                        <button class="btn btn-secondary" t-esc="sp.from.slice(0, 4)"/>
+                        <t t-set-slot="content">
+                            <t t-foreach="data.choices.years" t-as="y" t-key="y.value">
+                                <DropdownItem onSelected="() => this.setSpan({ kind: 'quarter', from: y.value, to: false })"><t t-esc="y.title"/></DropdownItem>
+                            </t>
+                        </t>
+                    </Dropdown>
+                </t>
+                <t t-elif="sp.kind === 'year'">
+                    <Dropdown>
+                        <button class="btn btn-secondary"><i class="fa fa-calendar me-2"/><t t-esc="sp.title"/></button>
+                        <t t-set-slot="content">
+                            <t t-foreach="data.choices.years" t-as="y" t-key="y.value">
+                                <DropdownItem onSelected="() => this.setSpan({ kind: 'year', from: y.value, to: false })"><t t-esc="y.title"/></DropdownItem>
+                            </t>
+                        </t>
+                    </Dropdown>
+                </t>
+                <t t-else="">
+                    <select class="form-select w-auto" aria-label="З місяця" t-on-change="(ev) => this.setRangeFrom(ev.target.value)">
+                        <t t-foreach="data.choices.options" t-as="m" t-key="m.value">
+                            <option t-att-value="m.value" t-att-selected="m.value === sp.from" t-esc="m.title"/>
+                        </t>
+                    </select>
+                    <span class="text-muted">—</span>
+                    <select class="form-select w-auto" aria-label="По місяць" t-on-change="(ev) => this.setRangeTo(ev.target.value)">
+                        <t t-foreach="data.choices.options" t-as="m" t-key="m.value">
+                            <option t-att-value="m.value" t-att-selected="m.value === sp.to" t-esc="m.title"/>
+                        </t>
+                    </select>
+                </t>
+                <button type="button" class="btn btn-secondary" t-att-disabled="!data.next" title="Наступний" aria-label="Наступний" t-on-click="() => this.go(data.next)"><i class="fa fa-chevron-right"/></button>
+            </div>
+        </div>
+    </t>
+
+    <!-- круг 5: вікно «Що входить у ZUS і загальні: <період>» (d — oh_details відповіді екрана, сервер: _oh_detail): ZUS і PIT-4 за фірмами,
+         загальні фірм за статтями, як поділено; суми — до цента, ті самі, що в числі, по якому клікнули; клік — закрити й відкрити записи.
+         Діалог Odoo — Esc закриває, на телефоні — на всю ширину -->
+    <t t-name="workset_profit.OverheadDialog">
+        <Dialog t-props="dialogProps">
+            <div class="o_workset_profit o_workset_profit_detail">
+                <div t-if="d.missing" class="small text-warning mb-3" t-esc="d.missing"/>
+
+                <div class="fw-semibold mb-1">ZUS і PIT-4</div>
+                <div t-if="!d.zus.rows.length" class="small text-muted mb-3">рахунків немає</div>
+                <div t-else="" class="o_workset_profit_detail_wrap mb-3">
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Фірма</th>
+                                <th class="text-end">ZUS</th>
+                                <th class="text-end">PIT-4</th>
+                                <th class="text-end">Рахунків</th>
+                                <th class="text-end">Разом, €</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="d.zus.rows" t-as="r" t-key="r.company">
+                                <td t-esc="r.name"/>
+                                <td class="text-end text-nowrap" t-att-class="clickCls(r.zus_open)" t-att-title="hint(r.zus_open)" t-att-role="role(r.zus_open)" t-att-tabindex="tab(r.zus_open)"
+                                    t-on-click="() => this.open(r.zus_open)" t-on-keydown="(ev) => this.keyOpen(ev, r.zus_open)" t-esc="money(r.zus)"/>
+                                <td class="text-end text-nowrap" t-att-class="clickCls(r.pit4_open)" t-att-title="hint(r.pit4_open)" t-att-role="role(r.pit4_open)" t-att-tabindex="tab(r.pit4_open)"
+                                    t-on-click="() => this.open(r.pit4_open)" t-on-keydown="(ev) => this.keyOpen(ev, r.pit4_open)" t-esc="money(r.pit4)"/>
+                                <td class="text-end" t-esc="r.n"/>
+                                <td class="text-end text-nowrap fw-semibold" t-att-class="clickCls(r.open)" t-att-title="hint(r.open)" t-att-role="role(r.open)" t-att-tabindex="tab(r.open)"
+                                    t-on-click="() => this.open(r.open)" t-on-keydown="(ev) => this.keyOpen(ev, r.open)" t-esc="money(r.total)"/>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr class="fw-semibold">
+                                <td>Разом</td>
+                                <td class="text-end text-nowrap" t-esc="money(d.zus.total.zus)"/>
+                                <td class="text-end text-nowrap" t-esc="money(d.zus.total.pit4)"/>
+                                <td class="text-end" t-esc="d.zus.total.n"/>
+                                <td class="text-end text-nowrap" t-att-class="clickCls(d.zus.total.open)" t-att-title="hint(d.zus.total.open)" t-att-role="role(d.zus.total.open)" t-att-tabindex="tab(d.zus.total.open)"
+                                    t-on-click="() => this.open(d.zus.total.open)" t-on-keydown="(ev) => this.keyOpen(ev, d.zus.total.open)" t-esc="money(d.zus.total.total)"/>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <!-- без мітки — уже в сумі (місяць за датою проводки); з міткою поза вікном — не входить у жоден місяць (довідково) -->
+                <div t-if="d.zus.unlabeled" class="small d-flex justify-content-between gap-2 mb-1" t-att-class="clickCls(d.zus.unlabeled.open)" t-att-title="hint(d.zus.unlabeled.open)"
+                     t-att-role="role(d.zus.unlabeled.open)" t-att-tabindex="tab(d.zus.unlabeled.open)" t-on-click="() => this.open(d.zus.unlabeled.open)" t-on-keydown="(ev) => this.keyOpen(ev, d.zus.unlabeled.open)">
+                    <span>ZUS без мітки місяця (у сумі — за датою проводки): <t t-esc="d.zus.unlabeled.n"/></span><span class="text-nowrap" t-esc="money(d.zus.unlabeled.amount)"/>
+                </div>
+                <div t-if="d.zus.outside" class="small text-muted d-flex justify-content-between gap-2 mb-1" t-att-class="clickCls(d.zus.outside.open)" t-att-title="hint(d.zus.outside.open)"
+                     t-att-role="role(d.zus.outside.open)" t-att-tabindex="tab(d.zus.outside.open)" t-on-click="() => this.open(d.zus.outside.open)" t-on-keydown="(ev) => this.keyOpen(ev, d.zus.outside.open)">
+                    <span>З міткою поза вікном (не входить у жоден місяць): <t t-esc="d.zus.outside.n"/></span><span class="text-nowrap" t-esc="money(d.zus.outside.amount)"/>
+                </div>
+
+                <div class="fw-semibold mt-3 mb-1">Загальні фірм</div>
+                <div t-if="!d.office.rows.length" class="small text-muted mb-3">рядків «Офіс» немає</div>
+                <div t-else="" class="o_workset_profit_detail_wrap mb-2">
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Стаття</th>
+                                <th class="text-end">Сума, €</th>
+                                <th class="text-end">Записів</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="d.office.rows" t-as="r" t-key="r.key">
+                                <td>
+                                    <span class="d-block" t-esc="r.name"/>
+                                    <span t-if="r.plan" class="d-block small text-muted" t-esc="r.plan"/>
+                                </td>
+                                <td class="text-end text-nowrap" t-att-class="clickCls(r.open)" t-att-title="hint(r.open)" t-att-role="role(r.open)" t-att-tabindex="tab(r.open)"
+                                    t-on-click="() => this.open(r.open)" t-on-keydown="(ev) => this.keyOpen(ev, r.open)" t-esc="money(r.amount)"/>
+                                <td class="text-end" t-esc="r.n"/>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr class="fw-semibold">
+                                <td>Разом</td>
+                                <td class="text-end text-nowrap" t-att-class="clickCls(d.office.total.open)" t-att-title="hint(d.office.total.open)" t-att-role="role(d.office.total.open)" t-att-tabindex="tab(d.office.total.open)"
+                                    t-on-click="() => this.open(d.office.total.open)" t-on-keydown="(ev) => this.keyOpen(ev, d.office.total.open)" t-esc="money(d.office.total.amount)"/>
+                                <td class="text-end" t-esc="d.office.total.n"/>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <div t-if="d.office.dup" class="small text-muted d-flex justify-content-between gap-2 mb-1">
+                    <span>Рахунки ZUS / PIT-4 в «Офісі» — не входять (уже в ZUS)</span><span class="text-nowrap" t-esc="money(d.office.dup)"/>
+                </div>
+
+                <!-- як поділено (версія 1 — за годинами табеля): усі години періоду, ZUS і загальні на годину, частка лінії (ліній) -->
+                <t t-set="how" t-value="d.how"/>
+                <div class="fw-semibold mt-3 mb-1">Як поділено</div>
+                <ul class="list-unstyled small mb-2">
+                    <li class="d-flex justify-content-between gap-2"><span>Годин табеля за період (лінії й «без лінії»)</span><span class="text-nowrap" t-esc="whole(how.hours)"/></li>
+                    <li class="d-flex justify-content-between gap-2"><span>ZUS і PIT-4 на годину</span><span class="text-nowrap"><t t-esc="rate(how.zus_ph)"/> €</span></li>
+                    <li class="d-flex justify-content-between gap-2"><span>Загальні фірм на годину</span><span class="text-nowrap"><t t-esc="rate(how.office_ph)"/> €</span></li>
+                    <li class="d-flex justify-content-between gap-2 fw-semibold"><span>ZUS і загальні на годину</span><span class="text-nowrap"><t t-esc="rate(how.per_hour)"/> €</span></li>
+                    <li t-if="how.part" class="d-flex justify-content-between gap-2 fw-semibold mt-1">
+                        <span t-esc="d.part_label"/>
+                        <span class="text-nowrap"><t t-esc="whole(how.part.hours)"/> год × <t t-esc="rate(how.part.ph)"/> € <t t-if="how.part.exact">=</t><t t-else="">≈</t> <t t-esc="money(how.part.total)"/> €</span>
+                    </li>
+                    <li t-if="how.part" class="d-flex justify-content-between gap-2 text-muted"><span>з них ZUS, PIT-4 · загальні фірм</span><span class="text-nowrap"><t t-esc="money(how.part.zus)"/> · <t t-esc="money(how.part.office)"/></span></li>
+                </ul>
+                <div class="small o_workset_profit_muted" t-esc="d.hint"/>
+            </div>
+            <t t-set-slot="footer">
+                <button type="button" class="btn btn-primary" t-on-click="() => this.props.close()">Закрити</button>
+            </t>
+        </Dialog>
     </t>
 
     <!-- спливаюче вікно клітинки: ланцюжок місяця в обраній одиниці, «Відкрити рядки» — картка лінії -->

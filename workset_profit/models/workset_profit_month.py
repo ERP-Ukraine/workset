@@ -377,7 +377,8 @@ class WorksetProfitMonth(models.Model):
         rows = calc.assemble(hours, entries)
         # 4б (круг 4). ZUS і PIT-4 за місяцем роботи + загальні фірм (рядки «Офіс» без аналітики рахунків ZUS / PIT-4 — вона вже в ZUS) →
         # частки ліній і «без лінії» за годинами табеля; чисто й решта рядків — без змін
-        contrib = calc.contrib_sum(self._contrib_items(first))
+        items = self._contrib_items(first)
+        contrib = calc.contrib_sum(items)
         dup = self._contrib_in_rows(entries, refs)
         office = calc.eur(sum(calc.cents(r['net']) for r in rows if r['row_kind'] == 'office') - calc.cents(dup['office']))
         rows, oh = calc.overhead(rows, contrib['zus'], office)
@@ -390,7 +391,9 @@ class WorksetProfitMonth(models.Model):
         Overhead.create({'month': first, 'zus': oh['zus'], 'pit4': contrib['pit4'], 'office': oh['office'], 'office_dup': dup['office'],
                          'zus_elsewhere': dup['elsewhere'], 'total': oh['total'], 'hours': oh['hours'], 'per_hour': oh['per_hour'],
                          'zus_rest': oh['zus_rest'], 'office_rest': oh['office_rest'], 'move_ids': [(6, 0, contrib['move_ids'])],
-                         'unlabeled_ids': [(6, 0, contrib['unlabeled_ids'])]})
+                         'unlabeled_ids': [(6, 0, contrib['unlabeled_ids'])],
+                         # круг 5: склад для вікна «Що входить» (ті самі рахунки й аналітика, з яких числа вище; рахує не він)
+                         'breakdown': calc.overhead_breakdown(items, dup['by_analytic'])})
         return len(rows)
 
     # ——— ZUS і PIT-4 (круг 4; викликається з перерахунку й звірки — self уже sudo) ———
@@ -432,15 +435,26 @@ class WorksetProfitMonth(models.Model):
             out.append({'move_id': move.id, 'kind': kind, 'amount': calc.eur(total), 'date': calc.iso(move.date), 'texts': texts})
         return out
 
-    def _contrib_outside(self, first, last):
+    def _contrib_outside_moves(self, first, last):
         """Круг 4б: рахунки ZUS / PIT-4, проведені в місяці first – last, з міткою, до вікна якої дата проводки не входить
-        (calc.contrib_outside) — їх не рахує жоден місяць → {'n', 'amount'} для звірки (довідково)."""
+        (calc.contrib_outside) — їх не рахує жоден місяць → [{'move_id', 'kind', 'amount', 'date', 'texts'}] (_contrib_moves). Круг 5: їх
+        показує й вікно «Що входить» (довідково)."""
         dom = [('state', '=', 'posted'), ('move_type', 'in', list(calc.CONTRIB_TYPES)), ('date', '>=', first), ('date', '<=', last),
                '|', ('partner_id.name', 'ilike', 'ubezpiecze'), ('partner_id.name', 'ilike', 'skarbow')]
         skip = self.env['workset.rate'].sudo()._skip_companies()
         if skip:
             dom.append(('company_id', 'not in', skip))
-        got = [it for it in self._contrib_moves(dom) if calc.contrib_outside(it['texts'], it['date'])]
+        # спершу мітка (тексти й дата), суми — лише рахункам поза вікном (зазвичай їх немає): переводу валют на кожен рахунок періоду
+        # не потрібно (круг 5: вікно «Що входить» питає це й за рік)
+        ids = [m.id for m in self.env['account.move'].sudo().search(dom) if calc.contrib_outside(self._move_texts(m), calc.iso(m.date))]
+        if not ids:
+            return []
+        got = [it for it in self._contrib_moves(dom + [('id', 'in', ids)]) if calc.contrib_outside(it['texts'], it['date'])]
+        return got
+
+    def _contrib_outside(self, first, last):
+        """Рахунки з міткою поза вікном, проведені в місяці first – last (_contrib_outside_moves) → {'n', 'amount'} для звірки (довідково)."""
+        got = self._contrib_outside_moves(first, last)
         return {'n': len(got), 'amount': calc.eur(sum(calc.cents(it['amount']) for it in got))}
 
     def _contrib_ids(self, move_ids):

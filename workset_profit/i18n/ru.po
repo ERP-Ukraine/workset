@@ -310,11 +310,13 @@ msgid "Звірка місяця"
 msgstr "Сверка месяца"
 
 #. module: workset_profit
+#. odoo-javascript
 #: model:ir.model.fields,field_description:workset_profit.field_workset_profit_check__month
 #: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__month
 #: model:ir.model.fields,field_description:workset_profit.field_workset_profit_overhead__month
 #: model_terms:ir.ui.view,arch_db:workset_profit.view_month_search
 #: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_txn_search
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "Місяць"
 msgstr "Месяц"
 
@@ -698,7 +700,9 @@ msgid "ZUS і загальні місяця"
 msgstr "ZUS и общие месяца"
 
 #. module: workset_profit
+#. odoo-javascript
 #: model:ir.model.fields,field_description:workset_profit.field_workset_profit_overhead__zus
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "ZUS і PIT-4"
 msgstr "ZUS и PIT-4"
 
@@ -760,7 +764,9 @@ msgid "Усі години місяця, які рахує модуль: лін�
 msgstr "Все часы месяца, которые считает модуль: линии и «без линии»"
 
 #. module: workset_profit
+#. odoo-javascript
 #: model:ir.model.fields,field_description:workset_profit.field_workset_profit_overhead__per_hour
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "ZUS і загальні на годину"
 msgstr "ZUS и общие на час"
 
@@ -794,6 +800,16 @@ msgstr "Без метки месяца"
 #: model:ir.model.fields,help:workset_profit.field_workset_profit_overhead__unlabeled_ids
 msgid "Рахунки без єдиної мітки «ММ/РРРР» — місяць за датою проводки"
 msgstr "Счета без единственной метки «ММ/ГГГГ» — месяц по дате проводки"
+
+#. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_overhead__breakdown
+msgid "Склад ZUS і загальних"
+msgstr "Состав ZUS и общих"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_overhead__breakdown
+msgid "Службове для вікна «Що входить»: вид і сума кожного рахунку ZUS / PIT-4 (EUR) і аналітика цих рахунків у рядках «Офіс» за статтями. Пише перерахунок"
+msgstr "Служебное для окна «Что входит»: вид и сумма каждого счёта ZUS / PIT-4 (EUR) и аналитика этих счетов в строках «Офис» по статьям. Пишет пересчёт"
 
 #. module: workset_profit
 #: model:res.groups.privilege,name:workset_profit.res_groups_privilege_profit
@@ -838,8 +854,10 @@ msgid "Звірити"
 msgstr "Сверить"
 
 #. module: workset_profit
+#. odoo-javascript
 #: model_terms:ir.ui.view,arch_db:workset_profit.view_month_list
 #: model_terms:ir.ui.view,arch_db:workset_profit.view_dkv_txn_list
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "Разом"
 msgstr "Итого"
 
@@ -1084,6 +1102,12 @@ msgstr "Прибыльность линий"
 #. module: workset_profit
 #. odoo-javascript
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Лінії × місяці за цей період"
+msgstr "Линии × месяцы за этот период"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "Не вдалося оновити — на екрані попередні дані"
 msgstr "Не удалось обновить — на экране прежние данные"
 
@@ -1132,14 +1156,14 @@ msgstr "ZUS и общие"
 #. module: workset_profit
 #. odoo-javascript
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
-msgid "частка ліній за годинами; клік — усі рахунки місяця"
-msgstr "доля линий по часам; клик — все счета месяца"
+msgid "частка ліній за годинами; клік — що входить"
+msgstr "доля линий по часам; клик — что входит"
 
 #. module: workset_profit
 #. odoo-javascript
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
-msgid "загальні"
-msgstr "общие"
+msgid "· загальні"
+msgstr "· общие"
 
 #. module: workset_profit
 #. odoo-javascript
@@ -1150,8 +1174,20 @@ msgstr "Остаётся"
 #. module: workset_profit
 #. odoo-javascript
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Чисто за період"
+msgstr "Чисто за период"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "Чисто за місяць"
 msgstr "Чисто за месяц"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Залишається за період"
+msgstr "Остаётся за период"
 
 #. module: workset_profit
 #. odoo-javascript
@@ -1198,6 +1234,12 @@ msgstr "Собственники"
 #. module: workset_profit
 #. odoo-javascript
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Звірка:"
+msgstr "Сверка:"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "Звірка зійшлася"
 msgstr "Сверка сошлась"
 
@@ -1228,14 +1270,14 @@ msgstr "жильё из фонда работников"
 #. module: workset_profit
 #. odoo-javascript
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
-msgid "€ за місяць"
-msgstr "€ за месяц"
+msgid "€ за період"
+msgstr "€ за период"
 
 #. module: workset_profit
 #. odoo-javascript
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
-msgid "до минулого місяця, € год"
-msgstr "к прошлому месяцу, € ч"
+msgid "€ за місяць"
+msgstr "€ за месяц"
 
 #. module: workset_profit
 #. odoo-javascript
@@ -1290,18 +1332,6 @@ msgstr "перевозка"
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "Ліній за місяць немає"
 msgstr "Линий за месяц нет"
-
-#. module: workset_profit
-#. odoo-javascript
-#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
-msgid "Минулий місяць"
-msgstr "Прошлый месяц"
-
-#. module: workset_profit
-#. odoo-javascript
-#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
-msgid "Наступний місяць"
-msgstr "Следующий месяц"
 
 #. module: workset_profit
 #. odoo-javascript
@@ -1494,6 +1524,138 @@ msgstr "— упало больше чем на"
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "— місяць без годин зі ставкою, але з витратами; клік по клітинці — ланцюжок місяця."
 msgstr "— месяц без часов со ставкой, но с расходами; клик по ячейке — цепочка месяца."
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Період"
+msgstr "Период"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Рік"
+msgstr "Год"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Попередній"
+msgstr "Предыдущий"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Наступний"
+msgstr "Следующий"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "рахунків немає"
+msgstr "счетов нет"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Фірма"
+msgstr "Фирма"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Рахунків"
+msgstr "Счетов"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Разом, €"
+msgstr "Итого, €"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "ZUS без мітки місяця (у сумі — за датою проводки):"
+msgstr "ZUS без метки месяца (в сумме — по дате проводки):"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "З міткою поза вікном (не входить у жоден місяць):"
+msgstr "С меткой вне окна (не входит ни в один месяц):"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "рядків «Офіс» немає"
+msgstr "строк «Офис» нет"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Стаття"
+msgstr "Статья"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Сума, €"
+msgstr "Сумма, €"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Записів"
+msgstr "Записей"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Рахунки ZUS / PIT-4 в «Офісі» — не входять (уже в ZUS)"
+msgstr "Счета ZUS / PIT-4 в «Офисе» — не входят (уже в ZUS)"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Як поділено"
+msgstr "Как разделено"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Годин табеля за період (лінії й «без лінії»)"
+msgstr "Часов табеля за период (линии и «без линии»)"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "ZUS і PIT-4 на годину"
+msgstr "ZUS и PIT-4 на час"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Загальні фірм на годину"
+msgstr "Общие фирм на час"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "год ×"
+msgstr "ч ×"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "з них ZUS, PIT-4 · загальні фірм"
+msgstr "из них ZUS, PIT-4 · общие фирм"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "Закрити"
+msgstr "Закрыть"
 
 #. module: workset_profit
 #. odoo-javascript
