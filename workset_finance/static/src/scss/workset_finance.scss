@@ -1,0 +1,285 @@
+// Екран «Власник» («Фінанси», круг 2; макет A + таблиця «Драбина» макета B): одна сітка на всю ширину, картки ряду однакової ширини й висоти,
+// краї на одній лінії, без порожніх полів. Кольори — лише класи й SCSS-змінні Bootstrap ($primary, $gray-*, $border-color, $body-bg,
+// $body-color; світлий і темний бандли Odoo компілюють їх кожен зі своїми значеннями) — урок М3 fe7bf2b7c: CSS-змінних Bootstrap Odoo 19 не
+// задає. Своїх кольорів немає; колір — лише в тривог і в чистого прибутку (бренд, як у М3). У кожного стилю рядка таблиці — явний колір тексту
+// (урок 07.11: інакше на темній темі рядки різного кольору). Лише змінні й міксини Bootstrap (є в web.assets_backend): невідома змінна зламала
+// б увесь бандл бекенду. Класи — .o_workset_finance_*
+.o_workset_finance {
+    // усе, що відкриває записи (плитки, чипи, стовпці, рядки, клітинки), — один клас: рука й легке підкреслення при наведенні
+    .o_workset_finance_click {
+        cursor: pointer;
+
+        &:hover,
+        &:focus-visible {
+            text-decoration: underline;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 0.2em;
+        }
+    }
+    .o_workset_finance_num {
+        font-variant-numeric: tabular-nums;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    // другорядний текст без прозорості (text-muted Odoo напівпрозорий — на темній темі читався слабо, урок М3)
+    .o_workset_finance_muted {
+        color: $gray-500;
+    }
+    .o_workset_finance_min0 {
+        min-width: 0;
+    }
+    .o_workset_finance_count {
+        background-color: $gray-200;
+        color: $body-color;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+    }
+    .o_workset_finance_dot {
+        display: inline-block;
+        flex-shrink: 0;
+        width: 0.6rem;
+        height: 0.6rem;
+    }
+
+    // п'ять плиток — одна сітка, колонки однакові: телефон — в один стовпець (роздільник зверху), планшет — перша на всю ширину й 2 × 2,
+    // широко — п'ять колонок із роздільниками
+    .o_workset_finance_band {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        row-gap: map-get($spacers, 3);
+        padding: map-get($spacers, 3) 0;
+    }
+    .o_workset_finance_band_cell {
+        min-width: 0;
+        padding: 0 map-get($spacers, 3);
+    }
+    @include media-breakpoint-down(md) {
+        .o_workset_finance_band_cell + .o_workset_finance_band_cell {
+            border-top: 1px solid $border-color;
+            padding-top: map-get($spacers, 3);
+        }
+    }
+    @include media-breakpoint-only(md) {
+        .o_workset_finance_band {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .o_workset_finance_band_cell {
+            &:first-child {
+                grid-column: 1 / -1;
+            }
+            &:nth-child(odd):not(:first-child) {
+                border-left: 1px solid $border-color;
+            }
+        }
+    }
+    @include media-breakpoint-up(lg) {
+        .o_workset_finance_band {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+        }
+        .o_workset_finance_band_cell:not(:first-child) {
+            border-left: 1px solid $border-color;
+        }
+    }
+
+    // чипи: у рядок, скільки влазить, однакової висоти; клікабельні — рамка в колір теми при наведенні
+    .o_workset_finance_chips {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: stretch;
+        gap: map-get($spacers, 2);
+    }
+    .o_workset_finance_chip {
+        min-width: 0;
+        transition: box-shadow 0.15s ease, border-color 0.15s ease;
+
+        &.o_workset_finance_click:hover,
+        &.o_workset_finance_click:focus-visible {
+            text-decoration: none;
+            border-color: $primary;
+            box-shadow: 0 0 0 1px $primary;
+        }
+    }
+
+    // водоспад і графік року — широко поруч (однакова ширина й висота), вузько — один під одним; нижній ряд — так само
+    .o_workset_finance_panels,
+    .o_workset_finance_bottom {
+        display: grid;
+        gap: map-get($spacers, 3);
+        grid-template-columns: minmax(0, 1fr);
+    }
+    @include media-breakpoint-up(lg) {
+        .o_workset_finance_panels,
+        .o_workset_finance_bottom_2 {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .o_workset_finance_bottom_3 {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+    // графік тягнеться на всю висоту картки (поруч — водоспад), не нижче ~16 rem
+    .o_workset_finance_chart {
+        position: relative;
+        flex: 1 1 auto;
+        min-height: 16rem;
+    }
+
+    // водоспад: колонки однакової ширини впритул (лінія нуля й пунктир — через усі колонки), стовпець — у полі фіксованої висоти за
+    // геометрією сервера (bottom / height / end у %); на телефоні — гортається вбік
+    .o_workset_finance_fall {
+        display: grid;
+        grid-auto-columns: minmax(4.75rem, 1fr);
+        grid-auto-flow: column;
+        overflow-x: auto;
+    }
+    .o_workset_finance_fall_col {
+        min-width: 0;
+    }
+    .o_workset_finance_fall_area {
+        position: relative;
+        height: 13rem;
+        margin: 2rem 0;
+    }
+    .o_workset_finance_fall_zero {
+        position: absolute;
+        left: 0;
+        right: 0;
+        border-top: 1px solid $gray-600;
+    }
+    .o_workset_finance_fall_link {
+        position: absolute;
+        left: 90%;
+        width: 20%;
+        border-top: 1px dashed $gray-500;
+    }
+    .o_workset_finance_fall_bar {
+        position: absolute;
+        left: 10%;
+        right: 10%;
+        border-radius: 2px;
+    }
+    .o_workset_finance_fall_value {
+        position: absolute;
+        left: 0;
+        right: 0;
+        text-align: center;
+        line-height: 1.3;
+        padding: 2px 0;
+    }
+    // підпис під стовпцем — до двох рядків («Власники в P&L»), однакової висоти в усіх колонках
+    .o_workset_finance_fall_label {
+        min-height: 2.6em;
+        line-height: 1.3;
+        padding: 0 2px;
+    }
+    // перший стовпець і «до часток» — бренд світліше, чистий прибуток — бренд, доданок угору — сірий, мінус — темніший сірий
+    .o_workset_finance_fall_total {
+        background-color: $primary;
+        opacity: 0.75;
+    }
+    .o_workset_finance_fall_net {
+        background-color: $primary;
+    }
+    .o_workset_finance_fall_up {
+        background-color: $gray-500;
+    }
+    .o_workset_finance_fall_down {
+        background-color: $gray-600;
+    }
+
+    // «Власники»: код · смуга · сума; частка й витрати компанії — дрібно рядком нижче
+    .o_workset_finance_owner {
+        display: grid;
+        grid-template-columns: minmax(0, 5rem) minmax(0, 1fr) auto;
+        align-items: center;
+        column-gap: map-get($spacers, 2);
+        padding: map-get($spacers, 1) 0;
+        font-variant-numeric: tabular-nums;
+    }
+    .o_workset_finance_owner_bar {
+        display: block;
+        height: 0.5rem;
+        border-radius: $border-radius;
+        overflow: hidden;
+        background-color: $gray-200;
+    }
+    .o_workset_finance_owner_fill {
+        display: block;
+        height: 100%;
+        background-color: $primary;
+    }
+    .o_workset_finance_owner_sub {
+        grid-column: 1 / -1;
+    }
+    // «Перекази на особисті рахунки»: одержувач · сума · статус
+    .o_workset_finance_transfer {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        align-items: center;
+        column-gap: map-get($spacers, 3);
+        font-variant-numeric: tabular-nums;
+    }
+
+    // таблиця «Драбина»: гортається вбік, перша колонка закріплена (телефон); числа праворуч, заголовки не обрізаються
+    .o_workset_finance_scroll {
+        overflow-x: auto;
+    }
+    .o_workset_finance_ladder {
+        font-variant-numeric: tabular-nums;
+
+        th,
+        td {
+            vertical-align: middle;
+        }
+    }
+    .o_workset_finance_sticky {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background-color: $body-bg;
+    }
+    .o_workset_finance_rownum {
+        display: inline-block;
+        min-width: 1.75rem;
+    }
+    // обраний місяць — легка заливка кольору бренду; «Разом» — легка сіра
+    .o_workset_finance_sel {
+        background-color: rgba($primary, 0.12);
+    }
+    .o_workset_finance_total {
+        background-color: rgba($body-color, 0.06);
+        font-weight: 600;
+    }
+    // число з пометкою «розрах.» / «поправка» — тонке пунктирне підкреслення (при наведенні клікабельного — суцільне)
+    .o_workset_finance_src {
+        text-decoration: underline dotted;
+        text-decoration-thickness: 1px;
+        text-underline-offset: 0.25em;
+    }
+    // стилі рядків — у кожного явний колір тексту
+    .o_workset_finance_row_row {
+        th,
+        td {
+            color: $body-color;
+        }
+    }
+    .o_workset_finance_row_bold {
+        th,
+        td {
+            color: $body-color;
+            font-weight: 700;
+        }
+    }
+    .o_workset_finance_row_accent {
+        th,
+        td {
+            color: $primary;
+            font-weight: 700;
+        }
+    }
+    .o_workset_finance_row_muted {
+        th,
+        td {
+            color: $gray-600;
+        }
+    }
+}

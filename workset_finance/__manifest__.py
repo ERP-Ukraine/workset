@@ -13,9 +13,10 @@
     'website': 'https://workset.com.ua',
     'license': 'LGPL-3',
     'category': 'Accounting',
-    'version': '19.0.1.0.0',
+    # 19.0.1.1.0 (круг 2) — екран «Власник» (client action, ассети), меню «Власник» першим, переклад ru.po
+    'version': '19.0.1.1.0',
     # workset_rates — периметр фірм (_skip_companies) і лінії (workset.line); account, analytic — проводки й аналітика; hr — розділ кадрів
-    # форми користувача для привілею; mail — листування поправок
+    # форми користувача для привілею; mail — листування поправок; web (Chart.js екрана) — через account
     'depends': ['workset_rates', 'account', 'hr', 'analytic', 'mail'],
     'data': [
         'security/workset_finance_security.xml',
@@ -24,9 +25,18 @@
         'views/workset_finance_item_views.xml',
         'views/workset_finance_adjust_views.xml',
         'views/workset_finance_check_views.xml',
+        'views/workset_finance_screens_views.xml',
         'views/menus.xml',
         'data/ir_cron.xml',
     ],
+    # круг 2: екран «Власник» (client action OWL)
+    'assets': {
+        'web.assets_backend': [
+            'workset_finance/static/src/scss/workset_finance.scss',
+            'workset_finance/static/src/js/finance_screens.js',
+            'workset_finance/static/src/xml/finance_screens.xml',
+        ],
+    },
     'installable': True,
     'auto_install': False,
     'application': True,

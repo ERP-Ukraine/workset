@@ -452,6 +452,32 @@ class TestWorksetFinance(TransactionCase):
         self.assertIn(calc.t('no_analytic_row', 0), acc.note)
         self.assertAlmostEqual(sum(items.mapped('amount')), 90 + 45 + 63)
 
+    def test_stage2_account_lines_only_without_analytic(self):
+        """Круг 2 (ревю 1е): у проводці «II етапу» без рядка статті в 4' — лише рядки рахунку БЕЗ аналітики (як документ v2). Пара «+X без
+        аналітики / −X з іншою статтею» не гаситься в 0; рядок рахунку з конвертом AN рахується один раз (рядком конверта); рядки з іншою статтею —
+        примітка звірки «скільки й на яку суму»."""
+        other = self.env['account.analytic.account'].create({'name': 'Stage other', 'plan_id': self.root.id, 'company_id': False})
+        self._entry(self.co, '2030-03-26', [{'account_id': self.st2_acc.id, 'debit': 5, 'name': 'Payout PHRASE A pair'},
+                                            {'account_id': self.st2_acc.id, 'credit': 5, 'name': 'Payout PHRASE A pair back',
+                                             'analytic_distribution': {str(other.id): 100}}])
+        self._entry(self.co, '2030-03-27', [{'account_id': self.st2_acc.id, 'debit': 7, 'name': 'Payout PHRASE A envelope',
+                                             'analytic_distribution': {str(self.a_an.id): 100}}, {'account_id': self.cash.id, 'credit': 7}])
+        res = self._run()
+        m = self._month()
+        self.assertAlmostEqual(m.cash_out, 98 + 45 + 7, msg='+5 без аналітики × 9 = 45 (пара з −5 зі статтею — не 0); конверт AN −7 — лише рядком конверта (7), '
+                                                          'не ще 7 × 9; код круга 1е дав би 98 + 0 + 63 + 7 = 168')
+        self.assertIn(calc.t('stage2_other', 0) % (1, '−5,00'), res['verify'][0]['text'], 'рядок −5 з іншою статтею — примітка; рядок конверта — ні')
+        self.assertTrue(res['verify'][0]['ok'], 'примітка на «зійшлося» не впливає')
+        self.assertAlmostEqual(m.s6_stage2, 34 + 7, msg='ступінь 6 — як раніше: увесь баланс рахунку «II етапу» (+5 − 5 + 7)')
+
+    def test_mediators_not_seeded_note(self):
+        """Круг 2 (ревю 1е): посередників не посіяно — примітка звірки (забутий --seed інакше мовчки пускає їх в оборот); посіяно — примітки немає."""
+        note = calc.t('mediator_missing', 0) % (calc.P_PREFIX + 'mediator_partner_ids')
+        self.assertIn(note, self._run()['verify'][0]['text'])
+        mediator = self.env['res.partner'].create({'name': 'Mediator N', 'is_company': True})
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_PREFIX + 'mediator_partner_ids', str(mediator.id))
+        self.assertNotIn(note, self._run()['verify'][0]['text'])
+
     # ——— поправки ———
     def test_adjust_changes_step3_and_step4_and_marks_adjust(self):
         self._run()
@@ -582,8 +608,9 @@ class TestWorksetFinance(TransactionCase):
             self.Month.with_user(owner).finance_recompute([M])
         got = self.Month.with_user(owner).finance_owner(M)
         self.assertTrue(got['has'])
-        self.assertAlmostEqual(got['steps']['s4_net'], 128)
-        self.assertEqual(got['src']['s1_docs'], 'fact')
+        self.assertAlmostEqual({x['key']: x['value'] for x in got['tiles']}['s4_net'], 128)
+        self.assertEqual({r['key']: r['cells'][-1]['src'] for r in got['ladder']['rows']}['s1_docs'], 'fact')
+        self.assertEqual(got['ladder']['rows'][4]['cells'][-1]['open']['res_id'], self._month().id, 'власник відкриває картку місяця своїми правами')
         self.assertTrue(self.Month.with_user(owner).finance_verify([M])['months'][0]['ok'])
         with self.assertRaises(ValidationError):
             self.Month.with_user(owner).finance_owner('2025-12-01')
@@ -604,6 +631,169 @@ class TestWorksetFinance(TransactionCase):
         with self.assertRaisesRegex(ValidationError, r'Забагато місяців за раз|Слишком много месяцев за раз'):
             self.Month.finance_recompute(many)
         self.assertEqual(len(self.Month._months(calc.month_list('2026-01-01', calc.add_months('2026-01-01', calc.MAX_MONTHS - 1)))), calc.MAX_MONTHS)
+
+    # ——— круг 2: екран «Власник» ———
+    def _owner(self, month=M, today='2030-04-10'):
+        return self.Month.with_context(finance_today=today).finance_owner(month)
+
+    def _records(self, spec):
+        """Записи, які відкриває клік (опис сервера: модель і домен; res_id — один запис)."""
+        self.assertTrue(spec, 'у числа є опис списку')
+        Model = self.env[spec['model']].with_context(active_test=True)
+        return Model.browse(spec['res_id']) if spec.get('res_id') else Model.search(spec['domain'])
+
+    def test_owner_screen_tiles_ytd_waterfall_and_ladder(self):
+        """Плитки = полям місяця; «з початку року» = Σ місяців року до обраного; водоспад сходиться до s4_net (нульові ступені сховано);
+        таблиця = полям місяців (частки — мінусом), «Разом» = Σ; колонки — лише пораховані місяці; ряд графіка — ті самі колонки."""
+        self._adjust('s3', 20, line_id=self.line.id)
+        self._adjust('s1g', 5)
+        self._run((FEB, M))
+        feb, mar = self._month(FEB), self._month(M)
+        data = self._owner()
+        self.assertTrue(data['has'])
+        self.assertEqual((data['month']['value'], data['year']), (M, '2030'))
+        tiles = {x['key']: x for x in data['tiles']}
+        self.assertEqual([x['key'] for x in data['tiles']], list(calc.TILES))
+        self.assertEqual(self._r(tiles['s4_net']['value'], tiles['s4c_cash']['value'], tiles['recruiting']['value'], tiles['s2_ukraine']['value'],
+                                 tiles['s3_shares']['value']),
+                         self._r(mar.s4_net, mar.s4c_cash, mar.s1_docs + mar.s1a_owners_in_pl + mar.s1g_no_analytic, mar.s2_ukraine, -mar.s3_shares))
+        self.assertEqual(self._r(mar.s4_net, mar.s4c_cash), [113, 35], 'передумова: 133 − 20; 133 − 98')
+        for key in ('s4_net', 's4c_cash', 's2_ukraine'):
+            self.assertAlmostEqual(tiles[key]['ytd'], feb[key] + mar[key], msg='з початку року = лютий + березень: %s' % key)
+        self.assertAlmostEqual(tiles['s3_shares']['ytd'], -(feb.s3_shares + mar.s3_shares))
+        self.assertAlmostEqual(self._owner(FEB)['tiles'][0]['ytd'], feb.s4_net, msg='з початку року — лише до обраного місяця')
+        # водоспад: 1 → 1а → 1г → 2 → до часток → частки → чистий прибуток; сходиться до цента
+        fall = data['waterfall']
+        bars = fall['bars']
+        self.assertEqual([b['key'] for b in bars], ['s1_docs', 's1a_owners_in_pl', 's1g_no_analytic', 's2_ukraine', 'base', 's3_shares', 's4_net'])
+        cents = [calc.cents(b['amount']) for b in bars]
+        self.assertEqual(sum(cents[:4]), cents[4], 'доданки дають «до часток»')
+        self.assertEqual(cents[4] + cents[5], cents[6])
+        self.assertEqual(cents[6], calc.cents(mar.s4_net), 'останній стовпець — s4_net до цента')
+        self.assertTrue(fall['ok'])
+        # таблиця «Драбина»: колонки — пораховані місяці (січня немає), клітинки = поля місяців, «Разом» = Σ
+        lad = data['ladder']
+        self.assertEqual([m['value'] for m in lad['months']], [FEB, M], 'непорахованих колонок немає')
+        self.assertEqual(lad['selected'], 1)
+        self.assertEqual([r['key'] for r in lad['rows']], [k for k, *_x in calc.LADDER_ROWS])
+        for r in lad['rows']:
+            sign = -1 if r['key'] == 's3_shares' else 1
+            self.assertEqual([c['value'] for c in r['cells']], self._r(sign * feb[r['key']], sign * mar[r['key']]), r['key'])
+            self.assertEqual(calc.cents(r['total']['value']), sum(calc.cents(c['value']) for c in r['cells']), '«Разом» = Σ: %s' % r['key'])
+            self.assertEqual([c['text'] for c in r['cells']], [calc.k_text(c['value']) for c in r['cells']])
+        rows = {r['key']: r for r in lad['rows']}
+        self.assertEqual(rows['s3_shares']['cells'][1]['src'], 'adjust')
+        self.assertIn('test basis', rows['s3_shares']['cells'][1]['hint'], 'поправка — підказка з підставою')
+        self.assertEqual(rows['base']['cells'][0]['hint'], calc.t('h_calc', self.Month._lang()), 'без поправки — «розрахунок штабу»')
+        self.assertEqual(rows['s1_docs']['cells'][1]['hint'], '', 'факт — без підказки')
+        self.assertEqual(rows['s1g_no_analytic']['cells'][0]['text'], '—', 'нуль — «—»')
+        self.assertEqual(data['series']['months'], [FEB, M])
+        self.assertEqual(data['series']['net'], [calc.k_value(feb.s4_net), calc.k_value(mar.s4_net)])
+        self.assertEqual(data['series']['selected'], 1)
+        # без поправок нульові ступені 1г і 3 сховано
+        self.Adjust.search([]).write({'active': False})
+        self._run((M,))
+        self.assertEqual([b['key'] for b in self._owner()['waterfall']['bars']], ['s1_docs', 's1a_owners_in_pl', 's2_ukraine', 'base', 's4_net'])
+
+    def test_owner_screen_months_default_and_before_2026(self):
+        """Місяць за замовчуванням — останній закритий, закритих немає — останній завершений календарний; вибір — лише місяці з записом;
+        до 2026 — відмова; місяць без запису — «немає даних», таблиця року лишається."""
+        self._run((FEB, M))
+        self.assertEqual(self._owner(None)['month']['value'], M, 'закритих немає — останній завершений місяць (сьогодні 10.04)')
+        self.assertEqual(self._owner(None, today='2030-03-31')['month']['value'], FEB, 'березень ще не завершено')
+        self._month(FEB).write({'state': 'closed'})
+        self.assertEqual(self._owner(None)['month']['value'], FEB, 'є закритий — він')
+        data = self._owner()
+        self.assertEqual([c['value'] for c in data['choices']], [M, FEB], 'вибір — лише місяці з записом, від останнього')
+        self.assertTrue(all(c['value'] >= calc.MIN_MONTH for c in data['choices']))
+        with self.assertRaises(ValidationError):
+            self._owner('2025-12-01')
+        empty = self._owner('2030-05-01')
+        self.assertFalse(empty['has'])
+        self.assertEqual((empty['tiles'], empty['chips'], empty['owners'], empty['transfers'], empty['aside']), ([], [], False, False, False))
+        self.assertEqual([m['value'] for m in empty['ladder']['months']], [FEB, M], 'таблиця року — є')
+        self.assertEqual(empty['ladder']['selected'], -1)
+
+    def test_owner_screen_chips_only_when_something_to_say(self):
+        self._run()
+        lang = self.Month._lang()
+        chips = {c['key']: c for c in self._owner()['chips']}
+        self.assertEqual(set(chips), {'open', 'check', 'quality', 'stamp'}, 'поправок немає — чипа «Поправки» немає')
+        self.assertTrue(chips['check']['ok'])
+        self.assertEqual(self._records(chips['check']['open']), self.env['workset.finance.check'].search([('month', '=', M)]), 'клік — звірка місяця')
+        q = chips['quality']
+        m = self._month()
+        self.assertEqual((q['pct'], q['bad'], q['parts'], q['ext'], q['threshold']), (m.q_pct, True, 118, 183, calc.TRUTH_PCT),
+                         'доля як у закриття місяця; не розібрано 35 + 83 із обороту 183')
+        self.assertEqual(q['open']['dialog'], 'quality', 'клік — три кошики з тієї самої відповіді')
+        self.assertEqual([b['key'] for b in q['baskets']], ['ic', 'unplaced'], 'нульові кошики (банк без документа) — без рядка')
+        self.assertEqual([b['label'] for b in q['baskets']], [calc.t('q_ic', lang), calc.t('q_unplaced', lang)], 'підпис — за кодом примітки')
+        unplaced = self._records(q['baskets'][1]['open'])
+        self.assertEqual(unplaced.move_id, self.inv_noshare | self.inv_paid, 'кошик — свої записи')
+        self.assertRegex(chips['stamp']['text'], r'^\d{2}\.\d{2} \d{2}:\d{2}$', '«Перераховано ДД.ММ ГГ:ХХ»')
+        # поправка є — чип з кількістю (живий підрахунок), місяць закрито — чипа немає, кошики порожні — чипа якості немає, звірка не зійшлась
+        self._adjust('s3', 3)
+        m.write({'state': 'closed', 'q_ic': 0, 'q_unplaced': 0, 'q_nodoc': 0})
+        self.env['workset.finance.check'].search([('month', '=', M)]).write({'ok': False})
+        chips = {c['key']: c for c in self._owner()['chips']}
+        self.assertEqual(set(chips), {'check', 'adjust', 'stamp'})
+        self.assertEqual(chips['adjust']['count'], 1)
+        self.assertEqual(len(self._records(chips['adjust']['open'])), 1)
+        self.assertFalse(chips['check']['ok'], 'не зійшлася — червоним')
+        m.write({'q_ext': 0, 'q_ic': 5})
+        self.assertNotIn('quality', [c['key'] for c in self._owner()['chips']], 'частка не порахована (оборот 0) — чипа немає')
+
+    def test_owner_screen_clicks_open_own_records(self):
+        """Кожне число відкриває свої записи: клітинки таблиці, плитки, стовпці водоспаду, «Власники», «Перекази», «Окремо від прибутку»."""
+        P = calc.P_PREFIX
+        self._adjust('s3', 20, line_id=self.line.id)
+        eur_bank = self._bank_journal('TBE')
+        self.env['ir.config_parameter'].sudo().set_param(P + 'transfer_phrases', json.dumps(['na konto osobiste']))
+        row = self._st(eur_bank, -50, 'Przelew na konto osobiste')
+        self._run()
+        m = self._month()
+        data = self._owner()
+        AAL = 'account.analytic.line'
+        lad = {r['key']: r for r in data['ladder']['rows']}
+        cell = {k: r['cells'][-1] for k, r in lad.items()}
+        self.assertAlmostEqual(sum(self._records(cell['s1_docs']['open']).mapped('amount')), m.s1_docs, msg='1 — рядки аналітики ступеня')
+        self.assertAlmostEqual(-sum(self._records(cell['s1a_owners_in_pl']['open']).mapped('amount')), m.s1a_owners_in_pl)
+        self.assertAlmostEqual(sum(self._records(cell['s2_ukraine']['open']).mapped('amount')), m.s2_ukraine)
+        self.assertEqual(cell['s1_docs']['open']['model'], AAL)
+        self.assertEqual(self._records(cell['s3_shares']['open']).mapped('amount'), [20], '3 — поправки місяця')
+        self.assertEqual(self._records(cell['base']['open']), m, '«до часток» — картка місяця')
+        self.assertEqual(cell['s4_net']['open']['res_id'], m.id)
+        cash = self._records(cell['s4c_cash']['open'])
+        self.assertEqual(set(cash.mapped('kind')), {'cash', 'cash_other'}, "4' — що віднімається і що не входить")
+        self.assertEqual(cell['s4c_cash']['open']['context']['group_by'], ['kind', 'line_id'], 'одна лінія — одна група, не дробимо')
+        self.assertFalse(cell['s1g_no_analytic']['open'], 'нуль — без кліку')
+        self.assertEqual(len(self._records(lad['s1_docs']['total']['open'])), 1, '«Разом» — рядки деталі ступеня за місяці року')
+        # плитки: число = список
+        tiles = {x['key']: x for x in data['tiles']}
+        rec = self._records(tiles['recruiting']['open'])
+        self.assertAlmostEqual(sum(rec.mapped('amount')), tiles['recruiting']['value'], msg='рекрутинг за документами = 1 + 1а + 1г у списку')
+        self.assertEqual(self._records(tiles['s4_net']['open']), m)
+        # водоспад: стовпець — свої записи
+        bars = {b['key']: b for b in data['waterfall']['bars']}
+        self.assertAlmostEqual(sum(self._records(bars['s2_ukraine']['open']).mapped('amount')), m.s2_ukraine)
+        # «Власники»: рядок на власника (стаття прямо у вузлі «власники» — сама стаття), частка окремо; клік — рядки аналітики
+        own = data['owners']
+        self.assertAlmostEqual(own['total'], m.s5_owners)
+        self.assertEqual([(o['code'], o['total'], o['share'], o['company']) for o in own['rows']],
+                         [(self.a_owner.display_name, 10, 0, 10), (self.a_share.display_name, 6, 6, 0)])
+        self.assertEqual(self._records(own['rows'][0]['open']).mapped('amount'), [-10])
+        self.assertEqual(set(self._records(own['open']).mapped('kind')), {'owner', 'owner_share'})
+        # «Перекази»: одержувач × сума × статус; клік — рядки виписки
+        tr = data['transfers']
+        self.assertEqual([(r['amount'], r['status']) for r in tr['rows']], [(50, 'nodoc')])
+        self.assertEqual(self._records(tr['rows'][0]['open']), row)
+        # «Окремо від прибутку»: II етап, не оплачено замовниками й Energy; клік — рахунки
+        aside = {a['key']: a for a in data['aside']['rows']}
+        self.assertEqual(self._r(aside['stage2']['amount'], aside['customers']['amount'], aside['energy']['amount']), [34, 100, 20])
+        self.assertEqual(self._records(aside['customers']['open']), self.inv_cust)
+        self.assertEqual(self._records(aside['energy']['open']), self.inv_energy)
+        self.assertTrue(aside['energy']['warn'])
+        self.assertEqual(set(self._records(aside['stage2']['open']).mapped('kind')), {'stage2'})
 
     def test_closed_takes_parent_company_lock_date(self):
         Company = self.env['res.company']

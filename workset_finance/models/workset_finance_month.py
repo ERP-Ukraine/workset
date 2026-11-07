@@ -9,8 +9,8 @@
   тож контроль ловить лише розбіжність повз ORM (SQL, міграція, контекст skip_analytic_sync), а рядок без розподілу видно в «без місця»;
   1а — вузли власників усередині тієї ж вибірки (повернення в прибуток); 1г — лише поправки + підрахунок кандидатів (сплачені рахунки клієнтів без аналітики, за датою оплати);
 - 2 — Україна: фірма, план і рахунок ліквідності з параметрів; 3 — сума активних поправок ступеня 3; 4 = до часток − 3;
-  4' = до часток − перекази партнерам нетто: проводки «II етапу» за місяць — рядок аналітики статті, а якщо в проводці його немає, рядок
-  рахунку «II етапу» (без подвійного рахунку; круг 1е), що за текстом (name + ім'я партнера, підрядок, без регістру) потрапили на розпізнану
+  4' = до часток − перекази партнерам нетто: проводки «II етапу» за місяць — рядок аналітики статті, а якщо в проводці його немає, рядки
+  рахунку «II етапу» без аналітики (без подвійного рахунку; круг 1е; з іншою статтею — не в 4', примітка звірки, круг 2), що за текстом (name + ім'я партнера, підрядок, без регістру) потрапили на розпізнану
   лінію, × 9; транзитні фрази й нерозпізнані рядки в 4' не входять; AN — від'ємні рядки конверта як є);
 - 5 — вузли власників, «частка» (статті з параметра) окремо; 6 — аналітика «II етапу» + баланс його рахунку;
 - 7 — неоплачені рахунки клієнтів із часткою рекрутингу: замовники / Energy / міжфірмові й фірми поза периметром (не показуємо);
@@ -76,8 +76,8 @@ class WorksetFinanceMonth(models.Model):
     s4_net = fields.Monetary(string='4 Чистий прибуток', currency_field='currency_id', readonly=True, help='До часток мінус частки партнерів')
     s4_net_src = fields.Selection(SRC, string='4: звідки', readonly=True)
     s4c_cash = fields.Monetary(string="4' За грошима", currency_field='currency_id', readonly=True,
-                               help='До часток мінус перекази партнерам нетто (проводки «II етапу» на розпізнаних лініях × 9: рядок аналітики, без нього — рядок '
-                                    'рахунку; без транзиту; конверт AN)')
+                               help='До часток мінус перекази партнерам нетто (проводки «II етапу» на розпізнаних лініях × 9: рядок аналітики, без нього — рядки '
+                                    'рахунку без аналітики; без транзиту; конверт AN)')
     s4c_cash_src = fields.Selection(SRC, string="4': звідки", readonly=True)
     s5_owners = fields.Monetary(string='5 Власники', currency_field='currency_id', readonly=True, help='Мінус аналітика вузлів власників (витрати — додатне число)')
     s5_owners_src = fields.Selection(SRC, string='5: звідки', readonly=True)
@@ -154,9 +154,11 @@ class WorksetFinanceMonth(models.Model):
         return values
 
     def _param_notes(self, lang):
-        """Примітки звірки про параметри фраз (calc.param_notes): фрази-числа розбір пропускає — звірка називає параметр і скільки."""
+        """Примітки звірки про параметри (calc.param_notes): фрази-числа розбір пропускає — звірка називає параметр і скільки; посередники
+        (mediator_partner_ids) не посіяно — примітка (круг 2, ревю 1е), щоб забутий --seed не ховав посередників в обороті."""
         get = self.env['ir.config_parameter'].sudo().get_param
-        return calc.param_notes({n: get(calc.P_PREFIX + n) or '' for n, kind, _req in calc.PARAM_SPECS if kind in ('phrases', 'phrasepairs')}, lang)
+        return calc.param_notes({n: get(calc.P_PREFIX + n) or '' for n, kind, _req in calc.PARAM_SPECS
+                                 if kind in ('phrases', 'phrasepairs') or n == 'mediator_partner_ids'}, lang)
 
     def _perimeter(self):
         """Фірми периметра: усі активні мінус workset_rates.out_of_perimeter_company_ids."""
@@ -282,7 +284,7 @@ class WorksetFinanceMonth(models.Model):
     def _bank_nodoc(self, first, last, cos, our, mediators):
         """«Банк без документа» як закриття місяця (--check): несвірені рядки виписок фірм периметра за місяць — без вікна «старше 14 днів»
         (на закритті все має бути розібрано; його ж частку бере сторож), сума в EUR (_eur_of), 4 види calc.NO_DOC_CATS, дублі виписок відсіяно →
-        calc.bank_nodoc + {'ids': усі рядки}."""
+        calc.bank_nodoc як є ({'cats', 'nodoc', 'dups'}; рядки — у cats[вид]['ids'])."""
         BSL = 'account.bank.statement.line'
         dom_bank = [('company_id', 'in', cos), ('is_reconciled', '=', False), ('date', '>=', first), ('date', '<=', last)]
         st = self.env[BSL].search(dom_bank, order='id')
@@ -394,10 +396,15 @@ class WorksetFinanceMonth(models.Model):
         # проводки (знак і сума — як у рядка статті: додатна частка 10 %), без подвійного рахунку (проводка з обома — один раз; круг 1д:
         # «лише рядки статті» губило проводки без аналітики). Партнера майже немає — одержувач у тексті: фраза → лінія (приватний посів),
         # решта — «не розпізнано», транзитні фрази — «транзит»; рядків за місяць десятки, тому зіставлення — циклом у Python.
-        # Текст для збігу = name рядка + ім'я партнера рядка (рядка аналітики — або партнера move_line_id, рядка рахунку — або партнера проводки)
+        # Текст для збігу = name рядка + ім'я партнера рядка (рядка аналітики — або партнера move_line_id, рядка рахунку — або партнера проводки).
+        # Круг 2 (ревю 1е): у проводці без рядка статті в 4' — лише рядки рахунку БЕЗ аналітики (як документ v2: пара «+X без аналітики / −X зі
+        # статтею» інакше давала 0, а рядок конверта AN рахувався б удруге); рядки з іншою статтею — не в 4', примітка звірки (calc.stage2_other)
         aal6 = me.env[AAL].search(dom6a, order='id')
         with_an = set(aal6.move_line_id.move_id.ids)
-        ml6 = me.env[ML].search(dom6m, order='id').filtered(lambda x: x.move_id.id not in with_an)
+        ml6_all = me.env[ML].search(dom6m, order='id').filtered(lambda x: x.move_id.id not in with_an)
+        ml6 = ml6_all.filtered(lambda x: not x.analytic_distribution)
+        other6 = calc.stage2_other([(l.id, l.analytic_distribution, calc.cents(l.balance)) for l in ml6_all if l.analytic_distribution],
+                                   p['an_envelope_analytic_id'])
 
         def text6(name, partner):
             return ' '.join(x for x in (name or '', partner.name or '') if x)
@@ -430,6 +437,8 @@ class WorksetFinanceMonth(models.Model):
                                       note='%s; %s%s' % (calc.t(key, lang), calc.t('not_in_4', lang), src)))
         partner_net = cash6['partner_net']
         notes = ([calc.t('line_missing', lang) % lost_lines] if lost_lines else []) + me._param_notes(lang)
+        if other6['n']:
+            notes.append(calc.t('stage2_other', lang) % (other6['n'], calc.money_text(calc.eur(other6['cents']))))
         an = 0.0
         if p['an_envelope_analytic_id']:
             dom_an = [('account_id', '=', p['an_envelope_analytic_id']), ('amount', '<', 0), ('company_id', 'in', cos)] + dates
@@ -487,7 +496,7 @@ class WorksetFinanceMonth(models.Model):
         # MC.truthShare); --verify звіряє кожен кошик, оборот і частку саме з ним
         control, ic_c, unp = me._pl_pass(first, last, cos, p, ic, out)
         transit_dom = [('move_id', 'not in', p['quality_transit_move_ids'])] if p['quality_transit_move_ids'] else []
-        # оборот із зовнішніми — як truthTurnover: без своїх фірм, фірм поза периметром і посередників (THESEUS / Letrona)
+        # оборот із зовнішніми — як truthTurnover: без своїх фірм, фірм поза периметром і посередників (параметр mediator_partner_ids)
         ext_excl = ic | out | set(p['mediator_partner_ids'])
         ext = -me._asum([('parent_state', '=', 'posted'), ('account_id.account_type', 'in', list(calc.INCOME_TYPES)), ('company_id', 'in', cos),
                          ('move_id.move_type', 'in', list(calc.EXT_TYPES)), ('move_id.commercial_partner_id', 'not in', sorted(ext_excl))] + transit_dom + dates,
@@ -602,26 +611,7 @@ class WorksetFinanceMonth(models.Model):
             cos, ic, out_p = res['companies'], res['ic'], res['out']
         return {'months': out, 'companies': cos, 'intercompany_partner_ids': sorted(ic), 'out_of_perimeter_partner_ids': sorted(out_p)}
 
-    @api.model
-    def finance_owner(self, month=None):
-        """Екран «Власник» (круг 2): заглушка круга 1 — поля місяця як є, правами користувача. Місяць — лише 2026+ (немає — останній
-        перерахований). → {'month', 'has', 'steps', 'src', 'state', 'recomputed_at'}."""
-        self._check_screen('owner')
-        if month:
-            first = calc.month_first(calc.iso(month))
-            if not calc.month_ok(first):
-                raise ValidationError(calc.t('month_range', self._lang()) % calc.iso(month))
-            rec = self.search([('month', '=', first)], limit=1)
-        else:
-            rec = self.search([], limit=1)
-            first = calc.iso(rec.month) if rec else calc.month_first(calc.iso(self._today()))
-        if not rec:
-            return {'month': first, 'has': False}
-        data = rec.read(list(calc.MONEY) + ['g_cand_count', 'q_pct'] + [k + '_src' for k in calc.STEPS if k + '_src' in self._fields]
-                        + ['state', 'recomputed_at'])[0]
-        return {'month': first, 'has': True, 'steps': {k: data[k] for k in list(calc.MONEY) + ['g_cand_count', 'q_pct']},
-                'src': {k: data[k + '_src'] for k in calc.STEPS if k + '_src' in data}, 'state': data['state'],
-                'recomputed_at': fields.Datetime.to_string(data['recomputed_at']) if data['recomputed_at'] else ''}
+    # екран «Власник» (finance_owner) — models/workset_finance_screens.py (круг 2)
 
     def _months_of(self):
         return sorted({calc.iso(r.month) for r in self})

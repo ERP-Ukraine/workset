@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Чисті функції «Фінансів» (круг 1, екран «Власник»): без Odoo і без бази — на словниках, списках і рядках «РРРР-ММ-ДД».
+"""Чисті функції «Фінансів» (круг 1 — драбина, круг 2 — екран «Власник»): без Odoo і без бази — на словниках, списках і рядках «РРРР-ММ-ДД».
 
 Модель (models/workset_finance_month.py) читає базу, кличе ці функції й пише підсумок «місяць драбини»; тести без Odoo запускають їх
 напряму (файл не імпортує odoo й інших файлів модуля). Гроші — EUR, знак як у книгах (витрата — мінус), крім «довідкових» ступенів, які
@@ -113,6 +113,47 @@ TX = {
     'nodoc_noBillsFirm': ['Банк без документа: фірма без рахунків', 'Банк без документа: фирма без счетов'],
     'nodoc_noBillsPerson': ['Банк без документа: фізособа без рахунків', 'Банк без документа: физлицо без счетов'],
     'no_analytic_row': ['проводка без рядка аналітики статті — взято рядок рахунку', 'проводка без строки аналитики статьи — взята строка счёта'],
+    'stage2_other': ["«II етап»: рядків рахунку з іншою статтею аналітики (не в 4'): %d на %s.",
+                     "«II этап»: строк счёта с другой статьёй аналитики (не в 4'): %d на %s."],
+    'mediator_missing': ['Параметр %s не посіяно: посередники рахуються в обороті із зовнішніми й у «банку без документа» — запустіть --seed.',
+                         'Параметр %s не посеян: посредники считаются в обороте с внешними и в «банке без документа» — запустите --seed.'],
+    # круг 2, екран «Власник»: рядки таблиці «Драбина» (r_), стовпці водоспаду (w_), ряди графіка (l_), підказки (h_), заголовки списків кліку (o_)
+    'r_s1_docs': ['Рекрутинг за документами', 'Рекрутинг по документам'],
+    'r_s1a_owners_in_pl': ['Власники в P&L', 'Владельцы в P&L'],
+    'r_s1g_no_analytic': ['Дохід без аналітики', 'Доход без аналитики'],
+    'r_s2_ukraine': ['− Україна', '− Украина'],
+    'r_base': ['До часток', 'До долей'],
+    'r_s3_shares': ['− Частки партнерів', '− Доли партнёров'],
+    'r_s4_net': ['Чистий прибуток', 'Чистая прибыль'],
+    'r_s4c_cash': ['За грошима', 'По деньгам'],
+    'w_s1_docs': ['Рекрутинг', 'Рекрутинг'],
+    'w_s1a_owners_in_pl': ['Власники в P&L', 'Владельцы в P&L'],
+    'w_s1g_no_analytic': ['Дохід без аналітики', 'Доход без аналитики'],
+    'w_s2_ukraine': ['Україна', 'Украина'],
+    'w_base': ['До часток', 'До долей'],
+    'w_s3_shares': ['Частки партнерів', 'Доли партнёров'],
+    'w_s4_net': ['Чистий прибуток', 'Чистая прибыль'],
+    'l_net': ['чистий прибуток', 'чистая прибыль'],
+    'l_base': ['до часток', 'до долей'],
+    'h_calc': ['розрахунок штабу', 'расчёт штаба'],
+    'h_adjust': ['поправка: %s', 'поправка: %s'],
+    'h_open': ['Відкрити записи', 'Открыть записи'],
+    'o_of': ['%s · %s', '%s · %s'],
+    'o_recruiting': ['Рекрутинг за документами (1 + 1а + 1г)', 'Рекрутинг по документам (1 + 1а + 1г)'],
+    'o_cash': ["За грошима: що віднімається (4')", "По деньгам: что вычитается (4')"],
+    'o_adjust': ['Поправки', 'Поправки'],
+    'o_quality': ['Якість даних: кошики', 'Качество данных: корзины'],
+    'o_check': ['Звірка', 'Сверка'],
+    'o_owners': ['Власники', 'Владельцы'],
+    'o_transfers': ['Перекази на особисті рахунки', 'Переводы на личные счета'],
+    'o_stage2': ['II етап', 'II этап'],
+    'o_unpaid_customer': ['Не оплачено замовниками', 'Не оплачено заказчиками'],
+    'o_unpaid_energy': ['Не оплачено Energy', 'Не оплачено Energy'],
+    'o_months': ['Місяці драбини', 'Месяцы лестницы'],
+    'o_profit': ['Прибутковість ліній', 'Прибыльность линий'],
+    'q_ic': ['Міжфірмові', 'Межфирменные'],
+    'q_unplaced': ['Без місця', 'Без места'],
+    'h_quality': ['Що не розібрано: три кошики', 'Что не разобрано: три корзины'],
 }
 
 
@@ -344,13 +385,18 @@ def number_phrases(kind, text):
 
 
 def param_notes(raw, lang=0):
-    """Примітки звірки про параметри фраз: raw — {ім'я без префікса: текст параметра} → [рядок «фраз-чисел пропущено»] у порядку PARAM_SPECS.
-    Розбір їх пропускає мовчки (помилки в ньому не буває), тож звірка називає параметр і скільки — щоб пропуск не лишився непомітним."""
+    """Примітки звірки про параметри: raw — {ім'я без префікса: текст параметра} → [рядок] у порядку PARAM_SPECS: «фраз-чисел пропущено»
+    (розбір їх пропускає мовчки — помилки в ньому не буває, тож звірка називає параметр і скільки) і (круг 2, ревю 1е) «посередників не
+    посіяно», коли mediator_partner_ids передано й він порожній: забутий --seed інакше мовчки пускав би посередників в оборот і в «банк без
+    документа»."""
     out = []
+    raw = raw or {}
     for name, kind, _req in PARAM_SPECS:
-        n = number_phrases(kind, (raw or {}).get(name) or '') if name in (raw or {}) else 0
+        n = number_phrases(kind, raw.get(name) or '') if name in raw else 0
         if n:
             out.append(t('phrase_number', lang) % (P_PREFIX + name, n, PHRASE_NUM_MAX_DIGITS))
+        if name == 'mediator_partner_ids' and name in raw and not parse_ids(raw.get(name)):
+            out.append(t('mediator_missing', lang) % (P_PREFIX + name))
     return out
 
 
@@ -728,6 +774,20 @@ def stage2_cash(rows, pairs, transit):
     return {'groups': groups, 'partner_net': total}
 
 
+def stage2_other(rows, an_id=0):
+    """Рядки рахунку «II етапу» проводок без рядка статті З аналітикою іншої статті (круг 2, ревю 1е): rows — [(id, analytic_distribution,
+    центи балансу)]; у 4' вони не входять (лише рядки без аналітики, як документ v2), звірка каже, скільки й на яку суму; рядки з конвертом AN
+    (an_id) не рахуються — вони в 4' рядком конверта. → {'n', 'cents', 'ids'}. Як stage2Other JS-драбини."""
+    out = {'n': 0, 'cents': 0, 'ids': []}
+    for rid, dist, c in rows or []:
+        if not dist or (an_id and any(an_id in ids for ids, _p in dist_keys(dist))):
+            continue
+        out['n'] += 1
+        out['cents'] += int(c)
+        out['ids'].append(rid)
+    return out
+
+
 def truth_share(ic, unplaced, nodoc, ext, threshold=TRUTH_PCT):
     """«Місяць правдивий»: (|міжфірмові| + |без місця| + |банк без документа|) / оборот із зовнішніми × 100; як MC.truthShare."""
     parts = abs(float(ic or 0)) + abs(float(unplaced or 0)) + abs(float(nodoc or 0))
@@ -766,3 +826,259 @@ def check_result(first, v, control_cents, cand, lang=0, notes=None):
 
 def pct_quality(v):
     return truth_share(v.get('q_ic'), v.get('q_unplaced'), v.get('q_nodoc'), v.get('q_ext'))['share']
+
+
+# ——— екран «Власник» (круг 2; макет A + таблиця макета B): плитки, чипи, водоспад, ряд року, власники, перекази, «Драбина» ———
+MONTHS_SHORT = (('Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер', 'Лип', 'Сер', 'Вер', 'Жов', 'Лис', 'Гру'),
+                ('Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'))
+# рядки таблиці «Драбина»: (поле місяця, номер рядка, вид рядка, знак на екрані). Частки (3) у полі — додатне число, на екрані — мінусом
+# (віднімаються від «до часток»); вид рядка — стиль: row — звичайний, bold — «до часток», accent — чистий прибуток, muted — «за грошима»
+LADDER_ROWS = (('s1_docs', '1', 'row', 1), ('s1a_owners_in_pl', '1а', 'row', 1), ('s1g_no_analytic', '1г', 'row', 1), ('s2_ukraine', '2', 'row', 1),
+               ('base', '=', 'bold', 1), ('s3_shares', '3', 'row', -1), ('s4_net', '4', 'accent', 1), ('s4c_cash', '4′', 'muted', 1))
+# п'ять плиток місяця: чистий прибуток (4), за грошима (4'), рекрутинг за документами (1 + 1а + 1г), Україна (2), частки партнерів (−3)
+TILES = ('s4_net', 's4c_cash', 'recruiting', 's2_ukraine', 's3_shares')
+RECRUITING = ('s1_docs', 's1a_owners_in_pl', 's1g_no_analytic')
+# ступені з поправкою: чиї підстави пояснюють число з пометкою «поправка» (база й 4' змінює лише 1г, чистий прибуток — 1г і 3)
+ADJUST_OF = {'s1g_no_analytic': ('s1g',), 's3_shares': ('s3',), 'base': ('s1g',), 's4_net': ('s1g', 's3'), 's4c_cash': ('s1g',)}
+FALL_THIN_PCT = 2     # крок водоспаду, менший за стільки % найбільшого підсумку, — тонкий: екран малює його мінімальної висоти, щоб було видно
+TRANSFER_ROWS = 8     # «Перекази на особисті рахунки»: стільки найбільших, решта — рядком «Показано N з M»
+
+
+def month_info(first, lang=0):
+    """Місяць для екрана → {'value', 'title' («Вересень 2026» — кнопка вибору), 'title_in' («вересень 2026» — усередині фрази), 'name'
+    («вересень» — заголовок картки), 'short' («Вер» — вісь графіка й шапка таблиці)}."""
+    s = iso(first)
+    label = month_label(s, lang)
+    return {'value': s, 'title': label[0:1].upper() + label[1:], 'title_in': label, 'name': label.split(' ')[0],
+            'short': MONTHS_SHORT[lang][int(s[5:7]) - 1]}
+
+
+def _thousands(x):
+    """Євро → тисячі з одним знаком (Decimal; половина — від нуля, як cents)."""
+    return (Decimal(cents(x)) / 100000).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
+
+
+def k_value(x):
+    """Євро → тисячі з одним знаком для графіка: 69 349,99 → 69.3; −50 → −0.1; 49,99 → 0.0."""
+    return float(_thousands(x))
+
+
+def k_text(x):
+    """Число таблиці «Драбина, тис. €»: одна цифра після коми, кома — роздільник, тисячі тисяч — через пробіл, мінус — «−»; нуль (до цента) —
+    «—»; не нуль, але за модулем менше 0,05 тис. — «0,0» без знака."""
+    if not cents(x):
+        return '—'
+    q = _thousands(x)
+    whole, frac = format(abs(q), 'f').split('.')
+    return ('−' if q < 0 else '') + '{:,}'.format(int(whole)).replace(',', ' ') + ',' + frac
+
+
+def default_month(rows, today):
+    """Місяць екрана за замовчуванням: rows — [(місяць, стан)] записів місяців. Останній закритий (стан closed); закритих немає (на проді
+    блокувань поки немає) — останній завершений календарний місяць (минулий щодо today, не раніше MIN_MONTH): із записів — останній не пізніше
+    за нього; записів до нього немає — він сам (екран скаже «немає даних»)."""
+    closed = [iso(m) for m, s in rows if s == 'closed' and iso(m) >= MIN_MONTH]
+    if closed:
+        return max(closed)
+    prev = max(MIN_MONTH, add_months(month_first(today), -1))
+    got = [iso(m) for m, _s in rows if MIN_MONTH <= iso(m) <= prev]
+    return max(got) if got else prev
+
+
+def month_choices(rows, lang=0):
+    """Вибір місяця: місяці записів (не раніше MIN_MONTH), від останнього → [{'value', 'title'}]."""
+    ms = sorted({iso(m) for m, _s in rows if iso(m) >= MIN_MONTH}, reverse=True)
+    return [{'value': m, 'title': month_info(m, lang)['title']} for m in ms]
+
+
+def year_rows(rows, first):
+    """Записи місяців року місяця first (не раніше MIN_MONTH), за місяцем."""
+    y = iso(first)[0:4]
+    return sorted([r for r in rows if iso(r['month'])[0:4] == y and iso(r['month']) >= MIN_MONTH], key=lambda r: iso(r['month']))
+
+
+def tile_cents(row, key):
+    """Число плитки в центах: «рекрутинг за документами» = 1 + 1а + 1г, частки — мінусом, решта — поле як є."""
+    if key == 'recruiting':
+        return sum(cents(row.get(k)) for k in RECRUITING)
+    if key == 's3_shares':
+        return -cents(row.get(key))
+    return cents(row.get(key))
+
+
+def owner_tiles(rows, first):
+    """П'ять плиток місяця first і «з початку року»: rows — записи місяців (словники з полями ступенів і 'month'); «з початку року» — Σ
+    місяців того самого року від січня до first включно (місяця без запису немає — нуль). → [{'key', 'value' (євро; запису місяця немає —
+    None), 'ytd'}] у порядку TILES."""
+    first = iso(first)
+    cur = next((r for r in rows if iso(r['month']) == first), None)
+    ytd = [r for r in year_rows(rows, first) if iso(r['month']) <= first]
+    return [{'key': k, 'value': eur(tile_cents(cur, k)) if cur else None, 'ytd': eur(sum(tile_cents(r, k) for r in ytd))} for k in TILES]
+
+
+def ladder_table(rows, first, lang=0):
+    """Таблиця «Драбина <рік>, тис. €»: rows — записи місяців (поля ступенів, *_src, 'month'); колонки — лише пораховані місяці року first
+    (непорахованих колонок немає), «Разом» — Σ колонок до цента. → {'months': [month_info], 'selected': номер колонки first (немає — −1), 'rows':
+    [{'key', 'num', 'label', 'style', 'cells': [{'month', 'value', 'text', 'src'}], 'total': {'value', 'text'}}]}; src нуля — '' (пояснювати
+    нічого), значення частки (3) — мінусом."""
+    rs = year_rows(rows, first)
+    months = [iso(r['month']) for r in rs]
+    out = []
+    for key, num, style, sign in LADDER_ROWS:
+        cells, tot = [], 0
+        for r in rs:
+            c = sign * cents(r.get(key))
+            tot += c
+            cells.append({'month': iso(r['month']), 'value': eur(c), 'text': k_text(eur(c)), 'src': (r.get(key + '_src') or 'fact') if c else ''})
+        out.append({'key': key, 'num': num, 'label': t('r_' + key, lang), 'style': style, 'cells': cells, 'total': {'value': eur(tot), 'text': k_text(eur(tot))}})
+    return {'months': [month_info(m, lang) for m in months], 'selected': months.index(iso(first)) if iso(first) in months else -1, 'rows': out}
+
+
+def chart_series(table, lang=0):
+    """Ряд «Чистий прибуток <рік>, тис. €» з таблиці ladder_table (ті самі колонки): стовпці — ступінь 4, лінія — «до часток»; тисячі з одним
+    знаком, підпис — текст клітинки таблиці → {'months', 'labels', 'net', 'net_text', 'base', 'base_text', 'selected', 'net_label', 'base_label'}."""
+    by = {r['key']: r['cells'] for r in table['rows']}
+    return {'months': [m['value'] for m in table['months']], 'labels': [m['short'] for m in table['months']],
+            'net': [k_value(c['value']) for c in by['s4_net']], 'net_text': [c['text'] for c in by['s4_net']],
+            'base': [k_value(c['value']) for c in by['base']], 'base_text': [c['text'] for c in by['base']],
+            'selected': table['selected'], 'net_label': t('l_net', lang), 'base_label': t('l_base', lang)}
+
+
+def src_hint(key, src, bases, lang=0):
+    """Підказка числа таблиці за пометкою: факт — '' (з Odoo), розрахунок — «розрахунок штабу», поправка — «поправка: <підстави>» (bases —
+    {'s1g': [текст], 's3': [текст]} активних поправок місяця; ступені — ADJUST_OF; підстави без повторів, рядки — через «; »)."""
+    if src == 'calc':
+        return t('h_calc', lang)
+    if src != 'adjust':
+        return ''
+    texts = []
+    for step in ADJUST_OF.get(key, ()):
+        for b in (bases or {}).get(step) or []:
+            b = ' '.join(str(b or '').split())
+            if b and b not in texts:
+                texts.append(b)
+    return t('h_adjust', lang) % ('; '.join(texts) or '—')
+
+
+def fall_bars(v, lang=0):
+    """Водоспад «Як складається прибуток» з рядків waterfall(v) (нульові ступені сховано): перший стовпець, «до часток» і «чистий прибуток» —
+    від нуля, решта — від поточного підсумку (вгору — плюс, вниз — мінус). Шкала — від min(0, …) до max(0, …). → {'bars': [рядок + {'label',
+    'dir' ('total' / 'up' / 'down'), 'bottom', 'height', 'end', 'thin'}], 'zero', 'ok'}: bottom, height, zero — % висоти поля; end — рівень
+    підсумку після кроку (звідти пунктир до наступного стовпця); thin — крок, менший за FALL_THIN_PCT % найбільшого підсумку; ok — доданки дають
+    «до часток», а «до часток» мінус частки — «чистий прибуток» до цента."""
+    rows = waterfall(v)
+    run = adds = subs = base = 0
+    ok = True
+    raw = []
+    for i, r in enumerate(rows):
+        c = cents(r['amount'])
+        if i == 0 or r['kind'] == 'total':
+            lo, hi, d = min(0, c), max(0, c), 'total'
+            run = c
+        else:
+            lo, hi, d = min(run, run + c), max(run, run + c), 'up' if c > 0 else 'down'
+            run += c
+        if r['kind'] == 'add':
+            adds += c
+        elif r['kind'] == 'sub':
+            subs += c
+        elif r['key'] == 'base':
+            ok = ok and c == adds
+            base = c
+        elif r['key'] == 's4_net':
+            ok = ok and c == base + subs
+        raw.append((r, c, lo, hi, d, run))
+    top = max([abs(c) for r, c, *_x in raw if r['kind'] == 'total'] or [0])
+    vals = [0] + [x[2] for x in raw] + [x[3] for x in raw]
+    bottom, span = min(vals), max(vals) - min(vals)
+
+    def pct(x):
+        return round((x - bottom) * 100.0 / span, 2) if span else 0.0
+    bars = [dict(r, label=t('w_' + r['key'], lang), dir=d, bottom=pct(lo), height=round(pct(hi) - pct(lo), 2), end=pct(e),
+                 thin=d != 'total' and abs(c) * 100 < FALL_THIN_PCT * top) for r, c, lo, hi, d, e in raw]
+    return {'bars': bars, 'zero': pct(0), 'ok': ok}
+
+
+def quality_chip(v):
+    """Чип «Якість даних N % (поріг 1 %)» — доля як у закриття місяця й сторожа (truth_share, круг 1е): оборот не порахований або кошики
+    порожні — None (чипа немає, сказати нічого); інакше {'pct', 'bad' (доля ≥ порогу — червона крапка), 'parts' (не розібрано: Σ|кошиків|),
+    'ext' (оборот із зовнішніми), 'threshold'}."""
+    q = truth_share(v.get('q_ic'), v.get('q_unplaced'), v.get('q_nodoc'), v.get('q_ext'))
+    if q['share'] is None or not cents(q['parts']):
+        return None
+    return {'pct': q['share'], 'bad': not q['ok'], 'parts': q['parts'], 'ext': eur(cents(v.get('q_ext'))), 'threshold': TRUTH_PCT}
+
+
+def quality_label(note, lang=0):
+    """Підпис кошика «якості даних» за кодом примітки рядка деталі ('ic', 'unplaced', 'nodoc:<вид>') мовою користувача — не збережений
+    текст рядка (його писали мовою того, хто перераховував); невідомий код — ''."""
+    s = str(note or '')
+    if s in ('ic', 'unplaced'):
+        return t('q_' + s, lang)
+    kind = s[len('nodoc:'):] if s.startswith('nodoc:') else ''
+    return t('nodoc_' + kind, lang) if kind in NO_DOC_CATS else ''
+
+
+def quality_baskets(items, lang=0):
+    """Вікно «три кошики» чипа «Якість даних»: items — рядки деталі виду quality [{'id', 'note', 'amount', 'count'}] → [{'id', 'key', 'label',
+    'amount', 'count'}] у порядку: міжфірмові, без місця, банк без документа за видами (NO_DOC_CATS); нульові й невідомі пропущено."""
+    order = ['ic', 'unplaced'] + ['nodoc:' + k for k in NO_DOC_CATS]
+    out = [{'id': it['id'], 'key': it.get('note'), 'label': quality_label(it.get('note'), lang), 'amount': eur(cents(it.get('amount'))),
+            'count': it.get('count') or 0} for it in items or [] if it.get('note') in order and cents(it.get('amount'))]
+    return sorted(out, key=lambda b: order.index(b['key']))
+
+
+def transfer_status(note):
+    """Статус рядка переказу на особистий рахунок за приміткою рядка деталі (перерахунок пише її мовою того, хто перераховував) → 'cleared'
+    («розібрано»), 'nodoc' («без документа») або ''."""
+    s = str(note or '')
+    if s in TX['nodoc']:
+        return 'nodoc'
+    return 'cleared' if s in TX['cleared'] else ''
+
+
+def transfer_rows(items, limit=TRANSFER_ROWS):
+    """«Перекази на особисті рахунки · місяць»: items — рядки деталі виду transfer [{'id', 'name', 'amount', 'note'}] (одержувач × статус) →
+    {'rows': [{'id', 'name', 'amount', 'status'}] — від більшої суми, не більше limit; 'total': усього рядків; 'nodoc': сума «без документа»}."""
+    rows = [{'id': it['id'], 'name': it.get('name') or '—', 'amount': eur(cents(it.get('amount'))), 'status': transfer_status(it.get('note'))}
+            for it in items or [] if cents(it.get('amount'))]
+    rows.sort(key=lambda r: (-abs(cents(r['amount'])), r['name'], r['id']))
+    nodoc = eur(sum(cents(r['amount']) for r in rows if r['status'] == 'nodoc'))
+    return {'rows': rows[:limit], 'total': len(rows), 'nodoc': nodoc}
+
+
+def owner_groups(items, key_of):
+    """«Власники · місяць»: items — рядки деталі видів owner / owner_share [{'id', 'kind', 'analytic', 'name', 'amount'}], key_of — {стаття:
+    [ключ, код]} (ключ власника й підпис; статті немає — рядок сам собі ключ, код — його назва). Рядок на власника: усього, «частка»
+    (owner_share) і «витрати компанії» (owner) окремо, ids рядків деталі; нульові рядки деталі пропущено; від більшого за модулем; pct —
+    довжина смуги від найбільшого → [{'code', 'total', 'share', 'company', 'ids', 'pct'}]."""
+    by = {}
+    for it in items or []:
+        c = cents(it.get('amount'))
+        if not c:
+            continue
+        k, code = _at(key_of or {}, it.get('analytic')) or ('i%s' % it['id'], it.get('name') or '—')
+        g = by.setdefault(k, {'code': code, 'total': 0, 'share': 0, 'company': 0, 'ids': []})
+        g['total'] += c
+        g['share' if it.get('kind') == 'owner_share' else 'company'] += c
+        g['ids'].append(it['id'])
+    rows = sorted(by.values(), key=lambda g: (-abs(g['total']), g['code']))
+    top = max([abs(g['total']) for g in rows] or [0])
+    return [dict(g, total=eur(g['total']), share=eur(g['share']), company=eur(g['company']), pct=round(abs(g['total']) * 100.0 / top, 1) if top else 0.0)
+            for g in rows]
+
+
+def ids_union(domains):
+    """Домени рядків деталі виду [('id', 'in', [...])] (JSON-текст або список) → усі id разом, за зростанням (один список замість кількох);
+    хоч один домен іншого виду чи не JSON — None (тоді клік — список рядків деталі)."""
+    out = set()
+    for d in domains or []:
+        try:
+            dom = json.loads(d) if isinstance(d, str) else d
+        except ValueError:
+            return None
+        if not (isinstance(dom, list) and len(dom) == 1 and isinstance(dom[0], (list, tuple)) and len(dom[0]) == 3
+                and list(dom[0][0:2]) == ['id', 'in'] and isinstance(dom[0][2], list)):
+            return None
+        out.update(int(x) for x in dom[0][2])
+    return sorted(out)

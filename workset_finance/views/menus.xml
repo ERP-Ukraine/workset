@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Додаток «Фінанси»: бачить лише група «Власник» (редактор її містить); склад груп — дані, пише інструмент штабу. Круг 1 — прості списки;
-         екран «Власник» з плитками (круг 2) стане першим пунктом. Іконки додатка немає (картинка — навиком visual) -->
+    <!-- Додаток «Фінанси»: бачить лише група «Власник» (редактор її містить); склад груп — дані, пише інструмент штабу. Як у шапці макета A:
+         «Власник» — першим (його відкриває вхід у додаток), далі «Місяці» (місяці драбини й «Рядки» — деталі кліків), «Поправки», «Звірка».
+         Іконки додатка немає (картинка — навиком visual) -->
     <menuitem id="menu_root" name="Фінанси" sequence="188" groups="workset_finance.group_owner"/>
-    <menuitem id="menu_months" name="Місяці драбини" parent="menu_root" action="action_months" sequence="10"/>
-    <menuitem id="menu_items" name="Рядки" parent="menu_root" action="action_items" sequence="20"/>
+    <menuitem id="menu_owner" name="Власник" parent="menu_root" action="action_owner" sequence="0"/>
+    <menuitem id="menu_ladder" name="Місяці" parent="menu_root" sequence="10"/>
+    <menuitem id="menu_months" name="Місяці драбини" parent="menu_ladder" action="action_months" sequence="1"/>
+    <menuitem id="menu_items" name="Рядки" parent="menu_ladder" action="action_items" sequence="2"/>
     <menuitem id="menu_adjusts" name="Поправки" parent="menu_root" action="action_adjusts" sequence="30"/>
     <menuitem id="menu_checks" name="Звірка" parent="menu_root" action="action_checks" sequence="40"/>
 </odoo>
