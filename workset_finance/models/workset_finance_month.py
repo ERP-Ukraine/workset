@@ -9,11 +9,14 @@
   тож контроль ловить лише розбіжність повз ORM (SQL, міграція, контекст skip_analytic_sync), а рядок без розподілу видно в «без місця»;
   1а — вузли власників усередині тієї ж вибірки (повернення в прибуток); 1г — лише поправки + підрахунок кандидатів (сплачені рахунки клієнтів без аналітики, за датою оплати);
 - 2 — Україна: фірма, план і рахунок ліквідності з параметрів; 3 — сума активних поправок ступеня 3; 4 = до часток − 3;
-  4' = до часток − перекази партнерам нетто (рядки АНАЛІТИКИ статті «II етапу» за місяць, що за текстом name (підрядок, без регістру) потрапили
-  на розпізнану лінію, × 9; транзитні фрази й нерозпізнані рядки в 4' не входять; AN — від'ємні рядки конверта як є; рахунок «II етапу» в 4'
-  не бере участі — лише в ступені 6);
+  4' = до часток − перекази партнерам нетто: проводки «II етапу» за місяць — рядок аналітики статті, а якщо в проводці його немає, рядок
+  рахунку «II етапу» (без подвійного рахунку; круг 1е), що за текстом (name + ім'я партнера, підрядок, без регістру) потрапили на розпізнану
+  лінію, × 9; транзитні фрази й нерозпізнані рядки в 4' не входять; AN — від'ємні рядки конверта як є);
 - 5 — вузли власників, «частка» (статті з параметра) окремо; 6 — аналітика «II етапу» + баланс його рахунку;
-- 7 — неоплачені рахунки клієнтів із часткою рекрутингу: замовники / Energy / міжфірмові й фірми поза периметром (не показуємо).
+- 7 — неоплачені рахунки клієнтів із часткою рекрутингу: замовники / Energy / міжфірмові й фірми поза периметром (не показуємо);
+- якість даних — як «місяць правдивий» закриття місяця (--check) і сторож: міжфірмові (MC.truthTurnover), «без місця» (PG.identity, сума зі
+  знаком), банк без документа (PG.bankNoDoc: 4 види, EUR за balance рядка на рахунку журналу, без дублів виписок, без вікна 14 днів), оборот
+  із зовнішніми; частка = Σ|кошиків| ÷ оборот (MC.truthShare).
 Фірми — усі активні мінус периметр «Ставок» (workset.rate._skip_companies). sudo бачить рядки всіх фірм, тому КОЖНЕ читання рядків аналітики,
 проводок, документів, звірок оплат і виписок обмежене фірмами периметра явно (`('company_id', 'in', cos)`; ступінь 2 — одна фірма Україна).
 «Свої» партнери — як partnerSets у tools/lib/odoo_pnl_guard.js: партнери фірм периметра й архівних — «міжфірмові», партнери фірм поза периметром
@@ -73,7 +76,8 @@ class WorksetFinanceMonth(models.Model):
     s4_net = fields.Monetary(string='4 Чистий прибуток', currency_field='currency_id', readonly=True, help='До часток мінус частки партнерів')
     s4_net_src = fields.Selection(SRC, string='4: звідки', readonly=True)
     s4c_cash = fields.Monetary(string="4' За грошима", currency_field='currency_id', readonly=True,
-                               help='До часток мінус перекази партнерам нетто (рядки аналітики «II етапу» на розпізнаних лініях × 9, без транзиту, конверт AN)')
+                               help='До часток мінус перекази партнерам нетто (проводки «II етапу» на розпізнаних лініях × 9: рядок аналітики, без нього — рядок '
+                                    'рахунку; без транзиту; конверт AN)')
     s4c_cash_src = fields.Selection(SRC, string="4': звідки", readonly=True)
     s5_owners = fields.Monetary(string='5 Власники', currency_field='currency_id', readonly=True, help='Мінус аналітика вузлів власників (витрати — додатне число)')
     s5_owners_src = fields.Selection(SRC, string='5: звідки', readonly=True)
@@ -101,8 +105,10 @@ class WorksetFinanceMonth(models.Model):
                                     help='Сплачені рахунки клієнтів без аналітики за датою оплати — для порівняння з поправкою 1г')
     g_cand_count = fields.Integer(string='1г: кандидатів', readonly=True, aggregator=False)
     q_ic = fields.Monetary(string='Якість: міжфірмові', currency_field='currency_id', readonly=True)
-    q_unplaced = fields.Monetary(string='Якість: без місця', currency_field='currency_id', readonly=True)
-    q_nodoc = fields.Monetary(string='Якість: банк без документа', currency_field='currency_id', readonly=True)
+    q_unplaced = fields.Monetary(string='Якість: без місця', currency_field='currency_id', readonly=True,
+                                 help='Як PG.identity закриття місяця: сума зі знаком (дохід мінус витрата), частка — від її модуля')
+    q_nodoc = fields.Monetary(string='Якість: банк без документа', currency_field='currency_id', readonly=True,
+                              help='Несвірені витрати виписок місяця 4 видів (ZUS і податки, без партнера, фірма й фізособа без рахунків), EUR')
     q_ext = fields.Monetary(string='Якість: оборот із зовнішніми', currency_field='currency_id', readonly=True)
     q_pct = fields.Float(string='Якість даних, %', readonly=True, digits=(16, 1), aggregator=False, help='(|міжфірмові| + |без місця| + |банк без документа|) ÷ оборот із зовнішніми')
 
@@ -238,32 +244,61 @@ class WorksetFinanceMonth(models.Model):
                 row[1].append(m.id)
         return by
 
-    def _pl_pass(self, first, last, cos, p, ic, excl):
-        """Один прохід по проведених P&L-рядках проводок фірм периметра: контроль ступеня 1 (інший спосіб) і кошики «якості даних»
-        → (контроль у центах, міжфірмові, без місця: центи). Документи «транзиту Energy» (параметр) — у контролі є, у кошиках немає
-        (як transitIds у MC.truthTurnover)."""
+    def _pl_pass(self, first, last, cos, p, ic, out):
+        """Один прохід по проведених P&L-рядках проводок фірм периметра (за id, як закриття місяця): контроль ступеня 1 (інший спосіб) і кошики
+        «якості даних» → (контроль у центах, міжфірмові: центи, без місця: calc.identity_unplaced). Міжфірмові — як MC.truthTurnover: увесь рядок
+        документа з партнером — своєю фірмою, крім транзиту; «без місця» — як PG.identity (частки інших планів — за будь-якого партнера,
+        нерозподілений залишок — лише зовнішнього). Документи «транзиту Energy» (параметр) — у контролі є."""
         transit = set(p['quality_transit_move_ids'])
+        mgmt = set(p['excluded_partner_ids'])
         ML = self.env['account.move.line']
         lines = ML.search([('parent_state', '=', 'posted'), ('account_id.account_type', 'in', list(calc.PL_TYPES)), ('company_id', 'in', cos),
-                           ('date', '>=', first), ('date', '<=', last)])
+                           ('date', '>=', first), ('date', '<=', last)], order='id')
         keys = set()
         for l in lines:
             for ids, _pc in calc.dist_keys(l.analytic_distribution):
                 keys.update(ids)
         root_of, kind_of = self._maps(keys, p)
-        control = ic_c = unp = 0
+        control = ic_c = 0
+        rows = []
         for l in lines:
             dist = l.analytic_distribution
             if dist:
                 control += calc.rec_part_cents(l.balance, dist, root_of, p['recruting_plan_id'])
-            if l.move_id.id in transit:
-                continue
-            partner = l.move_id.commercial_partner_id.id
-            if partner in ic:
+            move, partner = l.move_id.id, l.move_id.commercial_partner_id.id
+            if move not in transit and partner in ic:
                 ic_c += calc.cents(-l.balance)
-            elif partner not in excl:
-                unp += calc.unplaced_cents(l.balance, dist, kind_of)
-        return control, ic_c, unp
+            rows.append((l.id, l.balance, dist, calc.identity_bucket(move, partner, transit, ic, out, mgmt)))
+        return control, ic_c, calc.identity_unplaced(rows, kind_of)
+
+    def _eur_of(self, st, cos):
+        """Рядки виписок → {рядок: сума в EUR}: balance рядків проводки на рахунку журналу (default_account_id), як eurOf закриття місяця —
+        журнали в злотих мають amount у злотих."""
+        if not st:
+            return {}
+        dom_eur = [('statement_line_id', 'in', st.ids), ('account_id', 'in', st.journal_id.default_account_id.ids), ('company_id', 'in', cos)]
+        return {sl.id: bal or 0.0 for sl, bal in self.env['account.move.line']._read_group(dom_eur, ['statement_line_id'], ['balance:sum'])}
+
+    def _bank_nodoc(self, first, last, cos, our, mediators):
+        """«Банк без документа» як закриття місяця (--check): несвірені рядки виписок фірм периметра за місяць — без вікна «старше 14 днів»
+        (на закритті все має бути розібрано; його ж частку бере сторож), сума в EUR (_eur_of), 4 види calc.NO_DOC_CATS, дублі виписок відсіяно →
+        calc.bank_nodoc + {'ids': усі рядки}."""
+        BSL = 'account.bank.statement.line'
+        dom_bank = [('company_id', 'in', cos), ('is_reconciled', '=', False), ('date', '>=', first), ('date', '<=', last)]
+        st = self.env[BSL].search(dom_bank, order='id')
+        eur = self._eur_of(st, cos)
+        commercial = {x.id: x.commercial_partner_id.id or x.id for x in st.partner_id}
+        comm = self.env['res.partner'].with_context(active_test=False).browse(sorted(set(commercial.values())))
+        emp = set(self.env['hr.employee'].with_context(active_test=False).search([('work_contact_id', '!=', False)]).work_contact_id.ids)
+        bills = set()
+        if comm:
+            dom_bills = [('move_type', 'in', ['in_invoice', 'in_refund']), ('state', '=', 'posted'), ('commercial_partner_id', 'in', comm.ids),
+                         ('date', '>=', calc.bills_from(last)), ('company_id', 'in', cos)]
+            bills = {'%s|%s' % (c.id, co.id) for c, co in self.env['account.move']._read_group(dom_bills, ['commercial_partner_id', 'company_id'], [])}
+        rows = [{'id': l.id, 'partner': l.partner_id.id or 0, 'company': l.company_id.id, 'journal': l.journal_id.id, 'date': calc.iso(l.date),
+                 'amount': l.amount, 'ref': l.payment_ref or '', 'created': fields.Datetime.to_string(l.create_date) if l.create_date else ''} for l in st]
+        return calc.bank_nodoc(rows, eur, {'commercial': commercial, 'is_company': {c.id: bool(c.is_company) for c in comm}, 'our': our,
+                                           'mgmt': mediators, 'emp': emp, 'bills': bills})
 
     def _unpaid(self, first, last, cos, p, ic, out_partners):
         """7: неоплачені рахунки клієнтів місяця з часткою рекрутингу → ({'customer'|'energy': {партнер: [центи, ids]}}); міжфірмові й партнери
@@ -299,10 +334,10 @@ class WorksetFinanceMonth(models.Model):
         last = calc.month_last(first)
         p = me._params()
         cos = me._perimeter()
-        today = calc.iso(me._today())
         dates = [('date', '>=', first), ('date', '<=', last)]
         AAL, ML = 'account.analytic.line', 'account.move.line'
-        # «свої» партнери: міжфірмові (ic) і фірми поза периметром (out) — окремо; обидва, як і посередники-виняток, поза «без місця» й оборотом
+        # «свої» партнери: міжфірмові (ic) і фірми поза периметром (out) — окремо; обидва, як і посередники-виняток, поза кандидатами 1г
+        # (excl); «без місця», оборот і банк — за правилами закриття місяця (нижче, «якість даних»)
         ic, out = me._partner_sets()
         excl = ic | out | set(p['excluded_partner_ids'])
         items = []
@@ -355,28 +390,44 @@ class WorksetFinanceMonth(models.Model):
             items.append(item('stage2', partner.display_name or '—', calc.eur(calc.cents(bal)), count=n, partner_id=partner.id or False, model=ML,
                               domain=dom6m + [('partner_id', '=', partner.id)], note='account'))
         s6 = calc.eur(calc.cents(a6) + m6)
-        # 4': рядки аналітики статті «II етапу» за місяць; партнера в них немає — одержувач у тексті name: фраза → лінія (приватний посів),
-        # решта — «не розпізнано», транзитні фрази — «транзит»; цих рядків за місяць десятки, тому зіставлення — циклом у Python
-        # текст для збігу = name рядка + ім'я партнера рядка (або партнера проводки move_line_id) через пробіл
-        rows6 = [(l.id, ' '.join(x for x in (l.name or '', (l.partner_id or l.move_line_id.partner_id).name or '') if x), calc.cents(l.amount))
-                 for l in me.env[AAL].search(dom6a)]
+        # 4': одиниця — проводка «II етапу» (рахунок stage2_account_id): є рядок аналітики статті — береться він; немає — рядок рахунку цієї
+        # проводки (знак і сума — як у рядка статті: додатна частка 10 %), без подвійного рахунку (проводка з обома — один раз; круг 1д:
+        # «лише рядки статті» губило проводки без аналітики). Партнера майже немає — одержувач у тексті: фраза → лінія (приватний посів),
+        # решта — «не розпізнано», транзитні фрази — «транзит»; рядків за місяць десятки, тому зіставлення — циклом у Python.
+        # Текст для збігу = name рядка + ім'я партнера рядка (рядка аналітики — або партнера move_line_id, рядка рахунку — або партнера проводки)
+        aal6 = me.env[AAL].search(dom6a, order='id')
+        with_an = set(aal6.move_line_id.move_id.ids)
+        ml6 = me.env[ML].search(dom6m, order='id').filtered(lambda x: x.move_id.id not in with_an)
+
+        def text6(name, partner):
+            return ' '.join(x for x in (name or '', partner.name or '') if x)
+        rows6 = [('a%d' % l.id, text6(l.name, l.partner_id or l.move_line_id.partner_id), calc.cents(l.amount)) for l in aal6]
+        rows6 += [('m%d' % l.id, text6(l.name, l.partner_id or l.move_id.partner_id), calc.cents(l.balance)) for l in ml6]
+        amount6 = {rid: c for rid, _t, c in rows6}
         cash6 = calc.stage2_cash(rows6, p['stage2_partner_lines'], p['stage2_transit_phrases'])
         Line = me.env['workset.line']
         have_lines = set(Line.browse(sorted({g['line'] for g in cash6['groups'] if g['line']})).exists().ids)
         lost_lines = 0
         for g in cash6['groups']:
-            pd = [('id', 'in', g['ids'])]
-            if g['status'] == 'net':
-                line_ok = g['line'] in have_lines
-                lost_lines += 0 if line_ok else 1
-                note = calc.t('gross', lang) % calc.money_text(calc.eur(g['gross'] * calc.STAGE2_BRUTTO))
-                items.append(item('cash', Line.browse(g['line']).display_name if line_ok else '—', calc.eur(g['net']), count=g['count'],
-                                  line_id=g['line'] if line_ok else False, model=AAL, domain=pd,
-                                  note=note if line_ok else '%s; %s' % (note, calc.t('line_gone', lang))))
-            else:
-                key = 'unknown' if g['status'] == 'unknown' else 'transit'
-                items.append(item('cash_other', calc.t(key, lang), calc.eur(g['net']), count=g['count'], model=AAL, domain=pd,
-                                  note='%s; %s' % (calc.t(key, lang), calc.t('not_in_4', lang))))
+            line_ok = g['line'] in have_lines
+            lost_lines += 1 if g['status'] == 'net' and not line_ok else 0
+            # рядок деталі на джерело: рядки аналітики й рядки рахунку — різні моделі списку кліку
+            for model, tag in ((AAL, 'a'), (ML, 'm')):
+                rids = [r for r in g['ids'] if r[0] == tag]
+                if not rids:
+                    continue
+                gross = sum(amount6[r] for r in rids)
+                pd = [('id', 'in', [int(r[1:]) for r in rids])]
+                src = '' if tag == 'a' else '; %s' % calc.t('no_analytic_row', lang)
+                if g['status'] == 'net':
+                    note = calc.t('gross', lang) % calc.money_text(calc.eur(gross * calc.STAGE2_BRUTTO))
+                    items.append(item('cash', Line.browse(g['line']).display_name if line_ok else '—', calc.eur(gross * calc.STAGE2_MULT), count=len(rids),
+                                      line_id=g['line'] if line_ok else False, model=model, domain=pd,
+                                      note=(note if line_ok else '%s; %s' % (note, calc.t('line_gone', lang))) + src))
+                else:
+                    key = 'unknown' if g['status'] == 'unknown' else 'transit'
+                    items.append(item('cash_other', calc.t(key, lang), calc.eur(gross * calc.STAGE2_MULT), count=len(rids), model=model, domain=pd,
+                                      note='%s; %s%s' % (calc.t(key, lang), calc.t('not_in_4', lang), src)))
         partner_net = cash6['partner_net']
         notes = ([calc.t('line_missing', lang) % lost_lines] if lost_lines else []) + me._param_notes(lang)
         an = 0.0
@@ -416,11 +467,14 @@ class WorksetFinanceMonth(models.Model):
         if p['transfer_partner_ids']:
             legs.append(('partner_id', 'in', p['transfer_partner_ids']))
         if legs:
+            # сума в EUR — balance рядка проводки на рахунку журналу (_eur_of): amount виписки — у валюті журналу (злоті як євро, круг 1е)
             domt = [('company_id', 'in', cos)] + dates + calc.or_domain(legs)
-            for partner, rec, amount, n in me.env[BSL]._read_group(domt, ['partner_id', 'is_reconciled'], ['amount:sum', '__count']):
-                items.append(item('transfer', partner.display_name or '—', calc.eur(calc.cents(-amount)), count=n, partner_id=partner.id or False, model=BSL,
-                                  domain=domt + [('partner_id', '=', partner.id or False), ('is_reconciled', '=', bool(rec))],
-                                  note=calc.t('cleared' if rec else 'nodoc', lang)))
+            tr = me.env[BSL].search(domt, order='id')
+            eur_t = me._eur_of(tr, cos)
+            Partner = me.env['res.partner']
+            for partner, rec, c, ids in calc.transfer_groups([(l.id, l.partner_id.id, l.is_reconciled, eur_t.get(l.id)) for l in tr]):
+                items.append(item('transfer', Partner.browse(partner).display_name if partner else '—', calc.eur(c), count=len(ids), partner_id=partner or False,
+                                  model=BSL, domain=[('id', 'in', ids)], note=calc.t('cleared' if rec else 'nodoc', lang)))
 
         # посередництво
         med_in = med_cost = 0.0
@@ -429,22 +483,28 @@ class WorksetFinanceMonth(models.Model):
             med_in = me._asum(dom_m + [('amount', '>', 0)])
             med_cost = -me._asum(dom_m + [('amount', '<', 0)])
 
-        # якість даних
-        control, ic_c, unp = me._pl_pass(first, last, cos, p, ic, excl)
+        # якість даних — як «місяць правдивий» закриття місяця (tools/odoo_month_close.js --check: MC.truthTurnover, PG.identity, PG.bankNoDoc,
+        # MC.truthShare); --verify звіряє кожен кошик, оборот і частку саме з ним
+        control, ic_c, unp = me._pl_pass(first, last, cos, p, ic, out)
         transit_dom = [('move_id', 'not in', p['quality_transit_move_ids'])] if p['quality_transit_move_ids'] else []
+        # оборот із зовнішніми — як truthTurnover: без своїх фірм, фірм поза периметром і посередників (THESEUS / Letrona)
+        ext_excl = ic | out | set(p['mediator_partner_ids'])
         ext = -me._asum([('parent_state', '=', 'posted'), ('account_id.account_type', 'in', list(calc.INCOME_TYPES)), ('company_id', 'in', cos),
-                         ('move_id.move_type', 'in', list(calc.EXT_TYPES)), ('move_id.commercial_partner_id', 'not in', sorted(excl))] + transit_dom + dates,
+                         ('move_id.move_type', 'in', list(calc.EXT_TYPES)), ('move_id.commercial_partner_id', 'not in', sorted(ext_excl))] + transit_dom + dates,
                         model=ML, field='balance')
-        cut = min(last, calc.add_days(today, -calc.BANK_GAP_DAYS))
-        dom_nd = [('company_id', 'in', cos), ('is_reconciled', '=', False), ('amount', '<', 0), ('date', '>=', first), ('date', '<=', cut)]
-        nodoc = -me._asum(dom_nd, model=BSL) if cut >= first else 0.0
+        bank = me._bank_nodoc(first, last, cos, ic | out, set(p['mediator_partner_ids']))
+        nodoc = calc.eur(calc.cents(-bank['nodoc']['sum']))
         items.append(item('quality', 'ic', calc.eur(ic_c), model=ML, note='ic',
                           domain=[('parent_state', '=', 'posted'), ('account_id.account_type', 'in', list(calc.PL_TYPES)), ('company_id', 'in', cos),
                                   ('move_id.commercial_partner_id', 'in', sorted(ic))] + transit_dom + dates))
-        items.append(item('quality', 'unplaced', calc.eur(unp), model=ML, note='unplaced',
-                          domain=[('parent_state', '=', 'posted'), ('account_id.account_type', 'in', list(calc.PL_TYPES)), ('company_id', 'in', cos),
-                                  ('analytic_distribution', '=', False)] + transit_dom + dates))
-        items.append(item('quality', 'nodoc', nodoc, model=BSL, domain=dom_nd, note='nodoc'))
+        # клік «без місця» — рівно ті рядки, що дали внесок (і частки інших планів, і залишок без розподілу), а не «без розподілу взагалі»
+        items.append(item('quality', 'unplaced', calc.eur(calc.cents(unp['unplaced'])), count=len(unp['ids']), model=ML, note='unplaced',
+                          domain=[('id', 'in', unp['ids'])]))
+        for k in calc.NO_DOC_CATS:
+            cat = bank['cats'][k]
+            if cat['n']:
+                items.append(item('quality', calc.t('nodoc_' + k, lang), calc.eur(calc.cents(-cat['sum'])), count=cat['n'], model=BSL,
+                                  domain=[('id', 'in', cat['ids'])], note='nodoc:' + k))
 
         v = {'s1_docs': s1, 's1a_owners_in_pl': s1a, 's1g_no_analytic': calc.eur(sp['s1g']), 's2_ukraine': s2,
              's3_shares': calc.eur(sp['s3']), 'cash_out': cash_out}
@@ -452,7 +512,8 @@ class WorksetFinanceMonth(models.Model):
         v.update({'s5_owners': s5, 's5_owners_share': s5_share, 's6_stage2': s6, 's7_unpaid_customers': calc.eur(sums.get('customer', 0)),
                   's7_unpaid_energy': calc.eur(sums.get('energy', 0)), 'revenue': revenue, 'payroll': payroll, 'contrib_zus': zus,
                   'mediation_income': med_in, 'mediation_cost': med_cost, 'mediation_net': calc.eur(calc.cents(med_in) - calc.cents(med_cost)),
-                  'g_cand_amount': calc.eur(cand_total), 'q_ic': calc.eur(ic_c), 'q_unplaced': calc.eur(unp), 'q_nodoc': nodoc, 'q_ext': ext})
+                  'g_cand_amount': calc.eur(cand_total), 'q_ic': calc.eur(ic_c), 'q_unplaced': calc.eur(calc.cents(unp['unplaced'])), 'q_nodoc': nodoc,
+                  'q_ext': ext})
         steps = {k: v[k] for k in calc.MONEY}
         steps['g_cand_count'] = cand_n
         steps['q_pct'] = calc.pct_quality(v) or 0.0

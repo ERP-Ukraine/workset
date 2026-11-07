@@ -22,13 +22,13 @@ MAX_MONTHS = 36            # перерахунок за період — не �
 TOL_CENTS = 1              # допуск контролю другим способом: 0,01 (одна копійка)
 STAGE2_MULT = 9            # переказ партнеру нетто = рядок аналітики статті «II етапу» × 9 (там лежить 10 %)
 STAGE2_BRUTTO = 10         # брутто переказу партнеру = рядок аналітики «II етапу» × 10 (показуємо в рядку «за грошима»)
-BANK_GAP_DAYS = 14        # «банк без документа» — рядок виписки старший за стільки днів
+BILLS_LOOKBACK_MONTHS = 6  # «є рахунки постачальника» — з 1 липня минулого року (як BILLS_LOOKBACK_MONTHS сторожа tools/lib/odoo_pnl_guard.js)
 TRUTH_PCT = 1.0            # поріг «місяць правдивий» (рішення власника 14.10.2026: 1 %), як MC.truthShare
 UNPAID_MIN = 0.005         # залишок рахунку менший за це — вважається оплаченим
 MAX_ID = 2147483647        # найбільший id запису (integer PostgreSQL): лінія пари більша — пропуск (інакше browse упаде на SQL)
 # Пробільні символи країв фрази — ОДИН набір із PHRASE_WS у tools/lib/odoo_finance_ladder.js: str.strip() Python і String.prototype.trim() JS
-# ріжуть різне (strip — ще \x1c–\x1f і \x85, trim — ще ﻿), тому обидві сторони беруть об'єднання (круг 1д). Пробіл нульової ширини
-# (​) не пробільний ні там, ні там — лишається у фразі.
+# ріжуть різне (strip — ще \x1c–\x1f і \x85, trim — ще BOM U+FEFF), тому обидві сторони беруть об'єднання (круг 1д). Пробіл нульової ширини
+# (U+200B) не пробільний ні там, ні там — лишається у фразі.
 PHRASE_WS = ''.join(chr(c) for c in (*range(0x09, 0x0e), *range(0x1c, 0x21), 0x85, 0xa0, 0x1680, *range(0x2000, 0x200b), 0x2028, 0x2029, 0x202f,
                                      0x205f, 0x3000, 0xfeff))
 # Фраза-число (сума, рік, номер документа: «123», «12,5», «1 234,56») — не фраза: такий підрядок знайшовся б у чужих рядках. Межа — стільки
@@ -59,7 +59,8 @@ PARAM_SPECS = (
     ('an_envelope_analytic_id', 'id', False),     # конверт AN
     ('mediation_plan_id', 'id', False),           # план посередництва
     ('energy_partner_ids', 'ids', False),         # контрагенти групи Energy (неоплачені — окремо від замовників)
-    ('excluded_partner_ids', 'ids', False),       # посередники-виняток управлінської аналітики
+    ('excluded_partner_ids', 'ids', False),       # посередники й «лише списання» — виняток управлінської аналітики (X.noAnalyticsIds)
+    ('mediator_partner_ids', 'ids', False),       # посередники (X.MGMT_EXCLUDED_IDS): оборот без них, у банку — не «без документа»
     ('quality_transit_move_ids', 'ids', False),   # документи «транзиту Energy» (account.move): поза кошиками «якості даних»
     ('transfer_phrases', 'phrases', False),       # JSON-масив фраз банку «на особистий рахунок» (звичайний рядок — одна фраза)
     ('transfer_partner_ids', 'ids', False),       # одержувачі переказів на особисті рахунки
@@ -107,6 +108,11 @@ TX = {
     'gross': ['брутто (×10): %s', 'брутто (×10): %s'],
     'cleared': ['розібрано', 'разобрано'],
     'nodoc': ['без документа', 'без документа'],
+    'nodoc_zusTax': ['Банк без документа: ZUS і податки', 'Банк без документа: ZUS и налоги'],
+    'nodoc_noPartner': ['Банк без документа: без партнера', 'Банк без документа: без партнёра'],
+    'nodoc_noBillsFirm': ['Банк без документа: фірма без рахунків', 'Банк без документа: фирма без счетов'],
+    'nodoc_noBillsPerson': ['Банк без документа: фізособа без рахунків', 'Банк без документа: физлицо без счетов'],
+    'no_analytic_row': ['проводка без рядка аналітики статті — взято рядок рахунку', 'проводка без строки аналитики статьи — взята строка счёта'],
 }
 
 
@@ -471,14 +477,191 @@ def has_root(dist, root_of, root):
     return any(p > 0 and any(_at(root_of, i) == root for i in ids) for ids, p in dist_keys(dist))
 
 
-def unplaced_cents(balance, dist, kind_of):
-    """Частка рядка P&L «без місця» (центи, зі знаком «−баланс»): розподіл на рекрутинг ('rec') чи посередництво ('med') не рахується;
-    немає розподілу — увесь рядок; розподіл менший за 100 % — залишок."""
-    placed = 0.0
-    for ids, p in dist_keys(dist):
-        if any(_at(kind_of, i) in ('rec', 'med') for i in ids):
-            placed += p
-    return cents(-float(balance or 0) * max(0.0, 100.0 - placed) / 100.0)
+# ——— «без місця» — як PG.identity сторожа P&L (tools/lib/odoo_pnl_guard.js) і закриття місяця (--check) ———
+def _is_index(k):
+    """Ключ, який Object.entries у JS ставить першим (канонічне ціле від 0 до 2³² − 2)."""
+    s = str(k)
+    return s.isdigit() and (s == '0' or not s.startswith('0')) and int(s) < 4294967295
+
+
+def _js_items(d):
+    """Пари словника в порядку Object.entries у JS: спершу ключі-цілі за зростанням, потім решта в порядку вставки — суми відсотків до біта
+    такі самі, як у сторожа (float додається в тому ж порядку)."""
+    return [(k, d[k]) for k in sorted((k for k in d if _is_index(k)), key=int)] + [(k, d[k]) for k in d if not _is_index(k)]
+
+
+def dist_shares(dist, kind_of):
+    """Відсотки рядка за кошиками, як distShares сторожа: kind_of — {стаття: 'rec' | 'med' | ''} статей, що є в базі (немає ключа — стаття
+    видалена). Ключ зі статтею рекрутингу → rec; інакше з посередництвом → med; усі статті ключа видалені → broken; інакше (інший план,
+    ключ без id) → other. → {'rec', 'med', 'other', 'broken', 'total'}."""
+    s = {'rec': 0.0, 'med': 0.0, 'other': 0.0, 'broken': 0.0, 'total': 0.0}
+    if not isinstance(dist, dict):
+        return s
+    for k, pct in _js_items(dist):
+        try:
+            p = float(pct or 0)
+        except (TypeError, ValueError):
+            p = 0.0
+        ids = [int(x.strip()) for x in str(k).split(',') if x.strip().isdigit() and int(x.strip()) > 0]
+        kinds = [_at(kind_of, i) for i in ids]
+        if 'rec' in kinds:
+            s['rec'] += p
+        elif 'med' in kinds:
+            s['med'] += p
+        elif kinds and all(x is None for x in kinds):
+            s['broken'] += p
+        else:
+            s['other'] += p
+    s['total'] = s['rec'] + s['med'] + s['other'] + s['broken']
+    return s
+
+
+def identity_bucket(move, partner, transit, ic, out, mgmt):
+    """Кошик нерозподіленого залишку рядка, як PG.identity: документ транзиту → 'transit'; партнер — своя фірма → 'ic'; фірма поза периметром
+    → 'excl'; посередник чи «лише списання» (excluded_partner_ids) → 'theseus'; решта → 'ext' (лише він — «без місця»)."""
+    if move in transit:
+        return 'transit'
+    if partner in ic:
+        return 'ic'
+    if partner in out:
+        return 'excl'
+    return 'theseus' if partner in mgmt else 'ext'
+
+
+def identity_unplaced(rows, kind_of):
+    """«Без місця» за правилом PG.identity: rows — [(id рядка, баланс, розподіл, кошик identity_bucket)] P&L-рядків місяця (порядок — за id, як
+    у закритті місяця). v = −баланс; частки статей іншого плану (other) і видалених (broken) — «без місця» за БУДЬ-ЯКОГО партнера; нерозподілений
+    залишок v × (100 − total) / 100 — лише в кошику 'ext' і лише коли |залишок| ≥ 1e-9. Три суми ведуться окремо й складаються в кінці, як у JS
+    (ext + other + broken) → {'unplaced': євро float зі знаком, 'gross': сума модулів по рядках, 'ids': [рядки з внеском]}. Сума зі знаком —
+    правило закриття місяця (MC.truthShare бере модуль від неї); gross — довідково, як unplacedGross сторожа."""
+    ext = other = broken = gross = 0.0
+    ids = []
+    for rid, balance, dist, bucket in rows:
+        v = -float(balance or 0)
+        s = dist_shares(dist, kind_of)
+        oth = v * s['other'] / 100
+        brk = v * s['broken'] / 100
+        other += oth
+        broken += brk
+        part = abs(oth) + abs(brk)
+        rest = v * (100 - s['total']) / 100
+        if abs(rest) >= 1e-9 and bucket == 'ext':
+            ext += rest
+            part += abs(rest)
+        gross += part
+        if part:
+            ids.append(rid)
+    return {'unplaced': ext + other + broken, 'gross': gross, 'ids': ids}
+
+
+# ——— «банк без документа» — як PG.bankNoDoc сторожа і закриття місяця (--check) ———
+NO_DOC_CATS = ('zusTax', 'noPartner', 'noBillsFirm', 'noBillsPerson')   # «без документа»; решта видів — документ є або це не витрата на боці
+BANK_CATS = NO_DOC_CATS + ('salary', 'worker', 'withBills', 'ic', 'theseus')
+# \s у JS — ті самі символи, що trim(): PHRASE_WS без \x1c–\x1f і \x85
+_JS_WS = ''.join(ch for ch in PHRASE_WS if ch not in '\x1c\x1d\x1e\x1f\x85')
+_JS_WS_RE = re.compile('[%s]+' % re.escape(_JS_WS))
+# Призначення платежу без партнера: обов'язкові платежі й зарплата за ключовими словами (ZUS_TAX_RE, SALARY_RE сторожа). У JS прапорець /i
+# без u: межа слова \b — ASCII, регістр — без урахування; тут те саме: re.ASCII і текст у нижньому регістрі (non-ASCII літери шаблону — малі).
+_ZUS_TAX_RE = re.compile(r'zus|ubezpiecz|składk|skladk|skarbow|podat|\bpit\b|\bcit\b|\bvat\b|daň|\bdan\b', re.ASCII | re.IGNORECASE)
+_SALARY_RE = re.compile(r'wynagr|wypłat|wyplat|zarp|salary|mzda|lista płac|lista plac|diety|nocleg|zaliczk|premi', re.ASCII | re.IGNORECASE)
+
+
+def norm_ref(ref):
+    """Призначення платежу без зайвих пробілів — як normRef сторожа (trim і \\s+ → пробіл за набором JS)."""
+    return _JS_WS_RE.sub(' ', str(ref or '').strip(_JS_WS))
+
+
+def bank_kind(partner, commercial, company, ref, ctx):
+    """Вид несвіреної витрати банку, як bankNoDoc сторожа: без партнера — 'zusTax' / 'salary' (за призначенням) / 'noPartner'; своя фірма — 'ic';
+    посередник — 'theseus'; працівник — 'worker'; є проведені рахунки постачальника в цій фірмі — 'withBills'; фірма — 'noBillsFirm'; фізособа —
+    'noBillsPerson'. ctx — {'our', 'mgmt', 'emp': множини партнерів, 'bills': {«комерційний|фірма»}, 'is_company': {комерційний: bool}}."""
+    if not partner:
+        low = norm_ref(ref).lower()
+        return 'zusTax' if _ZUS_TAX_RE.search(low) else ('salary' if _SALARY_RE.search(low) else 'noPartner')
+    if commercial in ctx['our']:
+        return 'ic'
+    if commercial in ctx['mgmt']:
+        return 'theseus'
+    if partner in ctx['emp'] or commercial in ctx['emp']:
+        return 'worker'
+    if '%s|%s' % (commercial, company) in ctx['bills']:
+        return 'withBills'
+    return 'noBillsFirm' if _at(ctx['is_company'], commercial) else 'noBillsPerson'
+
+
+def dedupe_statement_lines(lines, commercial):
+    """Повторно завантажені рядки виписки → (лишені, дублі), як dedupeStatementLines сторожа: та сама фірма, журнал, дата, сума й комерційний
+    партнер (партнер обов'язковий), призначення одного — початок призначення іншого (або рівне; не коротше 8 знаків), рядки завантажено в РІЗНІ
+    дні (create_date). lines — [{'id', 'partner', 'company', 'journal', 'date', 'amount', 'ref', 'created'}] (created — «РРРР-ММ-ДД ГГ:ХХ:СС»
+    UTC); commercial — {партнер: комерційний}."""
+    groups, kept, dups = {}, [], []
+    for l in lines or []:
+        p = (_at(commercial, l['partner']) or l['partner']) if l.get('partner') else 0
+        if not p:
+            kept.append(l)
+            continue
+        groups.setdefault((l['company'], l['journal'], l['date'], l['amount'], p), []).append(l)
+    for g in groups.values():
+        seen = []
+        for l in sorted(g, key=lambda x: (str(x.get('created') or ''), x['id'])):
+            r = norm_ref(l.get('ref'))
+            day = str(l.get('created') or '')[0:10]
+            if len(r) >= 8 and day and any((r.startswith(k) or k.startswith(r)) and d and d != day for k, d in seen):
+                dups.append(l)
+            else:
+                kept.append(l)
+                if len(r) >= 8:
+                    seen.append((r, day))
+    return kept, dups
+
+
+def bank_nodoc(lines, eur, ctx):
+    """«Банк без документа» місяця, як bankNoDoc сторожа: lines — несвірені рядки виписок фірм периметра за місяць (dedupe_statement_lines);
+    eur — {рядок: сума в EUR = balance рядка проводки на рахунку журналу}; рахуються лише витрати (EUR < 0), рядок без суми в EUR — пропуск.
+    ctx — {'commercial': {партнер: комерційний}} + поля bank_kind. → {'cats': {вид: {'n', 'sum', 'ids'}}, 'nodoc': {'n', 'sum'} (сума видів
+    NO_DOC_CATS, євро float зі знаком: витрата — мінус), 'dups': {'n', 'sum'}}."""
+    commercial = ctx.get('commercial') or {}
+    kctx = {'our': set(ctx.get('our') or ()), 'mgmt': set(ctx.get('mgmt') or ()), 'emp': set(ctx.get('emp') or ()), 'bills': set(ctx.get('bills') or ()),
+            'is_company': ctx.get('is_company') or {}}
+    kept, dups = dedupe_statement_lines(lines, commercial)
+    cats = {k: {'n': 0, 'sum': 0.0, 'ids': []} for k in BANK_CATS}
+    dup = {'n': 0, 'sum': 0.0}
+    for l in dups:
+        v = _at(eur, l['id'])
+        if v is not None and v < 0:
+            dup['n'] += 1
+            dup['sum'] += v
+    for l in kept:
+        v = _at(eur, l['id'])
+        if v is None or v >= 0:
+            continue
+        p = l.get('partner') or 0
+        c = (_at(commercial, p) or p) if p else 0
+        cat = cats[bank_kind(p, c, l.get('company'), l.get('ref'), kctx)]
+        cat['n'] += 1
+        cat['sum'] += v
+        cat['ids'].append(l['id'])
+    total = 0
+    for k in NO_DOC_CATS:
+        total += cats[k]['sum']
+    return {'cats': cats, 'nodoc': {'n': sum(cats[k]['n'] for k in NO_DOC_CATS), 'sum': total}, 'dups': dup}
+
+
+def bills_from(last):
+    """Початок пошуку рахунків постачальника для місяця з останнім днем last — 1 січня його року мінус BILLS_LOOKBACK_MONTHS (як periods().billsFrom
+    сторожа)."""
+    return add_months(iso(last)[0:4] + '-01-01', -BILLS_LOOKBACK_MONTHS)
+
+
+def transfer_groups(rows):
+    """Перекази на особисті рахунки: rows — [(рядок виписки, партнер, свірено, сума в EUR або None)] → [(партнер, свірено, центи «−EUR», [рядки])]
+    за партнером і статусом (сума додатна для витрати; рядок без суми в EUR — 0, але в списку лишається)."""
+    by = {}
+    for rid, partner, rec, v in rows:
+        g = by.setdefault((partner or 0, bool(rec)), [0, []])
+        g[0] += cents(-(v or 0))
+        g[1].append(rid)
+    return [(k[0], k[1], v[0], v[1]) for k, v in sorted(by.items())]
 
 
 def partner_sets(companies, excluded):
