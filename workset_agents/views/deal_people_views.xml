@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Домовленості з агентами-кандидатами: «Режим» і статус — бейджами (рядок не фарбується), рідко потрібні колонки — сховані;
+         у картці — статусбар зверху, сума нарахованого stat-кнопкою, гроші за видом домовленості -->
+    <record id="view_deal_people_list" model="ir.ui.view">
+        <field name="name">workset.agent.deal.people.list</field>
+        <field name="model">workset.agent.deal.people</field>
+        <field name="arch" type="xml">
+            <list string="Домовленості · кандидати">
+                <field name="agent_id" string="Агент"/>
+                <field name="kind" string="Вид"/>
+                <field name="mode" string="Режим" widget="badge" decoration-success="mode == 'pay'" decoration-info="mode == 'zvirka'"/>
+                <field name="state" string="Статус" widget="badge" decoration-success="state == 'active'" decoration-muted="state == 'closed'"/>
+                <field name="date_from" string="З"/>
+                <field name="date_to" string="Діє по" optional="hide"/>
+                <field name="rate" string="€/год" optional="show"/>
+                <field name="oneoff_amount" string="Разова" optional="hide"/>
+                <field name="pay_path" string="Шлях" optional="show"/>
+                <field name="people_n" string="Людей"/>
+                <field name="acc_sum" string="Нараховано" optional="show"/>
+                <field name="owner_ok" string="Підтверджено" optional="hide"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_deal_people_kanban" model="ir.ui.view">
+        <field name="name">workset.agent.deal.people.kanban</field>
+        <field name="model">workset.agent.deal.people</field>
+        <field name="arch" type="xml">
+            <kanban records_draggable="0" quick_create="0">
+                <field name="currency_id"/>
+                <field name="kind"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between">
+                            <field name="agent_id" class="fw-bold text-truncate"/>
+                            <field name="mode" widget="badge" decoration-success="mode == 'pay'" decoration-info="mode == 'zvirka'"/>
+                        </div>
+                        <field name="kind" class="text-muted small"/>
+                        <div>
+                            <field name="rate" widget="monetary" class="fs-5 fw-bold" invisible="kind != 'hour'"/>
+                            <span class="text-muted small" invisible="kind != 'hour'"> за годину</span>
+                            <field name="oneoff_amount" widget="monetary" class="fs-5 fw-bold" invisible="kind != 'oneoff'"/>
+                        </div>
+                        <field name="state" widget="badge" decoration-success="state == 'active'" decoration-muted="state == 'closed'"/>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_deal_people_form" model="ir.ui.view">
+        <field name="name">workset.agent.deal.people.form</field>
+        <field name="model">workset.agent.deal.people</field>
+        <field name="arch" type="xml">
+            <form string="Домовленість · кандидати">
+                <header>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,active,closed" options="{'clickable': '1'}"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_accruals" type="object" class="oe_stat_button" icon="fa-eur" invisible="not acc_sum">
+                            <field name="acc_sum" widget="statinfo" string="Нараховано"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="agent_id" placeholder="Агент"/></h1>
+                        <field name="mode" widget="badge" decoration-success="mode == 'pay'" decoration-info="mode == 'zvirka'"/>
+                    </div>
+                    <group>
+                        <group string="Що домовились">
+                            <field name="kind"/>
+                            <field name="mode" widget="radio" options="{'horizontal': true}"/>
+                            <field name="date_from"/>
+                            <field name="date_to" placeholder="без кінця"/>
+                            <field name="owner_ok" widget="boolean_toggle"/>
+                        </group>
+                        <group string="Гроші">
+                            <field name="rate" string="€ за годину" invisible="kind != 'hour'"/>
+                            <field name="oneoff_amount" string="Разова сума" invisible="kind != 'oneoff'"/>
+                            <field name="pay_path"/>
+                            <field name="company_id" placeholder="за шляхом виплати"/>
+                            <field name="withhold_pct" invisible="not withhold_pct"/>
+                            <field name="withhold_analytic_id" invisible="not withhold_pct"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="env_sum" string="Конверт агента за рік" invisible="not env_sum"/>
+                            <field name="zv_diff_sum" string="Різниця агента за рік" invisible="not zv_diff_sum"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Люди агента" name="members">
+                            <field name="member_ids">
+                                <list editable="bottom">
+                                    <field name="partner_id" string="Людина" widget="many2one_avatar"/>
+                                    <field name="date_from" string="З"/>
+                                    <field name="date_to" string="По"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Нарахування" name="accruals" invisible="not acc_sum">
+                            <field name="accrual_live_ids" readonly="1">
+                                <list>
+                                    <field name="earned_date" string="Зароблено"/>
+                                    <field name="kind" string="Вид"/>
+                                    <field name="person_id" string="Людина"/>
+                                    <field name="hours" string="Годин" optional="show"/>
+                                    <field name="amount" string="Сума" sum="Разом"/>
+                                    <field name="state" string="Статус" widget="badge" decoration-warning="state == 'review'" decoration-success="state == 'paid'"/>
+                                    <field name="pay_date" string="Виплата" optional="show"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Умови" name="terms">
+                            <group>
+                                <field name="terms_version" placeholder="напр. v1.7"/>
+                                <field name="terms_source" placeholder="звідки умови: договір, переписка, слово власника"/>
+                                <field name="note" placeholder="нотатки офісу"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_deal_people_search" model="ir.ui.view">
+        <field name="name">workset.agent.deal.people.search</field>
+        <field name="model">workset.agent.deal.people</field>
+        <field name="arch" type="xml">
+            <search string="Домовленості · кандидати">
+                <field name="agent_id"/>
+                <filter name="live" string="Діють" domain="[('state', 'in', ['zvirka', 'active'])]"/>
+                <filter name="draft" string="Чернетки" domain="[('state', '=', 'draft')]"/>
+                <separator/>
+                <filter name="pay" string="Платимо з Odoo" domain="[('mode', '=', 'pay')]"/>
+                <filter name="zv" string="Лише звірка" domain="[('mode', '=', 'zvirka')]"/>
+                <group>
+                    <filter name="by_agent" string="Агент" context="{'group_by': 'agent_id'}"/>
+                    <filter name="by_state" string="Статус" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_deals_people" model="ir.actions.act_window">
+        <field name="name">Домовленості · кандидати</field>
+        <field name="res_model">workset.agent.deal.people</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="search_view_id" ref="view_deal_people_search"/>
+        <field name="context">{'search_default_live': 1}</field>
+    </record>
+</odoo>

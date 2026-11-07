@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Агенти: дошка за замовчуванням (колонки — стан, перетягування заборонено, тестові приховані фільтром), картка ≤ 4 рядків:
+         хто · до виплати (одна велика цифра) · різниця з конвертом (червона лише понад 5 %) · швидкі дії -->
+    <record id="view_agent_kanban" model="ir.ui.view">
+        <field name="name">workset.agent.kanban</field>
+        <field name="model">workset.agent</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state" records_draggable="0" group_create="0" group_delete="0" group_edit="0" quick_create="0" class="o_workset_agents_kanban">
+                <progressbar field="kind" colors='{"people": "success", "client": "info", "both": "warning", "none": "muted"}'/>
+                <field name="state"/>
+                <field name="is_test"/>
+                <field name="pd_n"/>
+                <field name="cd_n"/>
+                <field name="accrual_n"/>
+                <field name="diff_pct"/>
+                <templates>
+                    <t t-name="card" class="flex-row">
+                        <widget name="web_ribbon" title="Тест" bg_color="text-bg-warning" invisible="not is_test"/>
+                        <widget name="web_ribbon" title="Лише звірка" bg_color="text-bg-info" invisible="is_test or state != 'zvirka'"/>
+                        <aside class="me-2">
+                            <field name="avatar_128" widget="image" options="{'size': [48, 48]}" class="o_avatar rounded"/>
+                        </aside>
+                        <main class="w-100">
+                            <field name="name" class="fw-bold fs-5 text-truncate"/>
+                            <div invisible="not due_next">
+                                <field name="due_next" class="fs-3 fw-bold"/> €
+                                <span class="text-muted small ms-1">до <field name="next_pay_day"/></span>
+                            </div>
+                            <div class="text-muted small" invisible="due_next">
+                                <field name="next_pay"/>
+                            </div>
+                            <div class="small" invisible="not diff_year">
+                                <span class="text-muted">різниця за <field name="card_year" options="{'format': false}"/> </span>
+                                <field name="diff_year" class="text-danger fw-bold" invisible="diff_pct &lt;= 5 and diff_pct &gt;= -5"/>
+                                <field name="diff_year" class="text-muted" invisible="diff_pct &gt; 5 or diff_pct &lt; -5"/> €
+                            </div>
+                            <footer class="pt-1">
+                                <a name="action_open_deals_people" type="object" role="button" class="btn btn-link btn-sm p-0 me-3" invisible="not pd_n">Домовленості</a>
+                                <a name="action_open_deals_client" type="object" role="button" class="btn btn-link btn-sm p-0 me-3" invisible="pd_n or not cd_n">Домовленості</a>
+                                <a name="action_open_zvirka" type="object" role="button" class="btn btn-link btn-sm p-0 me-3" invisible="not diff_year">Звірка</a>
+                                <a name="action_open_accruals" type="object" role="button" class="btn btn-link btn-sm p-0" invisible="not accrual_n">Нарахування</a>
+                            </footer>
+                        </main>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_agent_list" model="ir.ui.view">
+        <field name="name">workset.agent.list</field>
+        <field name="model">workset.agent</field>
+        <field name="arch" type="xml">
+            <list string="Агенти">
+                <field name="avatar_128" widget="image" options="{'size': [24, 24]}" string=" " width="32px"/>
+                <field name="name"/>
+                <field name="kind" widget="badge"/>
+                <field name="state" widget="badge" decoration-success="state == 'pay'" decoration-info="state == 'zvirka'" decoration-muted="state in ('draft', 'closed', 'none')"/>
+                <field name="due_next" string="До виплати"/>
+                <field name="next_pay_day" string="Коли"/>
+                <field name="card_year" string="Рік" options="{'format': false}" optional="hide"/>
+                <field name="paid_year" optional="show"/>
+                <field name="diff_year" optional="show"/>
+                <field name="diff_pct" string="%" optional="show"/>
+                <field name="code" optional="hide"/>
+                <field name="phone" optional="hide"/>
+                <field name="is_test" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Картка агента: гроші плитками зверху (до виплати, виплачено 2026, різниця з конвертом — без нулів), stat-кнопки лише ненульові,
+         зв'язок із підказками в порожніх полях, вкладки Домовленості · Люди · Нарахування · Виплати · Податки (бухгалтерії) -->
+    <record id="view_agent_form" model="ir.ui.view">
+        <field name="name">workset.agent.form</field>
+        <field name="model">workset.agent</field>
+        <field name="arch" type="xml">
+            <form string="Агент">
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_deals_people" type="object" class="oe_stat_button" icon="fa-handshake-o" invisible="not pd_n">
+                            <field name="pd_n" widget="statinfo" string="Кандидати"/>
+                        </button>
+                        <button name="action_open_deals_client" type="object" class="oe_stat_button" icon="fa-building" invisible="not cd_n">
+                            <field name="cd_n" widget="statinfo" string="Замовники"/>
+                        </button>
+                        <button name="action_open_members" type="object" class="oe_stat_button" icon="fa-users" invisible="not people_n">
+                            <field name="people_n" widget="statinfo" string="Людей"/>
+                        </button>
+                        <button name="action_open_payouts" type="object" class="oe_stat_button" icon="fa-money" invisible="not payout_n">
+                            <field name="payout_n" widget="statinfo" string="Виплати"/>
+                        </button>
+                    </div>
+                    <widget name="web_ribbon" title="Тест" bg_color="text-bg-warning" invisible="not is_test"/>
+                    <widget name="web_ribbon" title="Лише звірка" bg_color="text-bg-info" invisible="is_test or state != 'zvirka'"/>
+                    <field name="accrual_n" invisible="1"/>
+                    <field name="avatar_128" widget="image" class="oe_avatar"/>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Ім'я агента"/></h1>
+                        <div class="d-flex gap-2">
+                            <field name="kind" widget="badge" invisible="kind == 'none'"/>
+                            <field name="state" widget="badge" decoration-success="state == 'pay'" decoration-info="state == 'zvirka'" decoration-muted="state in ('draft', 'closed', 'none')"/>
+                        </div>
+                    </div>
+                    <div class="o_workset_agents_tiles" invisible="not due_next and not paid_year and not diff_year">
+                        <div class="o_wa_tile" invisible="not due_next">
+                            <div class="o_wa_tile_label">До виплати <field name="next_pay_day" class="d-inline"/></div>
+                            <div class="o_wa_tile_value"><field name="due_next" class="d-inline"/> €</div>
+                        </div>
+                        <div class="o_wa_tile" invisible="not paid_year">
+                            <div class="o_wa_tile_label">Виплачено за <field name="card_year" class="d-inline" options="{'format': false}"/></div>
+                            <div class="o_wa_tile_value"><field name="paid_year" class="d-inline"/> €</div>
+                        </div>
+                        <button name="action_open_zvirka" type="object" class="o_wa_tile btn btn-link text-start" invisible="not diff_year">
+                            <div class="o_wa_tile_label">Різниця з конвертом за <field name="card_year" class="d-inline" options="{'format': false}"/></div>
+                            <div class="o_wa_tile_value">
+                                <field name="diff_year" class="d-inline text-danger" invisible="diff_pct &lt;= 5 and diff_pct &gt;= -5"/>
+                                <field name="diff_year" class="d-inline" invisible="diff_pct &gt; 5 or diff_pct &lt; -5"/> €
+                                <span class="fs-6 text-muted ms-1"><field name="diff_pct" class="d-inline"/> %</span>
+                            </div>
+                        </button>
+                    </div>
+                    <group>
+                        <group string="Зв'язок">
+                            <field name="phone" widget="phone" placeholder="+380…"/>
+                            <field name="email" widget="email" placeholder="пошта агента"/>
+                            <field name="tg_id" placeholder="числовий id у Telegram"/>
+                            <field name="code" placeholder="код із бота агентів"/>
+                        </group>
+                        <group string="Гроші" invisible="not calc_year and not env_year and not paid_year">
+                            <field name="card_year" options="{'format': false}"/>
+                            <field name="calc_year" invisible="not calc_year"/>
+                            <field name="env_year" invisible="not env_year"/>
+                            <field name="diff_year" invisible="not diff_year"/>
+                            <field name="paid_year" invisible="not paid_year"/>
+                        </group>
+                        <group string="Облік">
+                            <field name="form_state" widget="badge"/>
+                            <field name="envelope_id" placeholder="аналітика «ДОЛЯ | …»" options="{'no_create': True}"/>
+                            <field name="partner_id" string="Контакт" readonly="id" placeholder="наявний контакт або порожньо — створиться"/>
+                            <field name="is_test" widget="boolean_toggle"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Домовленості" name="deals">
+                            <field name="pd_ids" context="{'default_agent_id': id}" invisible="not pd_ids">
+                                <list string="Кандидати">
+                                    <field name="kind" string="Вид"/>
+                                    <field name="mode" string="Режим" widget="badge" decoration-success="mode == 'pay'" decoration-info="mode == 'zvirka'"/>
+                                    <field name="state" string="Статус" widget="badge"/>
+                                    <field name="date_from" string="З"/>
+                                    <field name="rate" string="€/год"/>
+                                    <field name="people_n" string="Людей"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                            <field name="cd_ids" context="{'default_agent_id': id}" invisible="not cd_ids">
+                                <list string="Замовники">
+                                    <field name="kind" string="Вид"/>
+                                    <field name="mode" string="Режим" widget="badge" decoration-success="mode == 'pay'" decoration-info="mode == 'zvirka'"/>
+                                    <field name="state" string="Статус" widget="badge"/>
+                                    <field name="customer_ids" string="Замовники" widget="many2many_tags"/>
+                                    <field name="date_from" string="З"/>
+                                    <field name="rate" string="€/год"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                            <div class="d-flex gap-3" invisible="pd_ids or cd_ids">
+                                <button name="action_open_deals_people" type="object" string="Домовленість по людях" class="btn-secondary"/>
+                                <button name="action_open_deals_client" type="object" string="Домовленість по замовниках" class="btn-secondary"/>
+                            </div>
+                        </page>
+                        <page string="Люди" name="people" invisible="not member_ids">
+                            <field name="member_ids" readonly="1">
+                                <list string="Люди агента">
+                                    <field name="partner_id" string="Людина" widget="many2one_avatar"/>
+                                    <field name="date_from" string="З"/>
+                                    <field name="date_to" string="По"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Нарахування" name="accruals" invisible="not accrual_n">
+                            <field name="accrual_ids" readonly="1">
+                                <list string="Нарахування" limit="20">
+                                    <field name="earned_date" string="Зароблено"/>
+                                    <field name="kind" string="Вид"/>
+                                    <field name="person_id" string="Людина" optional="show"/>
+                                    <field name="amount" string="Сума" sum="Разом"/>
+                                    <field name="state" string="Статус" widget="badge" decoration-warning="state == 'review'" decoration-success="state == 'paid'"/>
+                                    <field name="pay_date" string="Виплата" optional="show"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Виплати" name="payouts" invisible="not payout_n">
+                            <field name="payout_ids" readonly="1">
+                                <list string="Виплати">
+                                    <field name="pay_day" string="День"/>
+                                    <field name="pay_path" string="Шлях"/>
+                                    <field name="net" string="До переказу" sum="Разом"/>
+                                    <field name="state" string="Статус" widget="badge" decoration-success="state == 'paid'" decoration-warning="state in ('review', 'paid_part')"/>
+                                    <field name="paid_date" string="Сплачено"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Податки" name="tax" groups="account.group_account_user,hr.group_hr_manager">
+                            <field name="tax_ids" context="{'default_agent_id': id}">
+                                <list string="Податки">
+                                    <field name="tax_status" string="Статус" widget="badge"/>
+                                    <field name="tax_country" string="Країна"/>
+                                    <field name="cert_until" string="Довідка до"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_agent_search" model="ir.ui.view">
+        <field name="name">workset.agent.search</field>
+        <field name="model">workset.agent</field>
+        <field name="arch" type="xml">
+            <search string="Агенти">
+                <field name="name"/>
+                <field name="code"/>
+                <field name="tg_id"/>
+                <filter name="real" string="Без тестових" domain="[('is_test', '=', False)]"/>
+                <filter name="test" string="Тестові" domain="[('is_test', '=', True)]"/>
+                <separator/>
+                <filter name="pay" string="Платимо" domain="[('state', '=', 'pay')]"/>
+                <filter name="zvirka" string="Лише звірка" domain="[('state', '=', 'zvirka')]"/>
+                <separator/>
+                <filter name="people" string="Кандидати" domain="[('kind', 'in', ['people', 'both'])]"/>
+                <filter name="client" string="Замовники" domain="[('kind', 'in', ['client', 'both'])]"/>
+                <group>
+                    <filter name="by_state" string="Стан" context="{'group_by': 'state'}"/>
+                    <filter name="by_kind" string="Вид" context="{'group_by': 'kind'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_agents" model="ir.actions.act_window">
+        <field name="name">Агенти</field>
+        <field name="res_model">workset.agent</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="search_view_id" ref="view_agent_search"/>
+        <field name="context">{'search_default_real': 1}</field>
+        <field name="help" type="html"><p class="o_view_nocontent_smiling_face">Агентів ще немає</p><p>Підбір людей або посередник замовників.</p></field>
+    </record>
+</odoo>

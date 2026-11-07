@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- «Привів агент» на картці працівника — лише показ (вводять у меню «Агенти») -->
+    <record id="view_employee_form_agent" model="ir.ui.view">
+        <field name="name">hr.employee.form.workset.agent</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='parent_id']" position="after">
+                <field name="agent_id" readonly="1" invisible="not agent_id" groups="hr.group_hr_user"/>
+                <field name="agent_deal_id" readonly="1" invisible="not agent_deal_id" groups="hr.group_hr_user"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

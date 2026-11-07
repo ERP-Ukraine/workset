@@ -1,0 +1,50 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_agent_viewer,workset.agent viewer,model_workset_agent,workset_agents.group_viewer,1,0,0,0
+access_agent_editor,workset.agent editor,model_workset_agent,workset_agents.group_editor,1,1,1,0
+access_agent_user,workset.agent hr user,model_workset_agent,hr.group_hr_user,1,1,1,0
+access_agent_account,workset.agent account,model_workset_agent,account.group_account_user,1,0,0,0
+access_agent_manager,workset.agent hr manager,model_workset_agent,hr.group_hr_manager,1,1,1,1
+access_agent_owner,workset.agent owner,model_workset_agent,workset_agents.group_owner,1,1,1,1
+access_pd_viewer,workset.agent.deal.people viewer,model_workset_agent_deal_people,workset_agents.group_viewer,1,0,0,0
+access_pd_editor,workset.agent.deal.people editor,model_workset_agent_deal_people,workset_agents.group_editor,1,1,1,0
+access_pd_user,workset.agent.deal.people hr user,model_workset_agent_deal_people,hr.group_hr_user,1,1,1,0
+access_pd_manager,workset.agent.deal.people hr manager,model_workset_agent_deal_people,hr.group_hr_manager,1,1,1,1
+access_pd_owner,workset.agent.deal.people owner,model_workset_agent_deal_people,workset_agents.group_owner,1,1,1,1
+access_member_viewer,workset.agent.member viewer,model_workset_agent_member,workset_agents.group_viewer,1,0,0,0
+access_member_editor,workset.agent.member editor,model_workset_agent_member,workset_agents.group_editor,1,1,1,1
+access_member_user,workset.agent.member hr user,model_workset_agent_member,hr.group_hr_user,1,1,1,1
+access_member_manager,workset.agent.member hr manager,model_workset_agent_member,hr.group_hr_manager,1,1,1,1
+access_cd_viewer,workset.agent.deal.client viewer,model_workset_agent_deal_client,workset_agents.group_viewer,1,0,0,0
+access_cd_editor,workset.agent.deal.client editor,model_workset_agent_deal_client,workset_agents.group_editor,1,1,1,0
+access_cd_user,workset.agent.deal.client hr user,model_workset_agent_deal_client,hr.group_hr_user,1,1,1,0
+access_cd_manager,workset.agent.deal.client hr manager,model_workset_agent_deal_client,hr.group_hr_manager,1,1,1,1
+access_cd_owner,workset.agent.deal.client owner,model_workset_agent_deal_client,workset_agents.group_owner,1,1,1,1
+access_accrual_viewer,workset.agent.accrual viewer,model_workset_agent_accrual,workset_agents.group_viewer,1,0,0,0
+access_accrual_user,workset.agent.accrual hr user,model_workset_agent_accrual,hr.group_hr_user,1,1,1,0
+access_accrual_manager,workset.agent.accrual hr manager,model_workset_agent_accrual,hr.group_hr_manager,1,1,1,1
+access_accrual_owner,workset.agent.accrual owner,model_workset_agent_accrual,workset_agents.group_owner,1,1,1,1
+access_payout_viewer,workset.agent.payout viewer,model_workset_agent_payout,workset_agents.group_viewer,1,0,0,0
+access_payout_user,workset.agent.payout hr user,model_workset_agent_payout,hr.group_hr_user,1,0,0,0
+access_payout_account,workset.agent.payout account,model_workset_agent_payout,account.group_account_user,1,0,0,0
+access_payout_manager,workset.agent.payout hr manager,model_workset_agent_payout,hr.group_hr_manager,1,0,0,0
+access_payout_owner,workset.agent.payout owner,model_workset_agent_payout,workset_agents.group_owner,1,1,1,1
+access_run_viewer,workset.agent.run viewer,model_workset_agent_run,workset_agents.group_viewer,1,0,0,0
+access_run_user,workset.agent.run hr user,model_workset_agent_run,hr.group_hr_user,1,0,0,0
+access_run_manager,workset.agent.run hr manager,model_workset_agent_run,hr.group_hr_manager,1,0,0,1
+access_paid_wizard_account,workset.agent.paid.wizard account,model_workset_agent_paid_wizard,account.group_account_user,1,1,1,1
+access_paid_wizard_owner,workset.agent.paid.wizard owner,model_workset_agent_paid_wizard,workset_agents.group_owner,1,1,1,1
+access_tax_account,workset.agent.tax account,model_workset_agent_tax,account.group_account_user,1,1,1,0
+access_tax_manager,workset.agent.tax hr manager,model_workset_agent_tax,hr.group_hr_manager,1,1,1,1
+access_dec_viewer,workset.agent.decision viewer,model_workset_agent_decision,workset_agents.group_viewer,1,0,0,0
+access_dec_user,workset.agent.decision hr user,model_workset_agent_decision,hr.group_hr_user,1,0,0,0
+access_dec_manager,workset.agent.decision hr manager,model_workset_agent_decision,hr.group_hr_manager,1,0,0,0
+access_dec_owner,workset.agent.decision owner,model_workset_agent_decision,workset_agents.group_owner,1,1,1,1
+access_dline_viewer,workset.agent.decision.line viewer,model_workset_agent_decision_line,workset_agents.group_viewer,1,0,0,0
+access_dline_user,workset.agent.decision.line hr user,model_workset_agent_decision_line,hr.group_hr_user,1,0,0,0
+access_dline_manager,workset.agent.decision.line hr manager,model_workset_agent_decision_line,hr.group_hr_manager,1,0,0,0
+access_dline_owner,workset.agent.decision.line owner,model_workset_agent_decision_line,workset_agents.group_owner,1,1,1,1
+access_zvirka_viewer,workset.agent.zvirka viewer,model_workset_agent_zvirka,workset_agents.group_viewer,1,0,0,0
+access_zvirka_user,workset.agent.zvirka hr user,model_workset_agent_zvirka,hr.group_hr_user,1,0,0,0
+access_zvirka_account,workset.agent.zvirka account,model_workset_agent_zvirka,account.group_account_user,1,0,0,0
+access_zvirka_manager,workset.agent.zvirka hr manager,model_workset_agent_zvirka,hr.group_hr_manager,1,0,0,0
+access_zvirka_owner,workset.agent.zvirka owner,model_workset_agent_zvirka,workset_agents.group_owner,1,1,1,1

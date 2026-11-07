@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_decision_line_list" model="ir.ui.view">
+        <field name="name">workset.agent.decision.line.list</field>
+        <field name="model">workset.agent.decision.line</field>
+        <field name="arch" type="xml">
+            <list string="Рядки рішень" create="0">
+                <field name="decision_id" string="Рішення"/>
+                <field name="agent_id" string="Агент"/>
+                <field name="pay_path" string="Шлях" optional="show"/>
+                <field name="available" string="Разом"/>
+                <field name="pay_now" string="Сплатити зараз"/>
+                <field name="pay_net" string="До переказу" optional="show"/>
+                <field name="advice" string="Порада" widget="badge" decoration-success="advice == 'pay'" decoration-warning="advice == 'check'" decoration-muted="advice == 'hold'"/>
+                <field name="state" string="Статус" widget="badge" decoration-danger="state == 'review'" decoration-success="state == 'done'"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- «Деталі рядка»: гроші — зверху плитками, порожні блоки не показуються, «Прострочено» — кнопка до рахунків замовників -->
+    <record id="view_decision_line_form" model="ir.ui.view">
+        <field name="name">workset.agent.decision.line.form</field>
+        <field name="model">workset.agent.decision.line</field>
+        <field name="arch" type="xml">
+            <form string="Рядок рішення" create="0">
+                <sheet>
+                    <field name="currency_id" invisible="1"/>
+                    <field name="overdue_move_ids" invisible="1" groups="account.group_account_invoice"/>
+                    <div class="oe_title">
+                        <h1><field name="agent_id" readonly="1"/></h1>
+                        <div class="d-flex gap-2">
+                            <field name="pay_path" widget="badge" readonly="1"/>
+                            <field name="state" widget="badge" readonly="1" decoration-danger="state == 'review'" decoration-success="state == 'done'"/>
+                            <field name="advice" widget="badge" readonly="1" decoration-success="advice == 'pay'" decoration-warning="advice == 'check'" decoration-muted="advice == 'hold'"/>
+                        </div>
+                    </div>
+                    <div class="o_workset_agents_tiles">
+                        <div class="o_wa_tile" invisible="not available">
+                            <div class="o_wa_tile_label">Разом до рішення</div>
+                            <div class="o_wa_tile_value"><field name="available" widget="monetary" class="d-inline"/></div>
+                        </div>
+                        <div class="o_wa_tile" invisible="not pay_now">
+                            <div class="o_wa_tile_label">Сплатити зараз</div>
+                            <div class="o_wa_tile_value"><field name="pay_now" widget="monetary" class="d-inline" readonly="1"/></div>
+                        </div>
+                        <div class="o_wa_tile" invisible="not pay_net">
+                            <div class="o_wa_tile_label">До переказу</div>
+                            <div class="o_wa_tile_value"><field name="pay_net" widget="monetary" class="d-inline"/></div>
+                        </div>
+                        <div class="o_wa_tile" invisible="not buffer_out">
+                            <div class="o_wa_tile_label">У буфер</div>
+                            <div class="o_wa_tile_value"><field name="buffer_out" widget="monetary" class="d-inline"/></div>
+                        </div>
+                    </div>
+                    <div class="alert alert-info mb-2" role="status" invisible="not advice_text">
+                        <div class="fw-bold">Чому так</div>
+                        <field name="advice_text" readonly="1"/>
+                    </div>
+                    <group>
+                        <group string="Звідки сума">
+                            <field name="accrued" readonly="1"/>
+                            <field name="buffer_in" readonly="1" invisible="not buffer_in"/>
+                            <field name="review_amount" readonly="1" invisible="not review_amount"/>
+                            <field name="proposal" readonly="1"/>
+                            <field name="proposal_note" readonly="1" invisible="not proposal_note"/>
+                            <field name="unpaid" readonly="1" invisible="not unpaid"/>
+                        </group>
+                        <group string="Податок і утримання" invisible="not wh_pct and not tax_pct">
+                            <field name="wh_pct" readonly="1" invisible="not wh_pct"/>
+                            <field name="pay_wh" invisible="not pay_wh"/>
+                            <field name="tax_pct" readonly="1" invisible="not tax_pct"/>
+                            <field name="pay_tax" invisible="not pay_tax"/>
+                            <field name="wh_note" readonly="1" invisible="not wh_note"/>
+                        </group>
+                    </group>
+                    <group string="Замовники агента" invisible="not cust_paid and not cust_unpaid and not cust_overdue">
+                        <group>
+                            <field name="cust_paid" readonly="1"/>
+                            <field name="cust_unpaid" readonly="1" invisible="not cust_unpaid"/>
+                            <label for="cust_overdue" invisible="not cust_overdue"/>
+                            <div class="d-flex gap-2" invisible="not cust_overdue">
+                                <field name="cust_overdue" readonly="1" class="text-danger"/>
+                                <button name="action_open_overdue" type="object" string="Відкрити список" class="btn-link p-0" groups="account.group_account_invoice"/>
+                            </div>
+                        </group>
+                        <group>
+                            <field name="cust_text" readonly="1" nolabel="1" colspan="2" invisible="not cust_text"/>
+                        </group>
+                    </group>
+                    <group string="Звірка за період" invisible="state != 'zvirka'">
+                        <group>
+                            <field name="zv_period" readonly="1"/>
+                            <field name="zv_env" readonly="1"/>
+                            <field name="zv_diff" readonly="1"/>
+                            <field name="zv_missing" readonly="1" invisible="not zv_missing"/>
+                        </group>
+                        <group>
+                            <field name="zv_note" readonly="1" nolabel="1" colspan="2" invisible="not zv_note"/>
+                        </group>
+                    </group>
+                    <group string="Сторож" invisible="not guard">
+                        <field name="guard" readonly="1"/>
+                        <field name="guard_note" readonly="1"/>
+                    </group>
+                    <group string="Службове" groups="base.group_no_one">
+                        <field name="decision_id" readonly="1"/>
+                        <field name="section" readonly="1"/>
+                        <field name="company_id" readonly="1"/>
+                        <field name="key" readonly="1"/>
+                        <field name="payout_id" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>

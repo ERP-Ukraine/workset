@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Привілей «Агенти» в розділі кадрів форми користувача; склад «Власник» (рівно учётка власника) і «Редактор» пише інструмент штабу (seed) -->
+    <record id="res_groups_privilege_agents" model="res.groups.privilege">
+        <field name="name">Агенти</field>
+        <field name="sequence">91</field>
+        <field name="category_id" ref="base.module_category_human_resources"/>
+    </record>
+
+    <record id="group_viewer" model="res.groups">
+        <field name="name">Перегляд</field>
+        <field name="sequence">10</field>
+        <field name="privilege_id" ref="res_groups_privilege_agents"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        <field name="comment">Бачить агентів, домовленості, нарахування, рішення, звірку; виплати — лише читати</field>
+    </record>
+
+    <record id="group_editor" model="res.groups">
+        <field name="name">Редактор</field>
+        <field name="sequence">20</field>
+        <field name="privilege_id" ref="res_groups_privilege_agents"/>
+        <field name="implied_ids" eval="[(4, ref('group_viewer'))]"/>
+        <field name="comment">Створює й править агентів, домовленості, людей агентів; податки — лише бухгалтерія</field>
+    </record>
+
+    <record id="group_owner" model="res.groups">
+        <field name="name">Власник</field>
+        <field name="sequence">30</field>
+        <field name="privilege_id" ref="res_groups_privilege_agents"/>
+        <field name="implied_ids" eval="[(4, ref('group_editor'))]"/>
+        <field name="comment">«Затвердити», «Сплатити зараз», «Зупинити», «Позначити виплаченим вручну», видалення. Склад — лише власник</field>
+    </record>
+
+    <!-- «Перегляд» мають кадровики й бухгалтерія -->
+    <record id="hr.group_hr_user" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('group_viewer'))]"/>
+    </record>
+    <record id="account.group_account_user" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('group_viewer'))]"/>
+    </record>
+
+    <!-- Банківські рахунки агентів (ПДн): групові правила Odoo складаються через АБО (стандартне правило кадровиків дає всі рахунки), тому правило
+         ГЛОБАЛЬНЕ (через І з усіма): бухгалтерія й адміністратори кадрів бачать усе, решта — лише рахунки не-агентів -->
+    <record id="rule_partner_bank_agents" model="ir.rule">
+        <field name="name">Агенти: банківські рахунки агентів лише бухгалтерії та адміністраторам кадрів</field>
+        <field name="model_id" ref="base.model_res_partner_bank"/>
+        <field name="domain_force">[] if (user.has_group('account.group_account_user') or user.has_group('hr.group_hr_manager')) else [('partner_id.is_agent', '=', False)]</field>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+</odoo>

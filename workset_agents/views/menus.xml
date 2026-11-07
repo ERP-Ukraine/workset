@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Додаток «Агенти» — одне місце вводу: Огляд · Рішення · Звірка · Агенти · Домовленості · Довідники (іконка — поки «Ставок»; своя — навик visual).
+         «Люди агентів» — у «Довідниках», не верхнім пунктом. Зі «Співробітників» і «Ставок» — лише посилання на ті самі дії -->
+    <menuitem id="menu_root" name="Агенти" sequence="187" web_icon="workset_rates,static/description/icon.png"
+              groups="workset_agents.group_viewer,hr.group_hr_user,account.group_account_user"/>
+    <menuitem id="menu_overview" name="Огляд" parent="menu_root" sequence="1"/>
+    <menuitem id="menu_overview_accruals" name="Нараховано" parent="menu_overview" action="action_overview" sequence="1"/>
+    <menuitem id="menu_overview_zvirka" name="Звірка: агент × місяць" parent="menu_overview" action="action_overview_zvirka" sequence="2"/>
+    <menuitem id="menu_decisions" name="Рішення" parent="menu_root" action="action_decisions" sequence="2"/>
+    <menuitem id="menu_zvirka" name="Звірка" parent="menu_root" action="action_zvirka" sequence="3"/>
+    <menuitem id="menu_agents" name="Агенти" parent="menu_root" action="action_agents" sequence="4"/>
+    <menuitem id="menu_deals" name="Домовленості" parent="menu_root" sequence="5"/>
+    <menuitem id="menu_deals_people" name="Люди" parent="menu_deals" action="action_deals_people" sequence="1"/>
+    <menuitem id="menu_deals_client" name="Замовники" parent="menu_deals" action="action_deals_client" sequence="2"/>
+    <menuitem id="menu_refs" name="Довідники" parent="menu_root" sequence="6"/>
+    <menuitem id="menu_tax" name="Податки" parent="menu_refs" action="action_tax" sequence="1" groups="account.group_account_user,hr.group_hr_manager"/>
+    <menuitem id="menu_members" name="Люди агентів" parent="menu_refs" action="action_members" sequence="2"/>
+    <menuitem id="menu_accruals" name="Нарахування" parent="menu_refs" action="action_accruals" sequence="3"/>
+    <menuitem id="menu_payouts" name="Виплати" parent="menu_refs" action="action_payouts" sequence="4"/>
+    <menuitem id="menu_runs" name="Журнал" parent="menu_refs" action="action_runs" sequence="5"/>
+
+    <!-- посилання: «Співробітники → Агенти» і «Ставки → Агенти-замовники» (ті самі дії, окремого вводу немає) -->
+    <menuitem id="menu_hr_agents" name="Агенти" parent="hr.menu_hr_root" action="action_agents" sequence="90"/>
+    <menuitem id="menu_rates_agents" name="Агенти-замовники" parent="workset_rates.menu_root" action="action_deals_client" sequence="90"/>
+</odoo>

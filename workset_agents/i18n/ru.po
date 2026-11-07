@@ -1,0 +1,2224 @@
+# Russian translation of the Odoo module workset_agents.
+# Згенеровано tools/odoo_addon_po.py — не правити вручну.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Language: ru\n"
+"Plural-Forms: \n"
+
+#. module: workset_agents
+#: model:ir.model,name:workset_agents.model_workset_agent_accrual
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_accrual_form
+msgid "Нарахування агенту"
+msgstr "Начисление агенту"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__name
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_run__name
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__name
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__name
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_member__name
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__name
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__name
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_paid_wizard__name
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__name
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_tax__name
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_zvirka__name
+msgid "Назва"
+msgstr "Название"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__section
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__section
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__section
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__section
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_zvirka__section
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_search
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_list
+msgid "Розділ"
+msgstr "Раздел"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__people_deal_id
+msgid "Домовленість агента-кандидата"
+msgstr "Договорённость агента-кандидата"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__client_deal_id
+msgid "Домовленість агента-замовника"
+msgstr "Договорённость агента-заказчика"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__person_id
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_member__partner_id
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_member_list
+msgid "Людина"
+msgstr "Человек"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__customer_id
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+msgid "Замовник"
+msgstr "Заказчик"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__move_id
+msgid "Рахунок замовника"
+msgstr "Счёт заказчика"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__hours
+msgid "Години"
+msgstr "Часы"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__rate
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__rate
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__rate
+msgid "Ставка, €/год"
+msgstr "Ставка, €/час"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__amount
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+msgid "Сума"
+msgstr "Сумма"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__earned_date
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+msgid "Зароблено"
+msgstr "Заработано"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__pay_date
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_paid_wizard__date
+msgid "Дата виплати"
+msgstr "Дата выплаты"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__work_from
+msgid "Робота з"
+msgstr "Работа с"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_accrual__work_from
+msgid "Перший день роботи годин цього нарахування (табелі; без табеля — дата рахунку)"
+msgstr "Первый день работы часов этого начисления (табели; без табеля — дата счёта)"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__work_to
+msgid "Робота по"
+msgstr "Работа по"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_accrual__work_to
+msgid "Останній день роботи годин цього нарахування — за ним місяць роботи у виплаті"
+msgstr "Последний день работы часов этого начисления — по нему месяц работы в выплате"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_accrual__fund
+msgid "Нарахування фонду працівників: не виплачується нікому, лише звірка з конвертом; ставить нічний розрахунок"
+msgstr "Начисление фонда работников: не выплачивается никому, только сверка с конвертом; ставит ночной расчёт"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__company_id
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__company_id
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__company_id
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__company_id
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__company_id
+msgid "Фірма виплати"
+msgstr "Фирма выплаты"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__line_id
+msgid "Чия лінія платить"
+msgstr "Чья линия платит"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__guard_note
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__guard_note
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__guard_note
+msgid "Примітка сторожа"
+msgstr "Примечание сторожа"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__key
+msgid "Ключ неповторності"
+msgstr "Ключ уникальности"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_accrual__key
+msgid "Один запис на ключ: нічний розрахунок шукає ключ до створення; база не пускає другий запис з тим самим ключем"
+msgstr "Одна запись на ключ: ночной расчёт ищет ключ до создания; база не пускает вторую запись с тем же ключом"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__storno_id
+msgid "Сторно-посилання"
+msgstr "Ссылка сторно"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__note
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__note
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__note
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__note
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__note
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_tax__note
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_payout_form
+msgid "Нотатки"
+msgstr "Заметки"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__payout_id
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__payout_id
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+msgid "Виплата"
+msgstr "Выплата"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__pay_line_id
+#: model:ir.model,name:workset_agents.model_workset_agent_decision_line
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__pay_line_id
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_line_form
+msgid "Рядок рішення"
+msgstr "Строка решения"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_accrual__legacy_ref
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__legacy_ref
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_run__legacy_ref
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__legacy_ref
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__legacy_ref
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_member__legacy_ref
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__legacy_ref
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__legacy_ref
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__legacy_ref
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_tax__legacy_ref
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_zvirka__legacy_ref
+msgid "Звідки перенесено"
+msgstr "Откуда перенесено"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__partner_id
+msgid "Загальний контакт людини (фірма порожня), не нова картка"
+msgstr "Общий контакт человека (фирма пустая), не новая карточка"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__code
+msgid "Код із бота агентів; у двох агентів не повторюється"
+msgstr "Код из бота агентов; у двух агентов не повторяется"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__tg_id
+msgid "Числовий id у Telegram; у двох агентів не повторюється"
+msgstr "Числовой id в Telegram; у двух агентов не повторяется"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__form_state
+msgid "Стан анкети"
+msgstr "Состояние анкеты"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__form_state
+msgid "Чи заповнив агент анкету в боті (IBAN, статус, країна, довідка)"
+msgstr "Заполнил ли агент анкету в боте (IBAN, статус, страна, справка)"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__envelope_id
+msgid "Аналітичний рахунок «ДОЛЯ | …» (фірма особистих переказів), куди офіс вносить частку агента: з ним звіряє «Звірка з конвертами» і сторож подвійного обліку"
+msgstr "Аналитический счёт «ДОЛЯ | …» (фирма личных переводов), куда офис вносит долю агента: с ним сверяет «Сверка с конвертами» и сторож двойного учёта"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__pd_ids
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_search
+#: model:ir.actions.act_window,name:workset_agents.action_deals_people
+msgid "Домовленості · кандидати"
+msgstr "Договорённости · кандидаты"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__pd_ids
+msgid "Домовленості агента з підбору кандидатів"
+msgstr "Договорённости агента по подбору кандидатов"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__cd_ids
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_search
+#: model:ir.actions.act_window,name:workset_agents.action_deals_client
+msgid "Домовленості · замовники"
+msgstr "Договорённости · заказчики"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__cd_ids
+msgid "Домовленості агента-посередника замовників"
+msgstr "Договорённости агента-посредника заказчиков"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__member_ids
+msgid "Люди з домовленостей агента з підбору кандидатів"
+msgstr "Люди из договорённостей агента по подбору кандидатов"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__accrual_ids
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__accrual_ids
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__accrual_ids
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__accrual_ids
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__accrual_ids
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_kanban
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+#: model:ir.ui.menu,name:workset_agents.menu_accruals
+msgid "Нарахування"
+msgstr "Начисления"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__payout_ids
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__payout_ids
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_paid_wizard__payout_ids
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model:ir.actions.act_window,name:workset_agents.action_payouts
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+#: model:ir.ui.menu,name:workset_agents.menu_payouts
+msgid "Виплати"
+msgstr "Выплаты"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__zvirka_ids
+#: model:ir.model,name:workset_agents.model_workset_agent_zvirka
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_form
+msgid "Звірка з конвертом"
+msgstr "Сверка с конвертом"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__tax_ids
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model:ir.actions.act_window,name:workset_agents.action_tax
+#: model:ir.ui.menu,name:workset_agents.menu_tax
+msgid "Податки"
+msgstr "Налоги"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__kind
+msgid "За домовленостями агента: кандидати, замовники чи обидва"
+msgstr "По договорённостям агента: кандидаты, заказчики или оба"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__state
+msgid "Стан агента"
+msgstr "Состояние агента"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__state
+msgid "Найгірший із живих домовленостей: лише звірка, платимо; живих немає — чернетка, усі закриті — закрито, інакше немає домовленостей"
+msgstr "Худший из живых договорённостей: только сверка, платим; живых нет — черновик, все закрыты — закрыто, иначе нет договорённостей"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__pd_n
+msgid "Домовленостей · кандидати"
+msgstr "Договорённостей · кандидаты"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__pd_n
+msgid "Скільки домовленостей з підбору кандидатів"
+msgstr "Сколько договорённостей по подбору кандидатов"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__cd_n
+msgid "Домовленостей · замовники"
+msgstr "Договорённостей · заказчики"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__cd_n
+msgid "Скільки домовленостей по замовниках"
+msgstr "Сколько договорённостей по заказчикам"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__deal_count
+msgid "Домовленостей"
+msgstr "Договорённостей"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__people_n
+msgid "Різні люди в «Люди агента» його домовленостей"
+msgstr "Разные люди в «Люди агента» его договорённостей"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__cust_n
+msgid "Замовників агента"
+msgstr "Заказчиков агента"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__cust_n
+msgid "Різні замовники в домовленостях агента-посередника"
+msgstr "Разные заказчики в договорённостях агента-посредника"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__bank_n
+msgid "Рахунків"
+msgstr "Счетов"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__bank_n
+msgid "Банківські рахунки агента (бачать бухгалтерія та адміністратори кадрів)"
+msgstr "Банковские счета агента (видят бухгалтерия и администраторы кадров)"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__accrual_n
+msgid "Нарахувань"
+msgstr "Начислений"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__payout_n
+msgid "Виплат"
+msgstr "Выплат"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__card_year
+msgid "Рік картки"
+msgstr "Год карточки"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__card_year
+msgid "Поточний рік за Києвом або системний параметр card_year"
+msgstr "Текущий год по Киеву или системный параметр card_year"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__calc_year
+msgid "Нараховано за рік"
+msgstr "Начислено за год"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__calc_year
+msgid "Розрахунок Odoo за рік картки — зі «Звірки з конвертами»"
+msgstr "Расчёт Odoo за год карточки — из «Сверки с конвертами»"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__env_year
+msgid "Конверт за рік"
+msgstr "Конверт за год"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__env_year
+msgid "Конверт агента за рік картки — зі «Звірки з конвертами»"
+msgstr "Конверт агента за год карточки — из «Сверки с конвертами»"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__diff_year
+msgid "Різниця за рік"
+msgstr "Разница за год"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__diff_year
+msgid "Розрахунок Odoo мінус конверт за рік картки"
+msgstr "Расчёт Odoo минус конверт за год карточки"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__diff_pct
+msgid "Різниця, %"
+msgstr "Разница, %"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__diff_pct
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_zvirka__diff_pct
+msgid "Різниця від конверта у відсотках"
+msgstr "Разница от конверта в процентах"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__paid_year
+msgid "Виплачено за рік"
+msgstr "Выплачено за год"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__paid_year
+msgid "«Переказано» виплат «Виплачено» та «Виплачено частково» з датою оплати в році картки"
+msgstr "«Переведено» выплат «Выплачено» и «Выплачено частично» с датой оплаты в году карточки"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__next_pay
+msgid "Наступна виплата"
+msgstr "Следующая выплата"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__next_pay
+msgid "Найближче рішення про виплату з рядком агента: день і сума; лише рядки «Звірка» — «лише звірка»"
+msgstr "Ближайшее решение о выплате со строкой агента: день и сумма; только строки «Сверка» — «только сверка»"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__next_pay_day
+msgid "День наступної виплати"
+msgstr "День следующей выплаты"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent__due_next
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_accrual_search
+msgid "До виплати"
+msgstr "К выплате"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__due_next
+msgid "Сума найближчого рішення: «Сплатити зараз», інакше «Пропозиція штабу»"
+msgstr "Сумма ближайшего решения: «Оплатить сейчас», иначе «Предложение штаба»"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent__is_test
+msgid "Записи «ТЕСТ-ШТАБ» для показу — прибрати перед показом власнику (інструмент штабу --demo-remove)"
+msgstr "Записи «ТЕСТ-ШТАБ» для показа — убрать перед показом владельцу (инструмент штаба --demo-remove)"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_res_partner__workset_agent_ids
+msgid "Агенти WorkSET"
+msgstr "Агенты WorkSET"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_res_partner__is_agent
+msgid "Позначка: цей контакт — агент (підбір людей або посередник замовників). Умови — у «Домовленостях»"
+msgstr "Метка: этот контакт — агент (подбор людей или посредник заказчиков). Условия — в «Домовленостях»"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_hr_employee__agent_id
+msgid "Привів агент"
+msgstr "Привёл агент"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_hr_employee__agent_id
+msgid "Агент, у чиїй домовленості «Люди агента» є робочий контакт працівника (спершу жива домовленість). Вносять у меню «Агенти»"
+msgstr "Агент, в чьей договорённости «Люди агента» есть рабочий контакт работника (сначала живая договорённость). Вносят в меню «Агенты»"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_hr_employee__agent_deal_id
+msgid "Домовленість агента"
+msgstr "Договорённость агента"
+
+#. module: workset_agents
+#: model:ir.model,name:workset_agents.model_workset_agent_run
+msgid "Журнал розрахунку агентів"
+msgstr "Журнал расчёта агентов"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_run__at
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_list
+msgid "Коли"
+msgstr "Когда"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_run__summary
+msgid "Підсумок"
+msgstr "Итог"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_run__created
+msgid "Створено"
+msgstr "Создано"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_run__changed
+msgid "Змінено"
+msgstr "Изменено"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_run__review
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_accrual_search
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_payout_search
+msgid "На перевірці"
+msgstr "На проверке"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_run__before
+msgid "Було"
+msgstr "Было"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_run__before
+msgid "Стан до розрахунку у форматі JSON — для відкату"
+msgstr "Состояние до расчёта в формате JSON — для отката"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_run__kind
+msgid "Звідки"
+msgstr "Откуда"
+
+#. module: workset_agents
+#: model:ir.model,name:workset_agents.model_workset_agent_deal_client
+msgid "Домовленість — агенти-замовники"
+msgstr "Договорённость — агенты-заказчики"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__customer_ids
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_search
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_list
+#: model:ir.ui.menu,name:workset_agents.menu_deals_client
+msgid "Замовники"
+msgstr "Заказчики"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__line_id
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_search
+msgid "Лінія"
+msgstr "Линия"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__kind
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__kind
+msgid "Вид домовленості"
+msgstr "Вид договорённости"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_deal_client__rate
+msgid "€ за годину людей агента в цих замовників (або на цій лінії), за період «Діє з / по»"
+msgstr "€ за час людей агента у этих заказчиков (или на этой линии), за период «Действует с / по»"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__rate_full
+msgid "Ставка на повну"
+msgstr "Ставка на полную"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__withhold_pct
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__withhold_pct
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__wh_pct
+msgid "Утримання, %"
+msgstr "Удержание, %"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_deal_client__withhold_pct
+msgid "Скільки відсотків утримуємо з виплати агенту; утримане — на аналітику утримання"
+msgstr "Сколько процентов удерживаем с выплаты агенту; удержанное — на аналитику удержания"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__withhold_analytic_id
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__withhold_analytic_id
+msgid "Аналітика утримання"
+msgstr "Аналитика удержания"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__date_from
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__date_from
+msgid "Діє з"
+msgstr "Действует с"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__date_to
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__date_to
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_list
+msgid "Діє по"
+msgstr "Действует по"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__pay_path
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__pay_path
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__pay_path
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__pay_path
+msgid "Шлях виплати"
+msgstr "Путь выплаты"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__fixed_advance
+msgid "Фікс-аванс, €/міс"
+msgstr "Фикс-аванс, €/мес"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_deal_client__fixed_advance
+msgid "Фіксований аванс посередникові щомісяця (вид «Фікс-аванс із сальдо»); розрахунок аванса із сальдо — етап 3"
+msgstr "Фиксированный аванс посреднику ежемесячно (вид «Фикс-аванс с сальдо»); расчёт аванса с сальдо — этап 3"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__addendum
+msgid "Допугода"
+msgstr "Допсоглашение"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_deal_client__addendum
+msgid "Посилання на допугоду до договору: файл або документ"
+msgstr "Ссылка на допсоглашение к договору: файл или документ"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__terms_source
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__terms_source
+msgid "Джерело умов"
+msgstr "Источник условий"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__owner_ok
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__owner_ok
+msgid "Підтверджено власником"
+msgstr "Подтверждено владельцем"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__cust_n
+msgid "Замовників"
+msgstr "Заказчиков"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__accrual_live_ids
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__accrual_live_ids
+msgid "Нарахування без скасованих"
+msgstr "Начисления без отменённых"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__acc_sum
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__acc_sum
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__accrued
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+#: model:ir.actions.act_window,name:workset_agents.action_overview
+#: model:ir.ui.menu,name:workset_agents.menu_overview_accruals
+msgid "Нараховано"
+msgstr "Начислено"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__env_sum
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__env_sum
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+msgid "Конверт агента за рік"
+msgstr "Конверт агента за год"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_client__zv_diff_sum
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__zv_diff_sum
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+msgid "Різниця агента за рік"
+msgstr "Разница агента за год"
+
+#. module: workset_agents
+#: model:ir.model,name:workset_agents.model_workset_agent_deal_mixin
+msgid "Домовленість агента (спільне)"
+msgstr "Договорённость агента (общее)"
+
+#. module: workset_agents
+#: model:ir.model,name:workset_agents.model_workset_agent_deal_people
+msgid "Домовленість — агенти-кандидати"
+msgstr "Договорённость — агенты-кандидаты"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_deal_people__rate
+msgid "€ за годину кожної людини агента (в оплачених рахунках замовників)"
+msgstr "€ за час каждого человека агента (в оплаченных счетах заказчиков)"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_deal_people__withhold_pct
+msgid "Скільки відсотків утримуємо з виплати агенту, напр. 10 %: до переказу 90 %, утримане — на аналітику утримання"
+msgstr "Сколько процентов удерживаем с выплаты агенту, напр. 10 %: к переводу 90 %, удержанное — на аналитику удержания"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__terms_version
+msgid "Версія умов"
+msgstr "Версия условий"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_deal_people__oneoff_amount
+msgid "Умова за людину"
+msgstr "Условие за человека"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_deal_people__oneoff_amount
+msgid "Разова: скільки євро агент отримує за кожну людину. Довідково — суму разової нарахування вносить офіс у самому нарахуванні"
+msgstr "Разовая: сколько агент получает за каждого человека. Справочно — сумму разовой начисления вносит офис в самом начислении"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_deal_people__env_sum
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_deal_people__zv_diff_sum
+msgid "По агенту за рік картки (поточний за Києвом або параметр card_year), не по домовленості: конверт «ДОЛЯ | агент» один на агента"
+msgstr "По агенту за год карточки (текущий по Киеву или параметр card_year), не по договорённости: конверт «ДОЛЯ | агент» один на агента"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_member__deal_id
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_member_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_accrual_form
+msgid "Домовленість"
+msgstr "Договорённость"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_member__partner_id
+msgid "Робочий контакт людини — один на всі фірми"
+msgstr "Рабочий контакт человека — один на все фирмы"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_member__date_from
+msgid "Працює з"
+msgstr "Работает с"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_member__date_to
+msgid "Працює по"
+msgstr "Работает по"
+
+#. module: workset_agents
+#: model:ir.model,name:workset_agents.model_workset_agent_decision
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_activity
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_search
+msgid "Рішення про виплату"
+msgstr "Решение о выплате"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__pay_day
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__pay_day
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_payout_search
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_list
+msgid "День виплати"
+msgstr "День выплаты"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision__section
+msgid "Агенти-кандидати чи агенти-замовники: у рішенні — лише рядки цього розділу"
+msgstr "Агенты-кандидаты или агенты-заказчики: в решении — только строки этого раздела"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__approved_by
+msgid "Затвердив"
+msgstr "Утвердил"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__approved_at
+msgid "Коли затверджено"
+msgstr "Когда утверждено"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__prepared_at
+msgid "Підготовлено"
+msgstr "Подготовлено"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__guard_note
+msgid "Чому на перевірці"
+msgstr "Почему на проверке"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__auto
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_list
+msgid "Автоматично"
+msgstr "Автоматически"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision__auto
+msgid "Затвердила ніч за правилом власника 06.11.2026; не згодні — «Зупинити» до дня перед виплатою"
+msgstr "Утвердила ночь по правилу владельца 06.11.2026; не согласны — «Остановить» до дня перед выплатой"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__auto_note
+msgid "Автоматика: чому"
+msgstr "Автоматика: почему"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__pay_line_ids
+#: model:res.groups.privilege,name:workset_agents.res_groups_privilege_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_search
+#: model:ir.actions.act_window,name:workset_agents.action_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+#: model:ir.ui.menu,name:workset_agents.menu_root
+#: model:ir.ui.menu,name:workset_agents.menu_agents
+#: model:ir.ui.menu,name:workset_agents.menu_hr_agents
+msgid "Агенти"
+msgstr "Агенты"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__payable_line_ids
+msgid "Рядки до оплати"
+msgstr "Строки к оплате"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision__payable_line_ids
+msgid "Рядки рішення, крім «Звірки»: до них — «Сплатити зараз» і підсумки вгорі"
+msgstr "Строки решения, кроме «Сверки»: к ним — «Оплатить сейчас» и итоги вверху"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__zvirka_line_ids
+msgid "Рядки звірки"
+msgstr "Строки сверки"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision__zvirka_line_ids
+msgid "Рядки «Звірка»: Odoo рахує за період рішення і звіряє з конвертом, не платить"
+msgstr "Строки «Сверка»: Odoo считает за период решения и сверяет с конвертом, не платит"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__available_total
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__available
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_line_form
+msgid "Разом до рішення"
+msgstr "Итого к решению"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__pay_total
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_line_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_line_form
+msgid "Сплатити зараз"
+msgstr "Оплатить сейчас"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__net_total
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__pay_net
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__net
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_line_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_line_form
+msgid "До переказу"
+msgstr "К переводу"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__buffer_total
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__buffer_out
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_line_form
+msgid "У буфер"
+msgstr "В буфер"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__cut_total
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_line_form
+msgid "Податок і утримання"
+msgstr "Налог и удержание"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision__cut_total
+msgid "Утримання і податок від «Сплатити зараз»: різниця між «Сплатити зараз» і «До переказу»"
+msgstr "Удержание и налог от «Оплатить сейчас»: разница между «Оплатить сейчас» и «К переводу»"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__line_count
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_list
+msgid "Агентів"
+msgstr "Агентов"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__zvirka_total
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_list
+msgid "Звірка, €"
+msgstr "Сверка, €"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__zv_diff_total
+msgid "Різниця за період"
+msgstr "Разница за период"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision__zv_diff_total
+msgid "Розрахунок Odoo мінус конверт за рахунки періоду рішення (рядки «Звірка»)"
+msgstr "Расчёт Odoo минус конверт за счета периода решения (строки «Сверка»)"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__zv_more_total
+msgid "Конверт більше"
+msgstr "Конверт больше"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision__zv_more_total
+msgid "Сума рядків «Звірки», де конверт більший за розрахунок Odoo"
+msgstr "Сумма строк «Сверки», где конверт больше расчёта Odoo"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__zv_less_total
+msgid "Конверт менше"
+msgstr "Конверт меньше"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision__zv_less_total
+msgid "Сума рядків «Звірки», де конверт менший за розрахунок Odoo"
+msgstr "Сумма строк «Сверки», где конверт меньше расчёта Odoo"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__zv_missing_total
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__zv_missing
+msgid "Рахунків без конверта"
+msgstr "Счетов без конверта"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision__zv_missing_total
+msgid "Рахунки Odoo за період, яких немає в конвертах агентів"
+msgstr "Счета Odoo за период, которых нет в конвертах агентов"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__overdue_total
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid "Прострочено замовниками"
+msgstr "Просрочено заказчиками"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision__overdue_total
+msgid "Неоплачені прострочені рахунки замовників агентів рішення (кожен агент — один раз)"
+msgstr "Неоплаченные просроченные счета заказчиков агентов решения (каждый агент — один раз)"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision__hq_advice
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid "Що пропонує штаб"
+msgstr "Что предлагает штаб"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision__hq_advice
+msgid "Довідково, пише нічний розрахунок: по агенту — сплатити, притримати чи перевірити, чому і скільки. Рішення — ваше"
+msgstr "Справочно, пишет ночной расчёт: по агенту — оплатить, придержать или проверить, почему и сколько. Решение — ваше"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__decision_id
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__decision_id
+#: model:ir.actions.act_window,name:workset_agents.action_decisions
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_line_list
+#: model:ir.ui.menu,name:workset_agents.menu_decisions
+msgid "Рішення"
+msgstr "Решение"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__key
+msgid "Ключ рядка"
+msgstr "Ключ строки"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__key
+msgid "Агент:розділ:шлях:фірма — за ним ніч знаходить рядок і буфер наступного рішення"
+msgstr "Агент:раздел:путь:фирма — по нему ночь находит строку и буфер следующего решения"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__accrued
+msgid "Нарахування «До виплати» з днем виплати не пізніше дня рішення; для «Звірки» — за період від попереднього дня виплати"
+msgstr "Начисления «К выплате» с днём выплаты не позже дня решения; для «Сверки» — за период с предыдущего дня выплаты"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__review_amount
+msgid "На перевірці, €"
+msgstr "На проверке, €"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__review_amount
+msgid "Нарахування агента «На перевірці» — у суму не входять, поки сторож не знятий"
+msgstr "Начисления агента «На проверке» — в сумму не входят, пока сторож не снят"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__buffer_in
+msgid "Буфер з минулого"
+msgstr "Буфер с прошлого"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__buffer_in
+msgid "Скільки лишилось несплаченим із попереднього рішення (окремим записом: суми нарахувань не змінюються)"
+msgstr "Сколько осталось неоплаченным с предыдущего решения (отдельной записью: суммы начислений не меняются)"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__buffer_from_id
+msgid "Звідки буфер"
+msgstr "Откуда буфер"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__available
+msgid "Буфер з минулого + нараховано"
+msgstr "Буфер с прошлого + начислено"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__wh_pct
+msgid "Особисто · конверт — 10 %, якщо в домовленості не задано інше; інші шляхи — як у домовленості"
+msgstr "Лично · конверт — 10 %, если в договорённости не задано иное; другие пути — как в договорённости"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__tax_pct
+msgid "Податок, %"
+msgstr "Налог, %"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__tax_pct
+msgid "Лише «Офіційно»: 20 % без чинної довідки на день виплати (п. 7.2), інакше 0 — за профілем податків"
+msgstr "Только «Официально»: 20 % без действующей справки на день выплаты (п. 7.2), иначе 0 — по профилю налогов"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__wh_note
+msgid "Утримання: чому"
+msgstr "Удержание: почему"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__proposal
+msgid "Пропозиція штабу"
+msgstr "Предложение штаба"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__proposal
+msgid "Довідково, без автоматики: усе «Разом до рішення»; борги замовників і правила буфера вирішує власник"
+msgstr "Справочно, без автоматики: всё «Итого к решению»; долги заказчиков и правила буфера решает владелец"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__proposal_note
+msgid "Пропозиція: чому"
+msgstr "Предложение: почему"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__pay_now
+msgid "Сплатити зараз, €"
+msgstr "Оплатить сейчас, €"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__pay_now
+msgid "Вводить власник: брутто — скільки нарахувань закриваємо зараз (від 0 до «Разом до рішення»); утримання і «До переказу» — поруч; решта — у буфер наступного рішення"
+msgstr "Вводит владелец: брутто — сколько начислений закрываем сейчас (от 0 до «Итого к решению»); удержание и «К переводу» — рядом; остальное — в буфер следующего решения"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__pay_wh
+msgid "Утримати зараз"
+msgstr "Удержать сейчас"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__pay_tax
+msgid "Податок зараз"
+msgstr "Налог сейчас"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__unpaid
+msgid "Частина «Сплатити зараз», яку не переказали (позначено вручну частково) — іде в буфер"
+msgstr "Часть «Оплатить сейчас», которую не перевели (отмечено вручную частично) — уходит в буфер"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__seen_at
+msgid "Запис ночі"
+msgstr "Запись ночи"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__seen_at
+msgid "Коли нічний розрахунок востаннє записав рядок: правка пізніше — рішення лише для власника"
+msgstr "Когда ночной расчёт последний раз записал строку: правка позже — решение только для владельца"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__owner_edit
+msgid "Правив власник"
+msgstr "Правил владелец"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__owner_edit
+msgid "Рядок правили після нічного розрахунку — автоматично не затверджується"
+msgstr "Строку правили после ночного расчёта — автоматически не утверждается"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__night_pay
+msgid "Сплатити — ніч"
+msgstr "Оплатить — ночь"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__night_pay
+msgid "«Сплатити зараз», яке ніч бачила або ставила востаннє"
+msgstr "«Оплатить сейчас», которое ночь видела или ставила последним"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__cust_paid
+msgid "Рахунки замовників, за якими нараховано в цьому рядку"
+msgstr "Счета заказчиков, по которым начислено в этой строке"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__cust_unpaid
+msgid "Відкриті рахунки замовників агента (не оплачено і частково) — довідково"
+msgstr "Открытые счета заказчиков агента (не оплачено и частично) — справочно"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__cust_overdue
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid "Прострочено"
+msgstr "Просрочено"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__cust_overdue
+msgid "З них прострочено (строк оплати минув)"
+msgstr "Из них просрочено (срок оплаты прошёл)"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__cust_text
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_line_form
+msgid "Замовники агента"
+msgstr "Заказчики агента"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__overdue_move_ids
+msgid "Прострочені рахунки"
+msgstr "Просроченные счета"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__overdue_move_ids
+msgid "Неоплачені рахунки замовників агента, строк оплати яких минув (на ніч розрахунку)"
+msgstr "Неоплаченные счета заказчиков агента, срок оплаты которых прошёл (на ночь расчёта)"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__zv_period
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid "Період"
+msgstr "Период"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__zv_period
+msgid "Дні «Зароблено» нарахувань цього рішення: від попереднього дня виплати до цього (з відсічкою 3 дні)"
+msgstr "Дни «Заработано» начислений этого решения: от предыдущего дня выплаты до этого (с отсечкой 3 дня)"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__zv_env
+msgid "Рядки конверта агента «ДОЛЯ | …» за ті самі рахунки замовників, що й розрахунок Odoo за період"
+msgstr "Строки конверта агента «ДОЛЯ | …» за те же счета заказчиков, что и расчёт Odoo за период"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__zv_diff
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_zvirka__diff
+msgid "Різниця, €"
+msgstr "Разница, €"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__zv_diff
+msgid "Розрахунок Odoo за період мінус конверт за ті самі рахунки"
+msgstr "Расчёт Odoo за период минус конверт за те же счета"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__zv_note
+msgid "Що перевірити"
+msgstr "Что проверить"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__zv_missing
+msgid "Рахунки Odoo за період, яких немає в конверті агента (конверта немає — усі)"
+msgstr "Счета Odoo за период, которых нет в конверте агента (конверта нет — все)"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__advice
+msgid "Порада штабу"
+msgstr "Совет штаба"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__advice
+msgid "Що пропонує штаб цьому рядку: сплатити, перевірити чи притримати (пише нічний розрахунок)"
+msgstr "Что предлагает штаб этой строке: оплатить, проверить или придержать (пишет ночной расчёт)"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_decision_line__advice_text
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_line_form
+msgid "Чому так"
+msgstr "Почему так"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_decision_line__advice_text
+msgid "Причина поради; порожньо — «сплатити все до рішення»"
+msgstr "Причина совета; пусто — «оплатить всё к решению»"
+
+#. module: workset_agents
+#: model:ir.model,name:workset_agents.model_workset_agent_paid_wizard
+msgid "Агенти: позначити виплаченим вручну"
+msgstr "Агенты: отметить выплаченным вручную"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_paid_wizard__note
+msgid "Коментар"
+msgstr "Комментарий"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_paid_wizard__note
+msgid "Як і де виплачено: з якого рахунку, де квитанція"
+msgstr "Как и где выплачено: с какого счёта, где квитанция"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_paid_wizard__amount
+msgid "Сума, €"
+msgstr "Сумма, €"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_paid_wizard__amount
+msgid "Скільки переказано (як «До переказу»). Менше — «Виплачено частково», решта — у буфер наступного рішення"
+msgstr "Сколько переведено (как «К переводу»). Меньше — «Выплачено частично», остальное — в буфер следующего решения"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_paid_wizard__source
+msgid "Що саме"
+msgstr "Что именно"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_paid_wizard__source
+msgid "Де видно переказ: виписка банку, журнал WS чи інше (квитанція)"
+msgstr "Где виден перевод: выписка банка, журнал WS или другое (квитанция)"
+
+#. module: workset_agents
+#: model:ir.model,name:workset_agents.model_workset_agent_payout
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_payout_form
+msgid "Виплата агенту"
+msgstr "Выплата агенту"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__tax20
+msgid "Утримання 20 %"
+msgstr "Удержание 20 %"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__wh10
+msgid "Утримання 10 %"
+msgstr "Удержание 10 %"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__move_id
+msgid "Рахунок постачальника"
+msgstr "Счёт поставщика"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__paid_date
+msgid "Дата оплати"
+msgstr "Дата оплаты"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__paid_manual
+msgid "Позначено вручну"
+msgstr "Отмечено вручную"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__paid_note
+msgid "Коментар до виплати"
+msgstr "Комментарий к выплате"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__move_line_id
+msgid "Рядок оплати"
+msgstr "Строка оплаты"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_payout__move_line_id
+msgid "Рядок виписки, платежу або журналу WS, яким закрита виплата; один рядок — одна виплата"
+msgstr "Строка выписки, платежа или журнала WS, которой закрыта выплата; одна строка — одна выплата"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__paid_via
+msgid "Звідки оплата"
+msgstr "Откуда оплата"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__paid_amount
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_search
+msgid "Переказано"
+msgstr "Переведено"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_payout__paid_amount
+msgid "Скільки фактично переказано агенту"
+msgstr "Сколько фактически переведено агенту"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__work_month
+msgid "Місяць роботи"
+msgstr "Месяц работы"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_payout__work_month
+msgid "Останній день місяця роботи, за яку виплата: у P&L витрата лягає в цей місяць, не в місяць виплати"
+msgstr "Последний день месяца работы, за которую выплата: в P&L расход ложится в этот месяц, не в месяц выплаты"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__paid_by
+msgid "Позначив"
+msgstr "Отметил"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__bank_ref
+msgid "Рахунок агента"
+msgstr "Счёт агента"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_payout__bank_ref
+msgid "Номер запису банківського рахунку агента (id), на який готували виплату — сам IBAN тут не зберігаємо"
+msgstr "Номер записи банковского счёта агента (id), на который готовили выплату — сам IBAN здесь не храним"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__iban
+msgid "Реквізити"
+msgstr "Реквизиты"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_payout__iban
+msgid "IBAN рахунку агента, на який готували виплату — бачать лише бухгалтерія та адміністратори кадрів"
+msgstr "IBAN счёта агента, на который готовили выплату — видят только бухгалтерия и администраторы кадров"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_payout__purpose
+msgid "Призначення"
+msgstr "Назначение"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_payout__purpose
+msgid "Призначення платежу для переказу: номер виплати AGENTS-P… (за ним виписка знайде виплату) і день виплати"
+msgstr "Назначение платежа для перевода: номер выплаты AGENTS-P… (по нему выписка найдёт выплату) и день выплаты"
+
+#. module: workset_agents
+#: model:ir.model,name:workset_agents.model_workset_agent_tax
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_tax_form
+msgid "Податки агента"
+msgstr "Налоги агента"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_tax__agent_id
+msgid "Агент; на одного агента — один профіль"
+msgstr "Агент; на одного агента — один профиль"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_tax__tax_status
+msgid "Податковий статус"
+msgstr "Налоговый статус"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_tax__tax_status
+msgid "ФОП, фірма чи фізособа: від цього залежить документ для виплати (рахунок або rachunek)"
+msgstr "ФОП, фирма или физлицо: от этого зависит документ для выплаты (счёт или rachunek)"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_tax__tax_country
+msgid "Країна податків"
+msgstr "Страна налогов"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_tax__tax_country
+msgid "Країна податкового резидентства агента"
+msgstr "Страна налогового резидентства агента"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_tax__cert_until
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_tax_list
+msgid "Довідка до"
+msgstr "Справка до"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_tax__cert_until
+msgid "Довідка про резидентство діє до цієї дати (оновлюється що 12 місяців, п. 7.1); без чинної довідки нерезиденту утримується 20 %"
+msgstr "Справка о резидентстве действует до этой даты (обновляется каждые 12 месяцев, п. 7.1); без действующей справки нерезиденту удерживается 20 %"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_tax__tax_number
+msgid "Податковий номер"
+msgstr "Налоговый номер"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_tax__tax_number
+msgid "ІПН, NIP або інший номер платника податків агента"
+msgstr "ИНН, NIP или другой номер налогоплательщика агента"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_zvirka__section
+msgid "Агенти-кандидати чи агенти-замовники — за домовленостями агента"
+msgstr "Агенты-кандидаты или агенты-заказчики — по договорённостям агента"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_zvirka__month
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_search
+msgid "Місяць"
+msgstr "Месяц"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_zvirka__month
+msgid "Перший день місяця"
+msgstr "Первый день месяца"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_zvirka__calc
+msgid "Розрахунок, €"
+msgstr "Расчёт, €"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_zvirka__calc
+msgid "Нарахування агента за місяць «Зароблено» (для «Чернетки» — пробний розрахунок ночі)"
+msgstr "Начисления агента за месяц «Заработано» (для «Черновика» — пробный расчёт ночи)"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_zvirka__envelope
+msgid "Рядки конверта за місяць із сумою більше нуля (частка; виплати й витрати — окремо)"
+msgstr "Строки конверта за месяц с суммой больше нуля (доля; выплаты и расходы — отдельно)"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_zvirka__diff
+msgid "Розрахунок мінус конверт"
+msgstr "Расчёт минус конверт"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_zvirka__lines
+msgid "Рядків конверта"
+msgstr "Строк конверта"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_zvirka__matched
+msgid "Збіглося по рахунку"
+msgstr "Совпало по счёту"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_zvirka__matched
+msgid "Рядки конверта, сума яких дорівнює розрахунку за ті самі рахунки замовників (ключ — номер рахунку)"
+msgstr "Строки конверта, сумма которых равна расчёту за те же счета заказчиков (ключ — номер счёта)"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_zvirka__source
+msgid "Вид розрахунку"
+msgstr "Вид расчёта"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_zvirka__calc_note
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_form
+msgid "Звідки розрахунок"
+msgstr "Откуда расчёт"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_zvirka__calc_note
+msgid "Скільки рахунків і годин людей агента, за якою ставкою — простими словами"
+msgstr "Сколько счетов и часов людей агента, по какой ставке — простыми словами"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_zvirka__note
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_form
+msgid "Розбіжності"
+msgstr "Расхождения"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_zvirka__state_badge
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_search
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_search
+msgid "Стан"
+msgstr "Состояние"
+
+#. module: workset_agents
+#: model:ir.model.fields,help:workset_agents.field_workset_agent_zvirka__state_badge
+msgid "Збігається — різниця до одного євро; до 5 % і понад 5 % — від конверта; немає конверта — за місяць рядків конверта немає; архів — більшість конверта — рахунки архівних фірм"
+msgstr "Совпадает — разница до одного евро; до 5 % и больше 5 % — от конверта; нет конверта — за месяц строк конверта нет; архив — большая часть конверта — счета архивных фирм"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_zvirka__month_label
+msgid "Місяць словами"
+msgstr "Месяц словами"
+
+#. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_workset_agent_zvirka__checked_at
+msgid "Звірено"
+msgstr "Сверено"
+
+#. module: workset_agents
+#: model:res.groups,name:workset_agents.group_viewer
+msgid "Перегляд"
+msgstr "Просмотр"
+
+#. module: workset_agents
+#: model:res.groups,comment:workset_agents.group_viewer
+msgid "Бачить агентів, домовленості, нарахування, рішення, звірку; виплати — лише читати"
+msgstr "Видит агентов, договорённости, начисления, решения, сверку; выплаты — только читать"
+
+#. module: workset_agents
+#: model:res.groups,comment:workset_agents.group_editor
+msgid "Створює й править агентів, домовленості, людей агентів; податки — лише бухгалтерія"
+msgstr "Создаёт и правит агентов, договорённости, людей агентов; налоги — только бухгалтерия"
+
+#. module: workset_agents
+#: model:res.groups,name:workset_agents.group_owner
+msgid "Власник"
+msgstr "Владелец"
+
+#. module: workset_agents
+#: model:res.groups,comment:workset_agents.group_owner
+msgid "«Затвердити», «Сплатити зараз», «Зупинити», «Позначити виплаченим вручну», видалення. Склад — лише власник"
+msgstr "«Утвердить», «Оплатить сейчас», «Остановить», «Отметить выплаченным вручную», удаление. Состав — только владелец"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_kanban
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_search
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_search
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_search
+msgid "Лише звірка"
+msgstr "Только сверка"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_kanban
+msgid "різниця за"
+msgstr "разница за"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_kanban
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model:ir.ui.menu,name:workset_agents.menu_deals
+msgid "Домовленості"
+msgstr "Договорённости"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_kanban
+#: model:ir.actions.act_window,name:workset_agents.action_zvirka
+#: model:ir.ui.menu,name:workset_agents.menu_zvirka
+msgid "Звірка"
+msgstr "Сверка"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_list
+msgid "Рік"
+msgstr "Год"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_search
+msgid "Кандидати"
+msgstr "Кандидаты"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+msgid "Ім'я агента"
+msgstr "Имя агента"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+msgid "Виплачено за"
+msgstr "Выплачено за"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+msgid "Різниця з конвертом за"
+msgstr "Разница с конвертом за"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+msgid "Зв'язок"
+msgstr "Связь"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+msgid "пошта агента"
+msgstr "почта агента"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+msgid "числовий id у Telegram"
+msgstr "числовой id в Telegram"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+msgid "код із бота агентів"
+msgstr "код из бота агентов"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_accrual_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_payout_form
+msgid "Гроші"
+msgstr "Деньги"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+msgid "Облік"
+msgstr "Учёт"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+msgid "аналітика «ДОЛЯ | …»"
+msgstr "аналитика «ДОЛЯ | …»"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+msgid "наявний контакт або порожньо — створиться"
+msgstr "существующий контакт или пусто — создастся"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_member_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_list
+msgid "З"
+msgstr "С"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_list
+msgid "€/год"
+msgstr "€/час"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+msgid "Домовленість по людях"
+msgstr "Договорённость по людям"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+msgid "Домовленість по замовниках"
+msgstr "Договорённость по заказчикам"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_accrual_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_payout_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_payout_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_line_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_list
+msgid "Разом"
+msgstr "Итого"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_line_list
+msgid "Шлях"
+msgstr "Путь"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+msgid "Сплачено"
+msgstr "Оплачено"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_tax_list
+msgid "Країна"
+msgstr "Страна"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_search
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_accrual_search
+msgid "Без тестових"
+msgstr "Без тестовых"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_search
+msgid "Тестові"
+msgstr "Тестовые"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_agent_search
+msgid "Платимо"
+msgstr "Платим"
+
+#. module: workset_agents
+#: model_terms:ir.actions.act_window,help:workset_agents.action_agents
+msgid "Агентів ще немає"
+msgstr "Агентов ещё нет"
+
+#. module: workset_agents
+#: model_terms:ir.actions.act_window,help:workset_agents.action_agents
+msgid "Підбір людей або посередник замовників."
+msgstr "Подбор людей или посредник заказчиков."
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_list
+msgid "Разова"
+msgstr "Разовая"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_list
+msgid "Підтверджено"
+msgstr "Подтверждено"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_kanban
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_kanban
+msgid "за годину"
+msgstr "за час"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+msgid "Домовленість · кандидати"
+msgstr "Договорённость · кандидаты"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+msgid "Що домовились"
+msgstr "О чём договорились"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+msgid "без кінця"
+msgstr "без конца"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+msgid "€ за годину"
+msgstr "€ за час"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+msgid "Разова сума"
+msgstr "Разовая сумма"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+msgid "за шляхом виплати"
+msgstr "по пути выплаты"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+msgid "Годин"
+msgstr "Часов"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+msgid "Умови"
+msgstr "Условия"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+msgid "звідки умови: договір, переписка, слово власника"
+msgstr "откуда условия: договор, переписка, слово владельца"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+msgid "нотатки офісу"
+msgstr "заметки офиса"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_search
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_search
+msgid "Діють"
+msgstr "Действуют"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_search
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_search
+msgid "Чернетки"
+msgstr "Черновики"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_people_search
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_search
+msgid "Платимо з Odoo"
+msgstr "Платим из Odoo"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_member_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_member_search
+#: model:ir.actions.act_window,name:workset_agents.action_members
+#: model:ir.ui.menu,name:workset_agents.menu_members
+msgid "Люди агентів"
+msgstr "Люди агентов"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_member_list
+msgid "Пішов"
+msgstr "Ушёл"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_member_list
+msgid "працює"
+msgstr "работает"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_member_form
+msgid "Людина агента"
+msgstr "Человек агента"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_member_search
+msgid "Працюють"
+msgstr "Работают"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_member_search
+msgid "Пішли"
+msgstr "Ушли"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_list
+msgid "Повна"
+msgstr "Полная"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+msgid "Домовленість · замовники"
+msgstr "Договорённость · заказчики"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+msgid "Хто і де"
+msgstr "Кто и где"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+msgid "чия лінія платить"
+msgstr "чья линия платит"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+msgid "Ставка, неповна"
+msgstr "Ставка, неполная"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+msgid "Рахунок"
+msgstr "Счёт"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_form
+msgid "номер допугоди"
+msgstr "номер допсоглашения"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_deal_client_search
+msgid "Фонд працівників"
+msgstr "Фонд работников"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_accrual_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_accrual_search
+#: model:ir.actions.act_window,name:workset_agents.action_accruals
+msgid "Нарахування агентам"
+msgstr "Начисления агентам"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_accrual_form
+msgid "Сторнувати нарахування? Ще не виплачене — обидва стануть «Скасовано»; уже у виплаті — сторно піде мінусом у найближчу виплату."
+msgstr "Сторнировать начисление? Ещё не выплачено — оба станут «Отменено»; уже в выплате — сторно уйдёт минусом в ближайшую выплату."
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_accrual_form
+msgid "Хто і за що"
+msgstr "Кто и за что"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_accrual_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_line_form
+msgid "Службове"
+msgstr "Служебное"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_accrual_pivot
+msgid "Нарахування: агент × місяць"
+msgstr "Начисления: агент × месяц"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_accrual_graph
+msgid "Нараховано по місяцях"
+msgstr "Начислено по месяцам"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_accrual_search
+msgid "Без сторно і скасованих"
+msgstr "Без сторно и отменённых"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_accrual_search
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_search
+msgid "Цей рік"
+msgstr "Этот год"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_accrual_search
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_search
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_search
+msgid "Агенти-кандидати"
+msgstr "Агенты-кандидаты"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_accrual_search
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_search
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_search
+#: model:ir.ui.menu,name:workset_agents.menu_rates_agents
+msgid "Агенти-замовники"
+msgstr "Агенты-заказчики"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_accrual_search
+msgid "Зароблено: місяць"
+msgstr "Заработано: месяц"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_payout_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_payout_search
+msgid "Виплати агентам"
+msgstr "Выплаты агентам"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_payout_kanban
+msgid "день виплати"
+msgstr "день выплаты"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_payout_form
+#: model:ir.actions.server,name:workset_agents.action_server_paid_manual
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_paid_wizard_form
+msgid "Позначити виплаченим вручну"
+msgstr "Отметить выплаченным вручную"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_payout_form
+msgid "Кому і коли"
+msgstr "Кому и когда"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_payout_form
+msgid "Нарахування у виплаті"
+msgstr "Начисления в выплате"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_payout_search
+msgid "Не виплачено"
+msgstr "Не выплачено"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_kanban
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid "сплатити зараз"
+msgstr "оплатить сейчас"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_kanban
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid "у буфер"
+msgstr "в буфер"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+#: model:ir.actions.server,name:workset_agents.action_server_decision_approve
+msgid "Затвердити"
+msgstr "Утвердить"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid "Затвердити рішення? Далі штаб підготує виплати: «Сплатити зараз» — до виплати, решта — у буфер наступного рішення."
+msgstr "Утвердить решение? Дальше штаб подготовит выплаты: «Оплатить сейчас» — к выплате, остальное — в буфер следующего решения."
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid "Як пропонує штаб"
+msgstr "Как предлагает штаб"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid "Зупинити"
+msgstr "Остановить"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid "Зупинити автоматичне рішення? Виплати буде скасовано, чернетки рахунків прибрано, нарахування перейдуть у рішення наступного дня виплати."
+msgstr "Остановить автоматическое решение? Выплаты будут отменены, черновики счетов удалены, начисления перейдут в решение следующего дня выплаты."
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid "з"
+msgstr "из"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid ", у буфер"
+msgstr ", в буфер"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid "Звірка: різниця, €"
+msgstr "Сверка: разница, €"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid "Рахунків без конверта, шт."
+msgstr "Счетов без конверта, шт."
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid "Пропозиція"
+msgstr "Предложение"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_line_list
+msgid "Порада"
+msgstr "Совет"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid "Деталі рядка"
+msgstr "Детали строки"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid "Звірка (не платимо)"
+msgstr "Сверка (не платим)"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_form
+msgid "Різниця"
+msgstr "Разница"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid "різниця"
+msgstr "разница"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid "Хто і коли"
+msgstr "Кто и когда"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_form
+msgid "Нотатки до рішення"
+msgstr "Заметки к решению"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_search
+msgid "До рішення"
+msgstr "К решению"
+
+#. module: workset_agents
+#: model_terms:ir.actions.act_window,help:workset_agents.action_decisions
+msgid "Відкритих рішень немає"
+msgstr "Открытых решений нет"
+
+#. module: workset_agents
+#: model_terms:ir.actions.act_window,help:workset_agents.action_decisions
+msgid "Чернетку до дня виплати збирає нічний розрахунок."
+msgstr "Черновик ко дню выплаты собирает ночной расчёт."
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_line_list
+msgid "Рядки рішень"
+msgstr "Строки решений"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_line_form
+msgid "Звідки сума"
+msgstr "Откуда сумма"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_line_form
+msgid "Відкрити список"
+msgstr "Открыть список"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_decision_line_form
+msgid "Звірка за період"
+msgstr "Сверка за период"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_search
+msgid "Звірка з конвертами"
+msgstr "Сверка с конвертами"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_list
+msgid "Рядків"
+msgstr "Строк"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_list
+msgid "Збіглось"
+msgstr "Совпало"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_form
+msgid "Розрахунок Odoo"
+msgstr "Расчёт Odoo"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_form
+msgid "Що звіряли"
+msgstr "Что сверяли"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_form
+msgid "Як рахували"
+msgstr "Как считали"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_pivot
+#: model:ir.actions.act_window,name:workset_agents.action_overview_zvirka
+#: model:ir.ui.menu,name:workset_agents.menu_overview_zvirka
+msgid "Звірка: агент × місяць"
+msgstr "Сверка: агент × месяц"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_search
+msgid "Є розбіжність"
+msgstr "Есть расхождение"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_zvirka_search
+msgid "Понад 5 %"
+msgstr "Больше 5 %"
+
+#. module: workset_agents
+#: model_terms:ir.actions.act_window,help:workset_agents.action_zvirka
+msgid "Розбіжностей цього року немає"
+msgstr "Расхождений в этом году нет"
+
+#. module: workset_agents
+#: model_terms:ir.actions.act_window,help:workset_agents.action_zvirka
+msgid "Звірку пише нічний розрахунок."
+msgstr "Сверку пишет ночной расчёт."
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_tax_list
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_tax_search
+msgid "Податки агентів"
+msgstr "Налоги агентов"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_tax_search
+msgid "Без довідки"
+msgstr "Без справки"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_run_list
+msgid "Розрахунок агентів — журнал"
+msgstr "Расчёт агентов — журнал"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_run_form
+msgid "Розрахунок агентів"
+msgstr "Расчёт агентов"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_paid_wizard_form
+msgid "Напр.: переказ з особистого рахунку, квитанція в чаті офісу"
+msgstr "Напр.: перевод с личного счёта, квитанция в чате офиса"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_paid_wizard_form
+msgid "Позначити виплаченим"
+msgstr "Отметить выплаченным"
+
+#. module: workset_agents
+#: model_terms:ir.ui.view,arch_db:workset_agents.view_paid_wizard_form
+msgid "Скасувати"
+msgstr "Отменить"
+
+#. module: workset_agents
+#: model:ir.ui.menu,name:workset_agents.menu_overview
+msgid "Огляд"
+msgstr "Обзор"
+
+#. module: workset_agents
+#: model:ir.ui.menu,name:workset_agents.menu_refs
+msgid "Довідники"
+msgstr "Справочники"
