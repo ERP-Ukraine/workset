@@ -8,7 +8,9 @@ workset_finance). Усі дані — вигадані в самому тест�
   часткою рекрутингу; рахунок 33 без частки рекрутингу (стаття іншого плану); оплачений рахунок 50 без аналітики (кандидат 1г);
 - пара проводок «доход по місяцю роботи»: −40 у лютому, +40 у березні; витрати −30 (A) і −5 (U); власник −10 (у ступінь 1 і 5), «частка» −6;
 - Україна −12 (фірма U, рахунок ліквідності); «II етап»: рядки аналітики статті без партнера, одержувач у тексті name; рядок статті — додатна
-  частка 10 %: +10 («PHRASE A», фраза з карти ліній), +4 (жодної фрази), +6 («Transit one», транзитна фраза, яка теж є в карті ліній) + рядки рахунку 10 і 4; конверт AN −8 (і +3, яке не рахується).
+  частка 10 %: +10 («PHRASE A», фраза з карти ліній), +4 (жодної фрази), +6 («Transit one», транзитна фраза, яка теж є в карті ліній) + рядки рахунку 10 і 4
+  (проводка 19.03 без рядка статті: з круга 1е вона йде в 4' рядками рахунку — текст «test Stage partner A/B» фраз не має, «не розпізнано»);
+  конверт AN −8 (і +3, яке не рахується).
 - «Energy» — партнер третьої фірми (res.company.partner_id): його неоплачений рахунок 20 мусить іти в «Energy», а не в «міжфірмові».
 Очікується (березень): 1 = 130, 1а = 10, 2 = −12, до часток = 128; 5 = 16 (з них частка 6); 6 = 20 + 14 = 34; за грошима: 128 − (10 × 9 + 8) = 30;
 7: замовники 100, Energy 20 (міжфірмовий не показуємо); кандидати 1г: 1 на 50; дохід довідково 175.
@@ -18,6 +20,7 @@ import json
 
 from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tests.common import TransactionCase, new_test_user, tagged
+from odoo.tools import SQL
 
 from ..models import calc
 
@@ -172,6 +175,28 @@ class TestWorksetFinance(TransactionCase):
         acc = self.env['account.account'].with_company(co).create({'name': 'Test cash O', 'code': '199931', 'account_type': 'asset_current'})
         return co, acc
 
+    def _pln(self):
+        """Злотий з курсом 4,2 за євро у фірмі A (з 2030-01-01)."""
+        pln = self.env.ref('base.PLN')
+        pln.active = True
+        self.env['res.currency.rate'].create({'name': '2030-01-01', 'rate': 4.2, 'currency_id': pln.id, 'company_id': self.co.id})
+        return pln
+
+    def _bank_journal(self, code, currency=None):
+        """Банківський журнал фірми A (EUR, або валюта currency) з власним рахунком і рахунком очікування."""
+        Account = self.env['account.account'].with_company(self.co)
+        n = {'TBE': '1', 'TBP': '2'}[code]
+        acc = Account.create({'name': 'Test bank ' + code, 'code': '19995' + n, 'account_type': 'asset_cash', 'currency_id': currency.id if currency else False})
+        sus = Account.create({'name': 'Test suspense ' + code, 'code': '19996' + n, 'account_type': 'asset_current'})
+        return self.env['account.journal'].with_company(self.co).create({
+            'name': 'Test bank ' + code, 'code': code, 'type': 'bank', 'company_id': self.co.id, 'currency_id': currency.id if currency else False,
+            'default_account_id': acc.id, 'suspense_account_id': sus.id})
+
+    def _st(self, journal, amount, ref, partner=None, day='2030-03-05'):
+        """Несвірений рядок виписки (amount — у валюті журналу)."""
+        return self.env['account.bank.statement.line'].with_company(self.co).create({
+            'journal_id': journal.id, 'date': day, 'payment_ref': ref, 'amount': amount, 'partner_id': partner.id if partner else False})
+
     # ——— ступені до цента ———
     def test_steps_match_to_the_cent(self):
         res = self._run()
@@ -188,7 +213,7 @@ class TestWorksetFinance(TransactionCase):
         self.assertAlmostEqual(m.s5_owners_share, 6, msg='«частка» — статті з параметра, решта — витрати компанії')
         self.assertAlmostEqual(m.s6_stage2, 34, msg='аналітика 10 + 4 + 6 + рядки рахунку 10 і 4')
         self.assertAlmostEqual(m.cash_out, 98, msg='рядки аналітики «II етапу»: партнер з лінією 10 × 9 = 90 + конверт AN 8; без лінії (4) і транзит (6) не входять; '
-                                                   'рахунок «II етапу» в 4\' участі не бере')
+                                                   'рядки рахунку проводки без рядка статті (10 і 4) фраз не мають — «не розпізнано»')
         self.assertEqual(self._r(m.s7_unpaid_customers, m.s7_unpaid_energy), [100, 20], msg='міжфірмовий (15) і рахунок без частки рекрутингу не показуємо')
         self.assertAlmostEqual(m.revenue, 175)
         self.assertEqual(m.g_cand_count, 1)
@@ -212,15 +237,27 @@ class TestWorksetFinance(TransactionCase):
         act = unpaid.action_open()
         self.assertEqual(act['res_model'], 'account.move')
         self.assertEqual(self.env['account.move'].search(act['domain']), self.inv_cust)
-        cash = items.filtered(lambda i: i.kind == 'cash' and i.res_model == 'account.analytic.line')
+        # вид cash — усе, що віднімається в 4': розпізнані рядки партнерів (по рядку на лінію) і конверт AN (теж рядки аналітики, примітка 'AN')
+        cash = items.filtered(lambda i: i.kind == 'cash')
         other = items.filtered(lambda i: i.kind == 'cash_other')
-        self.assertEqual(len(cash), 1, 'в «за грошима» — только розпізнаний рядок')
-        unknown = other.filtered(lambda i: calc.t('unknown', 0) in i.note)
+        net = cash.filtered(lambda i: i.note != 'AN')
+        an = cash.filtered(lambda i: i.note == 'AN')
+        self.assertEqual((len(net), len(an)), (1, 1), 'в «за грошима» — один розпізнаний рядок партнера й конверт AN; нерозпізнані й транзит — окремий вид')
+        AAL, ML = 'account.analytic.line', 'account.move.line'
+        unknown = other.filtered(lambda i: calc.t('unknown', 0) in i.note and i.res_model == AAL)
         self.assertIn(calc.t('not_in_4', 0), unknown.note, 'нерозпізнані й транзит — окремий вид, з позначкою «в 4\' не входить»')
         self.assertEqual((unknown.amount, unknown.count), (36, 1), 'рядок без збігу фрази — «не розпізнано», сума × 9, у переказ не входить')
-        net = cash.filtered(lambda i: i.line_id)
-        self.assertEqual((net.amount, net.line_id), (90, self.line), 'розпізнаний за фразою (без регістру): 10 × 9, лінія з карти; брутто (×10) — у примітці')
+        # круг 1е: проводка 19.03 без рядка статті — у 4' рядками рахунку (окремий рядок деталі, клік — рядки проводки)
+        acc_unknown = other.filtered(lambda i: calc.t('unknown', 0) in i.note and i.res_model == ML)
+        self.assertEqual((acc_unknown.amount, acc_unknown.count), (126, 2), '(10 + 4) × 9: тексти «test Stage partner A/B» фраз не мають')
+        self.assertIn(calc.t('no_analytic_row', 0), acc_unknown.note)
+        self.assertEqual(self.env[ML].search(acc_unknown.action_open()['domain']).account_id, self.st2_acc)
+        self.assertEqual((net.amount, net.line_id, net.res_model), (90, self.line, 'account.analytic.line'),
+                         'розпізнаний за фразою (без регістру): 10 × 9, лінія з карти; брутто (×10) — у примітці')
         self.assertIn('100,00', net.note)
+        self.assertEqual((an.amount, an.line_id.id, an.res_model), (8, False, 'account.analytic.line'), 'конверт AN: −(−8) як є, без лінії; +3 не рахується')
+        self.assertAlmostEqual(sum(cash.mapped('amount')), self._month().cash_out, msg='сума виду cash = перекази партнерам нетто (cash_out)')
+        self.assertAlmostEqual(self._month().cash_out, 98)
         transit = other.filtered(lambda i: calc.t('transit', 0) in i.note)
         self.assertEqual((transit.amount, transit.count), (54, 1))
         self.assertEqual(self.env['account.analytic.line'].search(unknown.action_open()['domain']).mapped('name'), ['Payout to nobody known'])
@@ -247,7 +284,8 @@ class TestWorksetFinance(TransactionCase):
         Param = self.env['ir.config_parameter'].sudo()
         Param.set_param(P + 'stage2_partner_lines', json.dumps([['stage partner b', self.line.id], ['phrase a', self.line.id]]))
         self._run()
-        self.assertAlmostEqual(self._month().cash_out, 125, msg="текст = name + імя партнера рядка: «Stage partner B» розпізнано (3 × 9 = 27) + 90 + AN 8")
+        self.assertAlmostEqual(self._month().cash_out, 161, msg="текст = name + імя партнера рядка: «Stage partner B» розпізнано (3 × 9 = 27) + 90 + AN 8; "
+                                                                "і рядок рахунку 4 проводки без рядка статті — партнер B (4 × 9 = 36, круг 1е)")
         other_line = self.env['workset.line'].create({'name': 'Line B'})
         Param.set_param(P + 'stage2_partner_lines', json.dumps([['payout', other_line.id], ['phrase a', self.line.id]]))
         self._run()
@@ -261,17 +299,34 @@ class TestWorksetFinance(TransactionCase):
         """Текст рядка «II етапу» бере ім'я партнера (name), а не display_name: у контакту фірми display_name — «Фірма, Людина». JS-драбина
         читає res.partner.name так само (паритет, круг 1г)."""
         P = calc.P_PREFIX
-        contact = self.env['res.partner'].create({'name': 'Contact Person', 'parent_id': self.part_b.id})
-        self.assertIn('Stage partner B', contact.display_name, 'передумова: ім\'я фірми є лише в display_name контакту')
+        # фірма-батько — своя (не Stage partner B: його ім'я з круга 1е є в тексті рядків рахунку проводки 19.03)
+        parent = self.env['res.partner'].create({'name': 'Parent Firm Q', 'is_company': True})
+        contact = self.env['res.partner'].create({'name': 'Contact Person', 'parent_id': parent.id})
+        self.assertIn('Parent Firm Q', contact.display_name, 'передумова: ім\'я фірми є лише в display_name контакту')
         row = self._aal(self.co, self.a_stage2, 3, self.cash, name='nothing here')
         row.partner_id = contact
         Param = self.env['ir.config_parameter'].sudo()
-        Param.set_param(P + 'stage2_partner_lines', json.dumps([['stage partner b', self.line.id], ['phrase a', self.line.id]]))
+        Param.set_param(P + 'stage2_partner_lines', json.dumps([['parent firm q', self.line.id], ['phrase a', self.line.id]]))
         self._run()
         self.assertAlmostEqual(self._month().cash_out, 98, msg='фраза з імені фірми-батька контакту не розпізнає рядок: 90 + AN 8')
         Param.set_param(P + 'stage2_partner_lines', json.dumps([['contact person', self.line.id], ['phrase a', self.line.id]]))
         self._run()
         self.assertAlmostEqual(self._month().cash_out, 125, msg='ім\'я самого контакту — розпізнано: 3 × 9 = 27 + 90 + AN 8')
+
+    def test_number_phrase_skipped_with_note(self):
+        """Фраза-число (сума, рік, номер до 7 цифр) розпізнала б чужі рядки: розбір її пропускає (як JS-драбина), звірка називає параметр і
+        скільки пропущено; хвіст рахунку від 8 цифр — фраза (круг 1д)."""
+        P = calc.P_PREFIX
+        self._aal(self.co, self.a_stage2, 2, self.cash, name='Payout 2030 to nobody')
+        self._aal(self.co, self.a_stage2, 1, self.cash, name='Payout to acc 12345678')
+        Param = self.env['ir.config_parameter'].sudo()
+        Param.set_param(P + 'stage2_partner_lines', json.dumps([['2030', self.line.id], [' 12,5 ', self.line.id], ['12345678', self.line.id],
+                                                                 ['phrase a', self.line.id]]))
+        res = self._run()
+        self.assertAlmostEqual(self._month().cash_out, 107, msg='«2030» пропущено (інакше + 2 × 9 = 125); «12345678» — фраза: 1 × 9 + 90 + AN 8')
+        text = res['verify'][0]['text']
+        self.assertIn(calc.t('phrase_number', 0) % (P + 'stage2_partner_lines', 2, calc.PHRASE_NUM_MAX_DIGITS), text)
+        self.assertTrue(res['verify'][0]['ok'], 'примітка на «зійшлося» не впливає')
 
     def test_out_of_perimeter_firm_rows_not_in_steps(self):
         """Під sudo видно рядки всіх фірм: рядки аналітики фірми поза периметром (AN, «II етап», власники) у ступені не входять (круг 1г:
@@ -320,11 +375,82 @@ class TestWorksetFinance(TransactionCase):
         self.assertEqual(self._r(m.s7_unpaid_customers, m.s7_unpaid_energy), [100, 20], 'чек у «не оплачено» не входить')
 
     def test_quality_transit_documents_excluded(self):
-        self.env['ir.config_parameter'].sudo().set_param(calc.P_PREFIX + 'quality_transit_move_ids', str(self.inv_noshare.id))
+        """Транзит Energy — як PG.identity закриття місяця: документ транзиту знімає з «без місця» лише нерозподілений залишок; частка статті
+        іншого плану лишається «без місця» за будь-якого партнера (круг 1е). Оборот — без транзиту."""
+        ids = '%d,%d' % (self.inv_noshare.id, self.inv_paid.id)
+        self.env['ir.config_parameter'].sudo().set_param(calc.P_PREFIX + 'quality_transit_move_ids', ids)
         self._run()
         m = self._month()
-        self.assertEqual(self._r(m.q_ic, m.q_unplaced, m.q_ext), [35, 50, 150], msg='документ транзиту (33) — ні в «без місця», ні в оборот')
+        self.assertEqual(self._r(m.q_ic, m.q_unplaced, m.q_ext), [35, 33, 100],
+                         msg='рахунок 50 без розподілу — транзит, не «без місця»; 33 на статті іншого плану — «без місця» й у транзиті; оборот 183 − 33 − 50')
         self.assertAlmostEqual(m.s1_docs, 130, msg='ступінь 1 транзит не змінює')
+        item = self.env['workset.finance.item'].search([('month', '=', M), ('kind', '=', 'quality'), ('note', '=', 'unplaced')])
+        self.assertEqual(self.env['account.move.line'].search(json.loads(item.domain)).move_id, self.inv_noshare, 'клік «без місця» — рівно рядки з внеском')
+
+    def test_unplaced_click_is_exactly_contributing_lines(self):
+        """«Без місця» — сума зі знаком (правило закриття місяця: MC.truthShare бере модуль від суми); клік — рядки, що дали внесок, зокрема
+        частки статей іншого плану, а не лише «без розподілу»; витрата без розподілу зменшує суму зі знаком."""
+        self._run()
+        item = self.env['workset.finance.item'].search([('month', '=', M), ('kind', '=', 'quality'), ('note', '=', 'unplaced')])
+        lines = self.env['account.move.line'].search(json.loads(item.domain))
+        self.assertEqual(lines.move_id, self.inv_noshare | self.inv_paid, '33 (інший план, розподіл є) і 50 (без розподілу)')
+        self.assertEqual((item.amount, item.count), (83, 2))
+        self._entry(self.co, '2030-03-23', [{'account_id': self.expense.id, 'debit': 13}, {'account_id': self.cash.id, 'credit': 13}])
+        self._run()
+        m = self._month()
+        self.assertAlmostEqual(m.q_unplaced, 70, msg='83 − 13: дохід і витрата без місця гасять одне одного, як у PG.identity і --check')
+        self.assertAlmostEqual(m.q_pct, round((35 + 70) / 183 * 100, 1))
+
+    def test_bank_nodoc_like_month_close(self):
+        """«Банк без документа» — як PG.bankNoDoc закриття місяця (круг 1е): лише 4 види, сума в EUR (balance рядка на рахунку журналу, не
+        amount виписки); переказ своїй фірмі, платіж посереднику й зарплатний лист без партнера — не «без документа»."""
+        P = calc.P_PREFIX
+        pln = self._pln()
+        eur_bank, pln_bank = self._bank_journal('TBE'), self._bank_journal('TBP', pln)
+        mediator = self.env['res.partner'].create({'name': 'Mediator M', 'is_company': True})
+        self.env['ir.config_parameter'].sudo().set_param(P + 'mediator_partner_ids', str(mediator.id))
+        self._st(pln_bank, -420, 'Lista plac 03/2030')
+        self._st(eur_bank, -30, 'Transfer to own firm', self.co_ua.partner_id)
+        self._st(eur_bank, -20, 'Payment to mediator', mediator)
+        row = self._st(pln_bank, -84, 'Payment without document')
+        self._run()
+        m = self._month()
+        self.assertAlmostEqual(m.q_nodoc, 20, msg='лише рядок без партнера, у EUR: 84 / 4,2; код круга 1д дав би 420 + 30 + 20 + 84 = 554')
+        items = self.env['workset.finance.item'].search([('month', '=', M), ('kind', '=', 'quality'), ('note', 'like', 'nodoc:')])
+        self.assertEqual(items.mapped('note'), ['nodoc:noPartner'], 'рядок деталі — на кожен непорожній вид')
+        self.assertEqual((items.amount, items.count), (20, 1))
+        self.assertEqual(self.env['account.bank.statement.line'].search(json.loads(items.domain)), row, 'клік — рядки виписки цього виду')
+        self.assertAlmostEqual(m.q_pct, round((35 + 83 + 20) / 183 * 100, 1))
+
+    def test_transfers_in_eur(self):
+        """Перекази на особисті рахунки — у EUR (balance рядка на рахунку журналу): журнал у злотих не дає злотих як євро (круг 1е)."""
+        P = calc.P_PREFIX
+        pln_bank = self._bank_journal('TBP', self._pln())
+        self.env['ir.config_parameter'].sudo().set_param(P + 'transfer_phrases', json.dumps(['na konto osobiste']))
+        row = self._st(pln_bank, -210, 'Przelew na konto osobiste')
+        self._run()
+        item = self.env['workset.finance.item'].search([('month', '=', M), ('kind', '=', 'transfer')])
+        self.assertEqual((item.amount, item.count, item.note), (50, 1, calc.t('nodoc', 0)), '210 PLN / 4,2 = 50 EUR (код круга 1д дав би 210), не розібрано')
+        self.assertEqual(self.env['account.bank.statement.line'].search(json.loads(item.domain)), row)
+
+    def test_stage2_move_without_analytic_row_counts_once(self):
+        """4' — по проводках «II етапу» (круг 1е): немає рядка аналітики статті — береться рядок рахунку проводки (знак і сума як у рядка
+        статті); проводка з обома — один раз, рядком статті."""
+        self._entry(self.co, '2030-03-24', [{'account_id': self.st2_acc.id, 'debit': 5, 'name': 'Payout PHRASE A no analytic'},
+                                            {'account_id': self.cash.id, 'credit': 5}])
+        both = self._entry(self.co, '2030-03-25', [{'account_id': self.st2_acc.id, 'debit': 7, 'name': 'Payout PHRASE A both'},
+                                                   {'account_id': self.cash.id, 'credit': 7, 'name': 'Payout PHRASE A both',
+                                                    'analytic_distribution': {str(self.a_stage2.id): 100}}])
+        self.assertEqual(both.line_ids.analytic_line_ids.mapped('amount'), [7], 'передумова: рядок статті +7 (−баланс кредиту)')
+        self._run()
+        m = self._month()
+        self.assertAlmostEqual(m.cash_out, 206, msg='98 + 5 × 9 (рядок рахунку без статті) + 7 × 9 (рядок статті, рядок рахунку тієї ж проводки — ні); '
+                                                     'код круга 1д дав би 161, подвійний рахунок — 269')
+        items = self.env['workset.finance.item'].search([('month', '=', M), ('kind', '=', 'cash'), ('line_id', '=', self.line.id)])
+        acc = items.filtered(lambda i: i.res_model == 'account.move.line')
+        self.assertEqual((acc.amount, acc.count), (45, 1))
+        self.assertIn(calc.t('no_analytic_row', 0), acc.note)
+        self.assertAlmostEqual(sum(items.mapped('amount')), 90 + 45 + 63)
 
     # ——— поправки ———
     def test_adjust_changes_step3_and_step4_and_marks_adjust(self):
@@ -395,14 +521,42 @@ class TestWorksetFinance(TransactionCase):
         self.assertTrue(later['stale'], 'в книгах з’явилось після перерахунку')
         self.assertAlmostEqual(later['steps']['s1_docs'], 123)
 
-    def test_verify_control_catches_lost_analytic_line(self):
-        self._run()
+    def _entry_25(self):
+        """Проведена витрата 25 на Node A (100 %) 22.03.2030 → її рядок P&L."""
         move = self._entry(self.co, '2030-03-22', [{'account_id': self.expense.id, 'debit': 25, 'analytic_distribution': {str(self.a_node_a.id): 100}},
                                                    {'account_id': self.cash.id, 'credit': 25}])
-        move.line_ids.analytic_line_ids.unlink()
+        line = move.line_ids.filtered(lambda x: x.account_id == self.expense)
+        self.assertTrue(line.analytic_line_ids, 'передумова: проведення створило рядок аналітики')
+        return line
+
+    def test_verify_control_catches_lost_analytic_line(self):
+        """Рядок аналітики зник ПОВЗ ORM (SQL, міграція 16 → 19, код із контекстом skip_analytic_sync), розподіл у проводці лишився: другий
+        спосіб бачить 25, перший — ні. Через ORM так не буває: account.analytic.line.unlink() в Odoo 19 зове
+        move_line_id._update_analytic_distribution() і переписує розподіл із рядків, що лишилися (addons/account/models/account_analytic_line.py)
+        — це перевіряє test_verify_orm_unlink_moves_amount_to_unplaced."""
+        self._run()
+        line = self._entry_25()
+        self.env.flush_all()
+        self.env.cr.execute(SQL('DELETE FROM account_analytic_line WHERE id = ANY(%s)', line.analytic_line_ids.ids))
+        self.env.invalidate_all()
+        self.assertFalse(line.analytic_line_ids, 'рядка аналітики немає')
+        self.assertIn(str(self.a_node_a.id), line.analytic_distribution or {}, 'а розподіл у проводці лишився')
         got = self.Month.finance_verify([M])['months'][0]
         self.assertFalse(got['ok'], 'проводка з розподілом без рядка аналітики: другий спосіб бачить 25, перший — ні')
-        self.assertIn('Ступінь 1', got['text'])
+        self.assertIn(calc.t('v_control', 0) % ('130,00', '105,00', '25,00'), got['text'])
+        self.assertAlmostEqual(got['steps']['s1_docs'], 130)
+
+    def test_verify_orm_unlink_moves_amount_to_unplaced(self):
+        """Odoo 19 тримає розподіл проводки в лад із рядками аналітики: видалення рядка через ORM стирає й розподіл (_update_analytic_distribution),
+        тож обидва способи ступеня 1 сходяться, а 25 не зникає мовчки — рядок без розподілу йде в «без місця» якості даних."""
+        self._run()
+        line = self._entry_25()
+        line.analytic_line_ids.unlink()
+        self.assertFalse(line.analytic_distribution, 'передумова (Odoo 19): розподіл стерто разом із рядком аналітики')
+        got = self.Month.finance_verify([M])['months'][0]
+        self.assertTrue(got['ok'], got['text'])
+        self.assertAlmostEqual(got['steps']['s1_docs'], 130, msg='витрата без розподілу у ступінь 1 не входить — ні першим, ні другим способом')
+        self.assertAlmostEqual(got['steps']['q_unplaced'], 58, msg='83 + (−25): рядок без розподілу — «без місця»')
 
     # ——— права ———
     def test_rights(self):
