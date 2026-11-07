@@ -31,7 +31,7 @@
                                 <field name="next_pay"/>
                             </div>
                             <div class="small" invisible="not diff_year">
-                                <span class="text-muted">різниця з конвертом </span>
+                                <span class="text-muted">різниця за <field name="card_year" options="{'format': false}"/> </span>
                                 <field name="diff_year" class="text-danger fw-bold" invisible="diff_pct &lt;= 5 and diff_pct &gt;= -5"/>
                                 <field name="diff_year" class="text-muted" invisible="diff_pct &gt; 5 or diff_pct &lt; -5"/> €
                             </div>
@@ -59,8 +59,9 @@
                 <field name="state" widget="badge" decoration-success="state == 'pay'" decoration-info="state == 'zvirka'" decoration-muted="state in ('draft', 'closed', 'none')"/>
                 <field name="due_next" string="До виплати"/>
                 <field name="next_pay_day" string="Коли"/>
-                <field name="paid_year" string="Виплачено 2026" optional="show"/>
-                <field name="diff_year" string="Різниця" optional="show"/>
+                <field name="card_year" string="Рік" options="{'format': false}" optional="hide"/>
+                <field name="paid_year" optional="show"/>
+                <field name="diff_year" optional="show"/>
                 <field name="diff_pct" string="%" optional="show"/>
                 <field name="code" optional="hide"/>
                 <field name="phone" optional="hide"/>
@@ -108,11 +109,11 @@
                             <div class="o_wa_tile_value"><field name="due_next" class="d-inline"/> €</div>
                         </div>
                         <div class="o_wa_tile" invisible="not paid_year">
-                            <div class="o_wa_tile_label">Виплачено 2026</div>
+                            <div class="o_wa_tile_label">Виплачено за <field name="card_year" class="d-inline" options="{'format': false}"/></div>
                             <div class="o_wa_tile_value"><field name="paid_year" class="d-inline"/> €</div>
                         </div>
                         <button name="action_open_zvirka" type="object" class="o_wa_tile btn btn-link text-start" invisible="not diff_year">
-                            <div class="o_wa_tile_label">Різниця з конвертом</div>
+                            <div class="o_wa_tile_label">Різниця з конвертом за <field name="card_year" class="d-inline" options="{'format': false}"/></div>
                             <div class="o_wa_tile_value">
                                 <field name="diff_year" class="d-inline text-danger" invisible="diff_pct &lt;= 5 and diff_pct &gt;= -5"/>
                                 <field name="diff_year" class="d-inline" invisible="diff_pct &gt; 5 or diff_pct &lt; -5"/> €
@@ -126,6 +127,13 @@
                             <field name="email" widget="email" placeholder="пошта агента"/>
                             <field name="tg_id" placeholder="числовий id у Telegram"/>
                             <field name="code" placeholder="код із бота агентів"/>
+                        </group>
+                        <group string="Гроші" invisible="not calc_year and not env_year and not paid_year">
+                            <field name="card_year" options="{'format': false}"/>
+                            <field name="calc_year" invisible="not calc_year"/>
+                            <field name="env_year" invisible="not env_year"/>
+                            <field name="diff_year" invisible="not diff_year"/>
+                            <field name="paid_year" invisible="not paid_year"/>
                         </group>
                         <group string="Облік">
                             <field name="form_state" widget="badge"/>

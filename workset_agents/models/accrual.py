@@ -64,9 +64,11 @@ class WorksetAgentAccrual(models.Model):
         made = Acc.browse()
         for rec in self.sudo():
             linked = Acc.search_read([('storno_id', '=', rec.id), ('state', '!=', 'cancelled')], ['key', 'amount', 'hours'])
+            base = 'storno:' + (rec.key or ('a%d' % rec.id))
+            taken = [r['key'] for r in Acc.with_context(active_test=False).search_read([('key', '=like', base + '%')], ['key'])]
             try:
                 vals, pre = payplan.storno_button_vals({'id': rec.id, 'kind': rec.kind, 'state': rec.state, 'key': rec.key, 'amount': rec.amount,
-                                                        'hours': rec.hours}, linked, today, self.env.user.name)
+                                                        'hours': rec.hours}, linked, today, self.env.user.name, taken)
             except calc.CalcError as e:
                 raise UserError(str(e))
             vals.update({'section': rec.section, 'people_deal_id': rec.people_deal_id.id, 'client_deal_id': rec.client_deal_id.id,

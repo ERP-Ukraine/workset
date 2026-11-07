@@ -220,7 +220,9 @@
                                     <field name="auto_note" invisible="not auto_note"/>
                                 </group>
                             </group>
-                            <field name="note" placeholder="Нотатки до рішення"/>
+                            <!-- рішення правлять лише власник (права моделі): іншим — «Нотатки» лише для читання, інакше збереження падає на правах -->
+                            <field name="note" placeholder="Нотатки до рішення" groups="workset_agents.group_owner"/>
+                            <field name="note" readonly="1" groups="!workset_agents.group_owner"/>
                         </page>
                     </notebook>
                 </sheet>

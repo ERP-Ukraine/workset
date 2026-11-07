@@ -36,6 +36,12 @@
         'views/menus.xml',
         'data/ir_cron.xml',
     ],
+    # стили плиток и карточек (телефон — 2×2), круг 2 исполнителя Б
+    'assets': {
+        'web.assets_backend': [
+            'workset_agents/static/src/scss/workset_agents.scss',
+        ],
+    },
     'installable': True,
     'auto_install': False,
     'application': True,

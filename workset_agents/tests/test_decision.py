@@ -2,6 +2,8 @@
 """Тести кроку рішень «Агентів» на базі (круг 2): ніч D−3 — чернетка рішення; «Затвердити» → підготовка (виплата personal, чернетка рахунку
 постачальника official з payment_reference = номер виплати, нарахування «Закрито рішенням», список офісу активністю); буфер у наступне рішення;
 «Пропущено»; автозатвердження вимкнено → тривога «ask» власнику; «Зупинити»; права. Запускає Odoo.sh на dev-збірці. Дані вигадані."""
+from unittest.mock import patch
+
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.exceptions import UserError
 from odoo.tests.common import new_test_user, tagged
@@ -21,7 +23,6 @@ class TestAgentsDecision(AccountTestInvoicingCommon):
         cls.co = co
         cls.owner = new_test_user(env, login='agents_dec_owner', groups='base.group_user,workset_agents.group_owner')
         cls.hr = new_test_user(env, login='agents_dec_hr', groups='base.group_user,hr.group_hr_user')
-        cls.office = new_test_user(env, login='agents_dec_office', groups='base.group_user')
         plan = env['account.analytic.plan'].create({'name': 'Тест план агентів'})
         cls.analytic = env['account.analytic.account'].create({'name': 'Тест агенти', 'plan_id': plan.id, 'company_id': False})
         purchase = cls.company_data['default_journal_purchase']
@@ -30,7 +31,7 @@ class TestAgentsDecision(AccountTestInvoicingCommon):
         ICP = env['ir.config_parameter'].sudo()
         for k, v in [(common.P_OFFICIAL, co.id), (common.P_PERSONAL, co.id), (common.P_PERIMETER, co.id), (common.P_IS_COPY, 1), (common.P_WS_CODES, 'TWS'),
                      (common.P_WH_ANALYTIC, 0), (common.P_BILL_JOURNAL, purchase.code), (common.P_FEE_ACCOUNT, expense.code), (common.P_TAX_ACCOUNT, expense.code),
-                     (common.P_ANALYTIC, cls.analytic.id), (common.P_OWNER_UID, cls.owner.id), (common.P_YULIA_UID, cls.office.id), (common.P_OFFICE_TYPE, todo.id),
+                     (common.P_ANALYTIC, cls.analytic.id), (common.P_OWNER_UID, cls.owner.id), (common.P_OFFICE_TYPE, todo.id),
                      (common.P_OFFICE_TO, 'Офіс'), (common.P_CARD_YEAR, 2026), (common.P_PROBE_TODAY, '2026-11-08')]:
             # probe_today — «сьогодні» кнопок «Затвердити» / «Зупинити» на копії (інакше тест залежав би від дати прогону)
             ICP.set_param(k, str(v))
@@ -64,6 +65,9 @@ class TestAgentsDecision(AccountTestInvoicingCommon):
         # тривога «ask» власнику: автозатвердження вимкнено (auto_approve не задано)
         ask = self.env['mail.activity'].search([('res_model', '=', 'workset.agent.decision'), ('res_id', '=', dec.id)])
         self.assertEqual((len(ask), ask.user_id), (1, self.owner))
+        # наступна ніч — друга така сама тривога не ставиться (полів штабу на тестовій базі немає — за рішенням і заголовком)
+        self._night('2026-11-08')
+        self.assertEqual(self.env['mail.activity'].search_count([('res_model', '=', 'workset.agent.decision'), ('res_id', '=', dec.id)]), 1)
         # «Затвердити» — лише власник
         with self.assertRaises(UserError):
             dec.with_user(self.hr).action_approve()
@@ -83,9 +87,25 @@ class TestAgentsDecision(AccountTestInvoicingCommon):
         self.assertEqual(self.a_pers.payout_id, pers)
         self.assertEqual(set(lines.mapped('state')), {'done'})
         cron = self.env.ref('workset_agents.cron_night')
-        office = self.env['mail.activity'].search([('res_model', '=', 'ir.cron'), ('res_id', '=', cron.id), ('user_id', '=', self.office.id)])
-        self.assertEqual(len(office), 1, 'список офісу — активністю (полів штабу немає — без них)')
+        bot = self.env.ref('base.user_root')
+        office = self.env['mail.activity'].search([('res_model', '=', 'ir.cron'), ('res_id', '=', cron.id), ('user_id', '=', bot.id)])
+        self.assertEqual(len(office), 1, 'список офісу — активністю на OdooBot (доставку робить рутина office-desk; полів штабу немає — без них)')
         self.assertIn('виплати', office.summary)
+
+    def test_owner_buttons_not_locked_on_prod(self):
+        # П-1: на проді без night_prod_ok планова ніч не пише, а «Затвердити» власника одразу готує виплати (як в еталоні)
+        self._night('2026-11-07')
+        dec = self._decision()
+        for l in dec.pay_line_ids:
+            l.pay_now = l.available
+        self.env['ir.config_parameter'].sudo().set_param(common.P_IS_COPY, '')
+        with patch('odoo.addons.workset_agents.models.common.kyiv_today', return_value='2026-11-08'):
+            self.Run._cron_night()
+            self.assertEqual(self.Run.search([], limit=1).result, 'Не дозволено')
+            dec.with_user(self.owner).action_approve()
+        self.assertEqual(dec.state, 'done')
+        self.assertTrue(dec.payout_ids)
+        self.assertEqual(self.Run.search([], limit=1).kind, 'approve')
 
     def test_buffer_to_next_decision(self):
         self._night('2026-11-07')

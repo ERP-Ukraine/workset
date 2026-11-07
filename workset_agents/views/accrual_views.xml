@@ -112,7 +112,7 @@
                 <field name="person_id"/>
                 <field name="key"/>
                 <filter name="live" string="Без сторно і скасованих" domain="[('kind', '!=', 'storno'), ('state', '!=', 'cancelled')]"/>
-                <filter name="year" string="2026" domain="[('earned_date', '&gt;=', '2026-01-01'), ('earned_date', '&lt;', '2027-01-01')]"/>
+                <filter name="year" string="Цей рік" domain="[('earned_date', '&gt;=', context_today().strftime('%Y-01-01')), ('earned_date', '&lt;', (context_today() + relativedelta(years=1)).strftime('%Y-01-01'))]"/>
                 <filter name="not_test" string="Без тестових" domain="[('agent_id.is_test', '=', False)]"/>
                 <filter name="review" string="На перевірці" domain="[('state', '=', 'review')]"/>
                 <filter name="due" string="До виплати" domain="[('state', '=', 'due')]"/>

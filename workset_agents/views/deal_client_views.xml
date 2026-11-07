@@ -83,8 +83,8 @@
                             <field name="withhold_pct" invisible="kind == 'worker_fund' or not withhold_pct"/>
                             <field name="withhold_analytic_id" invisible="kind == 'worker_fund' or not withhold_pct"/>
                             <field name="currency_id" invisible="1"/>
-                            <field name="env_sum" string="Конверт агента 2026" invisible="not env_sum"/>
-                            <field name="zv_diff_sum" string="Різниця агента 2026" invisible="not zv_diff_sum"/>
+                            <field name="env_sum" string="Конверт агента за рік" invisible="not env_sum"/>
+                            <field name="zv_diff_sum" string="Різниця агента за рік" invisible="not zv_diff_sum"/>
                         </group>
                     </group>
                     <notebook>

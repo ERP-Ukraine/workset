@@ -127,7 +127,7 @@
             <search string="Звірка з конвертами">
                 <field name="agent_id"/>
                 <field name="envelope_id"/>
-                <filter name="year" string="2026" domain="[('month', '&gt;=', '2026-01-01'), ('month', '&lt;', '2027-01-01')]"/>
+                <filter name="year" string="Цей рік" domain="[('month', '&gt;=', context_today().strftime('%Y-01-01')), ('month', '&lt;', (context_today() + relativedelta(years=1)).strftime('%Y-01-01'))]"/>
                 <separator/>
                 <filter name="diff" string="Є розбіжність" domain="[('state_badge', 'in', ['small', 'big', 'no_envelope'])]"/>
                 <filter name="big" string="Понад 5 %" domain="[('state_badge', '=', 'big')]"/>
@@ -153,7 +153,7 @@
         <field name="view_mode">list,pivot,kanban,form</field>
         <field name="search_view_id" ref="view_zvirka_search"/>
         <field name="context">{'search_default_year': 1, 'search_default_diff': 1, 'search_default_by_agent': 1}</field>
-        <field name="help" type="html"><p class="o_view_nocontent_smiling_face">Розбіжностей за 2026 немає</p><p>Звірку пише нічний розрахунок.</p></field>
+        <field name="help" type="html"><p class="o_view_nocontent_smiling_face">Розбіжностей цього року немає</p><p>Звірку пише нічний розрахунок.</p></field>
     </record>
 
     <!-- «Огляд → Звірка»: зведена агент × місяць за 2026 (усі стани) -->

@@ -188,6 +188,11 @@ class TestAgentsNight(AccountTestInvoicingCommon):
         self.assertEqual((acc.state, st.state, st.amount, st.key), ('cancelled', 'cancelled', -7.0, 'storno:oneoff:t1'))
         with self.assertRaises(UserError):
             acc.with_user(self.owner).action_storno()
+        # сторно скасували — повторне «Сторно» дає ключ «#2», а не сиру помилку бази
+        st.state = 'cancelled'
+        acc.state = 'due'
+        acc.with_user(self.owner).action_storno()
+        self.assertEqual(self.Acc.search([('storno_id', '=', acc.id), ('state', '=', 'cancelled'), ('id', '!=', st.id)]).key, 'storno:oneoff:t1#2')
 
     def test_manual_paid_wizard_partial(self):
         po = self._payout()

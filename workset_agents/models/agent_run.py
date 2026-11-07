@@ -34,6 +34,7 @@ CD_F = ['id', 'agent_id', 'kind', 'state', 'date_from', 'date_to', 'company_id',
 AC_F = ['id', 'section', 'people_deal_id', 'client_deal_id', 'agent_id', 'kind', 'person_id', 'customer_id', 'move_id', 'hours', 'rate', 'amount',
         'earned_date', 'pay_date', 'company_id', 'line_id', 'state', 'guard', 'guard_note', 'key', 'storno_id', 'note', 'pay_line_id', 'payout_id', 'fund']
 RUN_KINDS = ('night', 'manual', 'approve', 'stop', 'dry')
+OWNER_KINDS = ('approve', 'stop')  # запуски від кнопок власника — без замка night_prod_ok
 
 
 def rd(v):
@@ -419,7 +420,9 @@ class WorksetAgentRun(models.Model):
         cfg.update({'personal_pct': common.PERSONAL_PCT, 'tax_pct': common.TAX_PCT, 'tax_free_countries': list(common.TAX_FREE_COUNTRIES),
                     'bill_company': official, 'owner_uid': owner_uid, 'owner_uids': owners,
                     'night_uids': uniq([root.id if root else 0] + ([owner_uid] if owner_uid else [])),
-                    'office_uid': common.param_int(env, common.P_YULIA_UID, required=False),
+                    # список офісу — на OdooBot (uid планового), як в еталоні: доставку в бот «Офіс» робить рутина office-desk, а в учётці
+                    # співробітника такі активності висіли б у «Мої дії» (П-2; сотрудникам — лише через бот «Офіс»)
+                    'office_uid': root.id if root else 0,
                     'office_to': common.param(env, common.P_OFFICE_TO, required=False), 'owner_to': common.param(env, common.P_OWNER_TO, required=False),
                     'ws_journals': ws, 'auto_approve': self._auto_allowed()})
         return cfg
@@ -507,6 +510,9 @@ class WorksetAgentRun(models.Model):
         mids = uniq([m2o(a.get('move_id')) for a in accruals if a.get('state') in ('due', 'expected', 'review')])
         move_totals = [[r['id'], r.get('amount_total')] for r in self._rows('account.move', [('id', 'in', mids)], ['amount_total'])] if mids else []
         act_keys = office_bridge.keys_like(env, [payplan.KEY_PREFIX, payplan.OWNER_KEY_PREFIX])
+        # полів штабу немає — повтор активності власнику впізнаємо за рішенням і заголовком
+        plain_acts = [] if office_bridge.ready(env) else [[r['res_id'], r.get('summary') or ''] for r in env['mail.activity'].sudo().with_context(active_test=False).search_read(
+            [('res_model', '=', DEC)], ['res_id', 'summary'])]
         official = cfg['bill_company']
         jr = payplan.pick_journal(self._rows('account.journal', [('type', '=', 'purchase'), ('company_id', '=', official), ('active', '=', True)], ['id', 'code']),
                                   common.param(env, common.P_BILL_JOURNAL, required=False), official)
@@ -522,7 +528,7 @@ class WorksetAgentRun(models.Model):
                 'owner_type': todo.id if todo else 0, 'dec_model': self._model_id(DEC), 'hq_fields': office_bridge.ready(env)}
         return {'cfg': cfg, 'decisions': decisions, 'lines': lines, 'accruals': accruals, 'deals_people': deals_p, 'deals_client': deals_c, 'members': members,
                 'state_since': self._state_since(deals_p, accruals), 'profiles': profiles, 'banks': banks, 'names': names, 'agent_names': agent_names,
-                'agent_partner': agent_partner, 'invoices': invoices, 'move_totals': move_totals, 'act_keys': act_keys, 'refs': refs, 'payouts_done': done_pays,
+                'agent_partner': agent_partner, 'invoices': invoices, 'move_totals': move_totals, 'act_keys': act_keys, 'plain_acts': plain_acts, 'refs': refs, 'payouts_done': done_pays,
                 'hist_aml': hist_aml, 'hist_moves': hist_moves, 'hist_bills': hist_bills, 'env_of': envs[0], 'env_lines': envs[1]}
 
     def _write_log(self, result, text, created, changed, review, started, before, kind):
@@ -545,8 +551,10 @@ class WorksetAgentRun(models.Model):
         return common.is_copy(self.env) and common.param(self.env, common.P_AUTO_APPROVE, required=False) == '1'
 
     @api.model
-    def _night_allowed(self, dry):
-        if dry or common.is_copy(self.env):
+    def _night_allowed(self, dry, kind='night'):
+        # замок night_prod_ok — лише для планового (night) і ручного run_now (manual): «Затвердити» / «Зупинити» — явна дія власника, кнопка
+        # одразу запускає розрахунок, як в еталоні (рішення coordinator 07.11, П-1)
+        if dry or kind in OWNER_KINDS or common.is_copy(self.env):
             return True
         return common.param(self.env, common.P_NIGHT_PROD_OK, required=False) == '1'
 
@@ -554,7 +562,7 @@ class WorksetAgentRun(models.Model):
     def _run(self, kind='night', dry=False, today=False, zvirka_deals=None):
         """Ніч: → res (план і що записано). dry — нічого не пише (ні нарахувань, ні журналу)."""
         started = time.time()
-        if not self._night_allowed(dry):
+        if not self._night_allowed(dry, kind):
             self._write_log('Не дозволено', 'ніч не дозволена: прод без параметра %s = 1 (ставить інструмент штабу за словом власника)' % common.P_NIGHT_PROD_OK,
                             0, 0, 0, started, '', kind)
             return {'error': 'ніч не дозволена', 'skipped': True}

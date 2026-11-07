@@ -97,7 +97,7 @@ def pick_journal(journals, code, company):
 # ── план ──
 def add_op(res, op, model, rid, vals, refs=None, extra=None):
     o = {'op': op, 'model': model, 'vals': vals}
-    if op == 'create':
+    if op in ('create', 'activity'):
         o['ref'] = rid
     else:
         o['id'] = rid
@@ -347,7 +347,7 @@ def run_result(errs, groups):
     return 'OK' if not errs else ('Помилка' if len(errs) >= groups else 'Частково')
 
 
-def storno_button_vals(rec, linked, today, user_name):
+def storno_button_vals(rec, linked, today, user_name, taken=()):
     # кнопка «Сторно» картки нарахування: rec — нарахування {id, kind, state, key, amount, hours, rate, …}, linked — його чинні сторно
     # [{key, amount, hours}] → (vals сторно, pre) або CalcError. Ще не в оплаті — обидва «Скасовано»; уже «У рахунку» / «Виплачено» —
     # сторно «Очікується» (день і статус поставить ніч)
@@ -360,9 +360,15 @@ def storno_button_vals(rec, linked, today, user_name):
     left_amount = num(rec.get('amount')) + sum([num(x.get('amount')) for x in linked])
     left_hours = num(rec.get('hours')) + sum([num(x.get('hours')) for x in linked])
     pre = rec.get('state') in C.PRE
+    # ключ «storno:<ключ вихідного>»; такий уже є (попереднє сторно скасували) — «#N», як у повторів ночі (база не пускає два однакові ключі)
+    key = 'storno:' + (sval(rec.get('key')) or ('a%d' % rec['id']))
+    if key in taken:
+        n = 2
+        while '%s#%d' % (key, n) in taken:
+            n += 1
+        key = '%s#%d' % (key, n)
     vals = {'kind': 'storno', 'hours': -left_hours, 'amount': -left_amount, 'earned_date': today, 'storno_id': rec['id'],
-            'key': 'storno:' + (sval(rec.get('key')) or ('a%d' % rec['id'])), 'state': 'cancelled' if pre else 'expected',
-            'note': 'Сторно вручну: %s, %s. Причина: ' % (user_name, today)}
+            'key': key, 'state': 'cancelled' if pre else 'expected', 'note': 'Сторно вручну: %s, %s. Причина: ' % (user_name, today)}
     return vals, pre
 
 
@@ -1113,7 +1119,8 @@ def prep_ctx(P, today):
     return {'cfg': cfg, 'deals': deals, 'acc': acc, 'acc_by': acc_by, 'dup': dup_keys(acc), 'over_deals': over, 'profiles': profiles, 'banks': banks,
             'names': names, 'anames': anames, 'partner_of': partner_of, 'cust_of': cust_of, 'cust': cust_summary(P.get('invoices', []), today),
             'move_total': move_total, 'decs': decs, 'lines': lines, 'buffers': buffers, 'refs': P.get('refs') or {}, 'act_keys': list(P.get('act_keys') or []),
-            'lines_by': lines_by, 'now': '', 'env_of': env_of, 'env_lines': env_lines, 'members': P.get('members') or []}
+            'lines_by': lines_by, 'now': '', 'env_of': env_of, 'env_lines': env_lines, 'members': P.get('members') or [],
+            'plain_acts': [list(x) for x in (P.get('plain_acts') or [])]}
 
 
 def acc_set(res, a, vals, refs=None):
@@ -1668,6 +1675,9 @@ def owner_act(res, X, dec, kind, text, today, sig=''):
     if key in X['act_keys']:
         return False
     refs = X['refs']
+    # полів штабу немає — ключа не видно: та сама активність (рішення + заголовок) уже є — другу не ставимо (ревью М1, «Низьке»)
+    if not refs.get('hq_fields') and [dec['id'], text_title(text)] in X['plain_acts']:
+        return False
     if not refs.get('owner_type') or not refs.get('dec_model') or not cfg.get('owner_uid'):
         res['notes'].append('немає типу «Зробити», моделі рішення або учётки власника — активність %s не поставлено' % key)
         return False
@@ -1675,6 +1685,7 @@ def owner_act(res, X, dec, kind, text, today, sig=''):
                                                                'user_id': cfg['owner_uid'], 'date_deadline': today, 'summary': text_title(text), 'note': text_html(text)},
            None, {'hq': {'key': key, 'text': text, 'to': cfg.get('owner_to') or '', 'money': True, 'buttons': OWNER_BUTTONS if kind == 'auto' else False}, 'quick': True})
     X['act_keys'].append(key)
+    X['plain_acts'].append([dec['id'], text_title(text)])
     res['summary']['owner_acts'] += 1
     return True
 
