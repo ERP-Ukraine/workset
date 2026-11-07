@@ -7,7 +7,10 @@
  *  червоний; світла чи темна тема — за яскравістю фону. Переходи: плитка
  *  «Огляду», смуга «Куди йде частка», «Відкрити рядки» з клітинки таблиці й кнопка рядка списку «Рядки розрахунку» — картка лінії
  *  (лінія й місяць — у params дії; після перезавантаження сторінки — останні з localStorage користувача). Круг 3в: кожне число відкриває
- *  свої записи — опис 'open' приходить із сервера в тій самій відповіді (openList), точка чи стовпець графіка — місяць (chartPick). */
+ *  свої записи — опис 'open' приходить із сервера в тій самій відповіді (openList), точка чи стовпець графіка — місяць (chartPick).
+ *  Круг 5: A і B — за місяць, квартал, рік або «з–по» (span {kind, from, to}; межі, квартал і рік рахує сервер — calc.screen_span);
+ *  період переживає перехід A → B → назад (стан дії Odoo: useSetupAction getLocalState → props.state) і йде в C з «Огляду»; клік по
+ *  «ZUS і загальні» — вікно «Що входить» (OverheadDialog, вміст — oh_details тієї самої відповіді). */
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { loadBundle } from "@web/core/assets";
@@ -16,6 +19,8 @@ import { _t } from "@web/core/l10n/translation";
 import { user } from "@web/core/user";
 import { formatFloat } from "@web/views/fields/formatters";
 import { usePopover } from "@web/core/popover/popover_hook";
+import { Dialog } from "@web/core/dialog/dialog";
+import { useSetupAction } from "@web/search/action_hook";
 import { Layout } from "@web/search/layout";
 import { Dropdown } from "@web/core/dropdown/dropdown";
 import { DropdownItem } from "@web/core/dropdown/dropdown_item";
@@ -23,7 +28,10 @@ import { Component, onWillStart, useEffect, useRef, useState } from "@odoo/owl";
 
 const MONTH = "workset.profit.month";
 const CARD = "workset_profit.line_card";
+const MATRIX = "workset_profit.matrix";
 const STORE = "workset_profit.card.";
+/** Види періоду екранів A і B (круг 5; сервер — calc.SPAN_KINDS). */
+export const SPAN_KINDS = ["month", "quarter", "year", "range"];
 
 /** Сума в € без копійок: 20667 → «20 667», −438 → «−438» (мінус — типографський). */
 export function euros(value) {
@@ -48,15 +56,37 @@ export function plain(value) {
     return formatFloat(value || 0, { digits: [16, 2], trailingZeros: false }).replace(/^-/, "−");
 }
 
+/** Сума до цента (вікно «Що входить», круг 5: рядки складаються в число до цента): −14.5 → «−14,50». */
+export function money(value) {
+    return formatFloat(value || 0, { digits: [16, 2] }).replace(/^-/, "−");
+}
+
+/** € на годину до 4 знаків («Як поділено»): −0.4861 → «−0,4861»; годин немає (null) — «—». */
+export function rate(value) {
+    if (value === null || value === undefined) {
+        return "—";
+    }
+    return formatFloat(value, { digits: [16, 4], trailingZeros: false }).replace(/^-/, "−");
+}
+
+/** Період екрана (params, стан дії, localStorage) → чистий {kind, from, to}: невідомий вид — місяць, дата — лише «РРРР-ММ-ДД». */
+export function cleanSpan(span) {
+    const day = (v) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : false);
+    if (!span || typeof span !== "object") {
+        return { kind: "month", from: false, to: false };
+    }
+    return { kind: SPAN_KINDS.includes(span.kind) ? span.kind : "month", from: day(span.from), to: day(span.to) };
+}
+
 /** «вересень» → «Вересень». */
 export function cap(text) {
     const s = String(text || "");
     return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** Збережені лінія й місяць картки → чисті: невідоме — порожньо. */
+/** Збережені лінія, місяць і (круг 5) період картки → чисті: невідоме — порожньо; періоду немає (збережено до круга 5) — місяць. */
 export function cleanCard(saved) {
-    const out = { line_id: false, month: false };
+    const out = { line_id: false, month: false, span: cleanSpan(null) };
     if (saved && typeof saved === "object") {
         if (Number.isInteger(saved.line_id) && saved.line_id > 0) {
             out.line_id = saved.line_id;
@@ -64,6 +94,7 @@ export function cleanCard(saved) {
         if (typeof saved.month === "string" && /^\d{4}-\d{2}-\d{2}$/.test(saved.month)) {
             out.month = saved.month;
         }
+        out.span = saved.span ? cleanSpan(saved.span) : cleanSpan({ kind: "month", from: out.month });
     }
     return out;
 }
@@ -133,6 +164,7 @@ class ProfitScreen extends Component {
         this.orm = useService("orm");
         this.action = useService("action");
         this.notification = useService("notification");
+        this.dialog = useService("dialog");
         this.state = useState({ data: null, failed: false });
         this.serial = 0;
         this.charts = [];
@@ -191,10 +223,50 @@ class ProfitScreen extends Component {
     /** Після помилки — вибір екрана (місяць, лінія, період) назад до показаних даних, щоб наступний запит ішов від них. */
     keep() {}
 
+    /** Круг 5: період A і B — {kind, from, to}; квартал, рік і межі за місяцем рахує сервер (calc.screen_span), тут — лише запит. */
+    setSpan(span) {
+        this.span = cleanSpan(span);
+        this.load();
+    }
+
+    setMonth(value) {
+        this.setSpan({ kind: "month", from: value, to: false });
+    }
+
+    /** Перемикач «Місяць | Квартал | Рік | Період»: від останнього місяця обраного періоду; «Період» без «з» — сервер бере січень його
+     *  року (приклад власника «січень — вересень»). */
+    setKind(kind) {
+        const to = this.data ? this.data.span.to : false;
+        this.setSpan({ kind, from: kind === "range" ? false : to, to });
+    }
+
+    setRangeFrom(value) {
+        this.setSpan({ kind: "range", from: value, to: this.data.span.to });
+    }
+
+    setRangeTo(value) {
+        this.setSpan({ kind: "range", from: this.data.span.from, to: value });
+    }
+
+    /** Стрілка ‹ › — сусідній період від сервера ({kind, from, to}, calc.span_step); стовпець графіка — місяць (month_info). */
+    go(step) {
+        if (step) {
+            this.setSpan(step.kind ? step : { kind: "month", from: step.value, to: false });
+        }
+    }
+
     /** Список за описом сервера: модель, заголовок, домен, контекст (без «Створити») — число на елементі пораховано по тих самих
-     *  записах; є res_id — форма одного запису (правило «Хто платить», «Звірка місяця»). */
+     *  записах; є res_id — форма одного запису (правило «Хто платить», «Звірка місяця»). Круг 5: опис {dialog, ref} — вікно «Що входить
+     *  у ZUS і загальні» з тієї самої відповіді (oh_details[ref]), нового виклику немає. */
     openList(spec) {
         if (!spec) {
+            return;
+        }
+        if (spec.dialog) {
+            const detail = this.data && this.data.oh_details && this.data.oh_details[spec.ref];
+            if (detail) {
+                this.dialog.add(OverheadDialog, { detail, screen: this });
+            }
             return;
         }
         const form = Boolean(spec.res_id);
@@ -220,9 +292,9 @@ class ProfitScreen extends Component {
         return spec ? "o_workset_profit_click" : "";
     }
 
-    /** Підказка «Відкрити записи» — лише в елемента, що їх відкриває. */
+    /** Підказка «Відкрити записи» — лише в елемента, що їх відкриває; вікно «Що входить» (круг 5) — своя підказка з сервера. */
     hint(spec) {
-        return spec ? _t("Відкрити записи") : false;
+        return spec ? spec.hint || _t("Відкрити записи") : false;
     }
 
     /** Клавіатура (круг 4, ревю 3в): елемент із описом списку — кнопка для читача екрана (role), у порядку Tab (tabindex); Enter або
@@ -268,9 +340,10 @@ class ProfitScreen extends Component {
         };
     }
 
-    /** Картка лінії (екран B) за лінією й місяцем. */
-    openCard(lineId, month, name) {
-        this.action.doAction({ type: "ir.actions.client", tag: CARD, name: name || "", params: { line_id: lineId, month } });
+    /** Картка лінії (екран B) за лінією й місяцем; з «Огляду» (круг 5) — і за його періодом span. */
+    openCard(lineId, month, name, span) {
+        const params = span ? { line_id: lineId, month, span } : { line_id: lineId, month };
+        this.action.doAction({ type: "ir.actions.client", tag: CARD, name: name || "", params });
     }
 
     destroyCharts() {
@@ -299,6 +372,31 @@ class ProfitScreen extends Component {
         return c;
     }
 
+    /** Круг 5: обраний період на графіку — напівпрозора смуга кольору бренду під рядами, від першого до останнього його місяця на осі
+     *  (band — [перший, останній] номер, сервер: calc.span_band; немає — без смуги). */
+    spanBand(c, band) {
+        return {
+            id: "wsProfitSpan",
+            beforeDatasetsDraw: (chart) => {
+                const n = chart.data.labels.length;
+                if (!band || !n) {
+                    return;
+                }
+                const x = chart.scales.x;
+                const area = chart.chartArea;
+                const step = n > 1 ? Math.abs(x.getPixelForValue(1) - x.getPixelForValue(0)) : area.right - area.left;
+                const left = Math.max(area.left, x.getPixelForValue(band[0]) - step / 2);
+                const right = Math.min(area.right, x.getPixelForValue(band[1]) + step / 2);
+                const ctx = chart.ctx;
+                ctx.save();
+                ctx.globalAlpha = 0.12;
+                ctx.fillStyle = c.brand;
+                ctx.fillRect(left, area.top, right - left, area.bottom - area.top);
+                ctx.restore();
+            },
+        };
+    }
+
     /** Легенда з готових пунктів [{text, color, width}] (клік нічого не ховає): ряди з однаковим кольором — одним пунктом. */
     legend(c, items) {
         return {
@@ -322,42 +420,47 @@ export class ProfitOverview extends ProfitScreen {
 
     setup() {
         const params = (this.props.action && this.props.action.params) || {};
-        this.month = params.month || false;
+        // круг 5: період — з повернення назад (стан дії), з переходу (params.span), інакше місяць params або останній закритий (сервер)
+        const back = this.props.state && this.props.state.span;
+        this.span = cleanSpan(back || params.span || { kind: "month", from: params.month || false });
         super.setup();
+        useSetupAction({ getLocalState: () => ({ span: this.span }) });
     }
 
     async load() {
-        const data = await this.fetch("profit_overview", [this.month]);
+        const data = await this.fetch("profit_overview", [this.span.from, this.span.kind, this.span.to]);
         if (data) {
-            this.month = data.month.value;
+            this.span = cleanSpan(data.span);
             this.state.data = data;
         }
     }
 
     keep(data) {
-        this.month = data.month.value;
-    }
-
-    setMonth(value) {
-        this.month = value;
-        this.load();
+        this.span = cleanSpan(data.span);
     }
 
     alertTone(alert) {
         return alert.tone === "danger" ? "bg-danger" : alert.tone === "warning" ? "bg-warning" : "";
     }
 
-    /** Чип: список рядків; «Звірка» — її текст повідомленням (розбіжність — не зникає сама). */
+    /** Чип: список рядків; «Звірка» місяця — її текст повідомленням (розбіжність — не зникає сама); за період (круг 5) — звірки місяців. */
     onAlert(alert) {
-        if (alert.key === "check") {
+        if (alert.key === "check" && !alert.open) {
             this.notification.add(alert.text, { type: alert.state === "ok" ? "success" : "warning", sticky: alert.state !== "ok" });
             return;
         }
         this.openList(alert.open);
     }
 
+    /** Плитка — картка лінії за тим самим періодом (круг 5). */
     openLine(line) {
-        this.openCard(line.id, this.data.month.value, line.name);
+        this.openCard(line.id, this.data.span.from, line.name, this.span);
+    }
+
+    /** «Лінії × місяці» за обраний період (круг 5: C отримує період з «Огляду» — params дії). */
+    openMatrix() {
+        const sp = this.data.span;
+        this.action.doAction({ type: "ir.actions.client", tag: MATRIX, name: _t("Лінії × місяці"), params: { date_from: sp.from, date_to: sp.to } });
     }
 
     /** Чип «Власники»: кожна стаття окремо — «AA −100 · BB −200» (умовні коди; R05 власника: «по кожному»). */
@@ -473,7 +576,7 @@ export class ProfitOverview extends ProfitScreen {
                     },
                     scales: { x: c.axis, y: { ...c.yAxis, min: ax.min, max: ax.max } },
                 },
-                plugins: [outliers],
+                plugins: [outliers, this.spanBand(c, s.band)],
             })
         );
     }
@@ -487,9 +590,12 @@ export class ProfitLineCard extends ProfitScreen {
         this.storeKey = STORE + user.userId;
         const params = (this.props.action && this.props.action.params) || {};
         const saved = this.restore();
-        this.lineId = params.line_id || saved.line_id;
-        this.month = params.month || saved.month;
+        // круг 5: лінія й період — з повернення назад (стан дії), з переходу (params: з «Огляду» — і його період), інакше збережені
+        const back = this.props.state || {};
+        this.lineId = back.line_id || params.line_id || saved.line_id;
+        this.span = back.span ? cleanSpan(back.span) : params.span ? cleanSpan(params.span) : params.month ? cleanSpan({ kind: "month", from: params.month }) : saved.span;
         super.setup();
+        useSetupAction({ getLocalState: () => ({ line_id: this.lineId, span: this.span }) });
     }
 
     restore() {
@@ -503,16 +609,16 @@ export class ProfitLineCard extends ProfitScreen {
     save() {
         // приватний режим / заповнене сховище — після перезавантаження картка відкриється з першої лінії, сторінка працює далі
         try {
-            browser.localStorage.setItem(this.storeKey, JSON.stringify({ line_id: this.lineId, month: this.month }));
+            browser.localStorage.setItem(this.storeKey, JSON.stringify({ line_id: this.lineId, month: this.span.from, span: this.span }));
         } catch {
             // нічого
         }
     }
 
     async load() {
-        const data = await this.fetch("profit_line_card", [this.lineId || false, this.month || false]);
+        const data = await this.fetch("profit_line_card", [this.lineId || false, this.span.from, this.span.kind, this.span.to]);
         if (data) {
-            this.month = data.month.value;
+            this.span = cleanSpan(data.span);
             this.lineId = data.line ? data.line.id : false;
             this.state.data = data;
             this.save();
@@ -536,15 +642,8 @@ export class ProfitLineCard extends ProfitScreen {
     }
 
     keep(data) {
-        this.month = data.month.value;
+        this.span = cleanSpan(data.span);
         this.lineId = data.line ? data.line.id : false;
-    }
-
-    go(month) {
-        if (month) {
-            this.month = month.value;
-            this.load();
-        }
     }
 
     /** Тонкий крок (calc.waterfall: < 2 % частки, круг 3б) — не менше 4 px, щоб було видно; підпис — той самий. */
@@ -684,7 +783,7 @@ export class ProfitLineCard extends ProfitScreen {
                     },
                     scales: { x: c.axis, y: { ...c.yAxis, beginAtZero: true, grace: "12%" } },
                 },
-                plugins: [values],
+                plugins: [values, this.spanBand(c, d.series.band)],
             })
         );
     }
@@ -707,12 +806,16 @@ export class ProfitMatrix extends ProfitScreen {
     static usesChart = false;
 
     setup() {
-        this.from = false;
-        this.to = false;
+        // круг 5: період — з повернення назад (стан дії), з «Огляду» (params date_from / date_to), інакше — за замовчуванням сервера
+        const params = (this.props.action && this.props.action.params) || {};
+        const back = this.props.state || {};
+        this.from = back.from || params.date_from || false;
+        this.to = back.to || params.date_to || false;
         // одиниця «€ год | € за місяць» і (круг 4) показник «Чисто | Залишається»
         this.view = useState({ unit: "hour", metric: "net" });
         this.popover = usePopover(ChainPopover, { position: "bottom" });
         super.setup();
+        useSetupAction({ getLocalState: () => ({ from: this.from, to: this.to }) });
     }
 
     async load() {
@@ -829,6 +932,63 @@ export class ProfitMatrix extends ProfitScreen {
             format: (s) => this.stepValue(s),
             onOpen: () => this.openCard(line.id, cell.month, line.name),
         });
+    }
+}
+
+// ——— круг 5: вікно «Що входить у ZUS і загальні» ———
+/** ZUS і PIT-4 за фірмами, загальні фірм за статтями, «Як поділено» — за обраний період (вміст — oh_details відповіді екрана, сервер:
+ *  _oh_detail; нового виклику немає). Діалог Odoo: Esc закриває, на телефоні — на всю ширину (Dialog сам, env.isSmall). Клік по рядку —
+ *  закрити вікно й відкрити записи (openList екрана screen). */
+export class OverheadDialog extends Component {
+    static template = "workset_profit.OverheadDialog";
+    static components = { Dialog };
+    static props = ["*"];
+
+    setup() {
+        this.money = money;
+        this.rate = rate;
+        this.whole = whole;
+    }
+
+    get d() {
+        return this.props.detail;
+    }
+
+    /** Заголовок з сервера («Що входить у ZUS і загальні: березень 2030») — через t-props, а не атрибутом title шаблону (його збирач
+     *  перекладу взяв би за підпис). */
+    get dialogProps() {
+        return { title: this.d.title, size: "lg" };
+    }
+
+    clickCls(spec) {
+        return this.props.screen.clickCls(spec);
+    }
+
+    hint(spec) {
+        return this.props.screen.hint(spec);
+    }
+
+    role(spec) {
+        return this.props.screen.role(spec);
+    }
+
+    tab(spec) {
+        return this.props.screen.tab(spec);
+    }
+
+    open(spec) {
+        if (spec) {
+            this.props.close();
+            this.props.screen.openList(spec);
+        }
+    }
+
+    keyOpen(ev, spec) {
+        if (spec && (ev.key === "Enter" || ev.key === " ")) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            this.open(spec);
+        }
     }
 }
 

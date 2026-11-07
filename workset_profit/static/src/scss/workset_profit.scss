@@ -287,6 +287,13 @@
         position: sticky;
         left: map-get($spacers, 1);
     }
+    // круг 5: вікно «Що входить у ZUS і загальні» (діалог Odoo; на телефоні — на всю ширину): цифри рівно, таблиця фірм — гортається вбік
+    &.o_workset_profit_detail {
+        font-variant-numeric: tabular-nums;
+    }
+    .o_workset_profit_detail_wrap {
+        overflow-x: auto;
+    }
     @include media-breakpoint-up(lg) {
         .o_workset_profit_band {
             grid-template-columns: repeat(5, minmax(0, 1fr));

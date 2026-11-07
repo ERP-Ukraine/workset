@@ -82,6 +82,12 @@ OVERHEAD_KINDS = ('line', 'noline')   # хто несе загальні: год
 OVERHEAD_FIELDS = ('zus_amount', 'office_amount', 'remain', 'remain_per_hour')
 REMAIN = ('zus', 'office', 'remain')  # водоспад після «чисто»: − ZUS, PIT-4 → − Загальні фірм → = Залишається
 
+# Круг 5 (слово власника 07.11 «период который я хочу выбрать и год, не только информация за месяц»): період екранів A і B
+SPAN_KINDS = ('month', 'quarter', 'year', 'range')   # місяць · квартал · рік · «з–по» (як у C)
+QUARTER_NAMES = ('I', 'II', 'III', 'IV')
+# рядок лінії за період — суми цих полів (гроші — до цента); € год — середньозважене (сума ÷ години зі ставкою), як за місяць
+SUM_FIELDS = HOURS + MONEY + ('net', 'fund_left', 'zus_amount', 'office_amount', 'remain')
+
 # Підказка виду за назвою статті: (будь-що з, усе з, вид). Лише підказка: рахує розмітка (правило workset.profit.analytic.map)
 HINTS = (
     (('жил', 'житл'), ('буфер',), 'housing_buffer'),
@@ -146,8 +152,9 @@ TX = {
     'a_partner_paid': ['З грошей лінії', 'Из денег линии'], 'a_fund_in': ['У фонд працівників', 'В фонд работников'],
     'a_fund_paid': ['З фонду працівників', 'Из фонда работников'], 'a_fund_left': ['Фонд: залишок місяця', 'Фонд: остаток месяца'],
     'a_housing_buffer': ['Буфер житла з оплати (довідково)', 'Буфер жилья из оплаты (справочно)'],
-    # круг 3б: правий блок «Не в нашому чисто» картки — свій підпис (calc.aside_label); у «Рядках» — як вище
-    'b_housing_buffer': ['Буфер житла з оплати людей — не в чисто', 'Буфер жилья из оплаты людей — не в чисто'],
+    # круг 3б: правий блок «Не в нашому чисто» картки — свій підпис (calc.aside_label); у «Рядках» — як вище. Круг 5: буфер наповнюється
+    # з оплат замовника (журнал WS «Передача ліквідності»), а не з оплати людей
+    'b_housing_buffer': ['Відкладено на житло з оплати замовника — не в чисто', 'Отложено на жильё из оплаты заказчика — не в чисто'],
     'r_timesheets': ['Табелі — %s год, людей: %d', 'Табели — %s ч, человек: %d'],
     'r_card': ['DKV %s — транзакцій: %d', 'DKV %s — транзакций: %d'],
     'r_pool': ['Перевезення людей — частка лінії за прибуттями', 'Перевозка людей — доля линии по прибытиям'],
@@ -195,6 +202,20 @@ TX = {
                    'Месяц не пересчитан после обновления — нажмите «Пересчитать»'],
     'v_zus_elsewhere': ['Аналітика рахунків ZUS / PIT-4 поза «Офісом»: %s — можливий подвійний рахунок (розмітити «ігнор»).',
                         'Аналитика счетов ZUS / PIT-4 вне «Офиса»: %s — возможен двойной счёт (разметить «игнор»).'],
+    # круг 5: період екранів A і B (місяць, квартал, рік, «з–по»); вікно «Що входить у ZUS і загальні»
+    'span_text': ['за період: %s', 'за период: %s'],
+    'span_quarter': ['%s квартал %s', '%s квартал %s'], 'span_year': ['%s рік', '%s год'],
+    'trend_month': ['до минулого місяця, € год', 'к прошлому месяцу, € ч'],
+    'trend_span': ['до попереднього періоду, € год', 'к предыдущему периоду, € ч'],
+    'v_period': ['зійшлося %d з %d', 'сошлось %d из %d'],
+    'v_period_bad': ['розбіжність: %s', 'расхождение: %s'], 'v_period_none': ['звірки не було: %s', 'сверки не было: %s'],
+    'o_checks': ['Звірки: %s', 'Сверки: %s'],
+    'oh_title': ['Що входить у ZUS і загальні: %s', 'Что входит в ZUS и общие: %s'], 'oh_open': ['Що входить', 'Что входит'],
+    'oh_dkv': ['DKV · офіс', 'DKV · офис'], 'oh_part_line': ['Частка лінії', 'Доля линии'], 'oh_part_lines': ['Частка ліній', 'Доля линий'],
+    'oh_hint': ['версія 1: за годинами табеля', 'версия 1: по часам табеля'],
+    'o_zus_firm': ['%s · %s: %s', '%s · %s: %s'], 'o_office_item': ['Загальні фірм · %s: %s', 'Общие фирм · %s: %s'],
+    'o_outside': ['ZUS/PIT-4 з міткою поза вікном: %s', 'ZUS/PIT-4 с меткой вне окна: %s'],
+    'records': [('запис', 'записи', 'записів'), ('запись', 'записи', 'записей')],
     'months': [('січень', 'лютий', 'березень', 'квітень', 'травень', 'червень', 'липень', 'серпень', 'вересень', 'жовтень', 'листопад',
                 'грудень'),
                ('январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь')],
@@ -1187,10 +1208,9 @@ def month_label(day, lang='uk', short=False):
     return names[i] if short else '%s %s' % (names[i], s[0:4])
 
 
-def months_text(n, lang='uk'):
-    """6 → «6 місяців» (1 — «місяць», 2–4 — «місяці», 11–14 — «місяців»), російською — «месяц / месяца / месяцев»."""
+def _plural(n, forms):
+    """Число й слово у формі за числом: forms — (1, 2–4, 5+); 11–14 — як 5+."""
     n = int(n)
-    forms = ('месяц', 'месяца', 'месяцев') if lang == 'ru' else ('місяць', 'місяці', 'місяців')
     if n % 10 == 1 and n % 100 != 11:
         word = forms[0]
     elif 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
@@ -1198,6 +1218,16 @@ def months_text(n, lang='uk'):
     else:
         word = forms[2]
     return '%d %s' % (n, word)
+
+
+def months_text(n, lang='uk'):
+    """6 → «6 місяців» (1 — «місяць», 2–4 — «місяці», 11–14 — «місяців»), російською — «месяц / месяца / месяцев»."""
+    return _plural(n, ('месяц', 'месяца', 'месяцев') if lang == 'ru' else ('місяць', 'місяці', 'місяців'))
+
+
+def records_text(n, lang='uk'):
+    """3 → «3 записи», 5 → «5 записів» (російською — «записи / записей»): число записів групи «Рядків» картки (круг 5)."""
+    return _plural(n, t('records', lang))
 
 
 def month_info(day, lang='uk'):
@@ -1507,3 +1537,240 @@ def pays_fold(items, lang='uk'):
             rows.append(row('%s · %s' % (it.get('label') or '', ex.get('name') or ''), ex))
         cards += [c for c in it.get('cards') or [] if c not in cards]
     return {'head': t('p_all_' + common, lang), 'rows': rows, 'cards': cards}
+
+
+# ——— круг 5: період екранів A і B (місяць, квартал, рік, «з–по») ———
+def quarter_first(day):
+    """Перше число кварталу місяця day: «2026-08-15» → «2026-07-01»."""
+    s = month_first(day)
+    return add_months(s, -((int(s[5:7]) - 1) % 3))
+
+
+def screen_span(kind, date_from, date_to, today, cap=MATRIX_MAX):
+    """Період екрана A чи B: kind — 'month' (місяць date_from), 'quarter' / 'year' (квартал / рік, у якому місяць date_from), 'range' (з
+    date_from по date_to, як у C: немає «з» — з січня року «по»; немає «по» — останній закритий; переплутані — місцями; довше cap —
+    останні cap); інший kind — місяць. Місяць — screen_month (лише від MIN_MONTH до поточного; немає — останній закритий); квартал і рік —
+    їхні місяці в тих самих межах (поточний рік — по поточний місяць). → {'kind', 'from', 'to', 'months'} (перші числа місяців)."""
+    kind = kind if kind in SPAN_KINDS else 'month'
+    cur = max(month_first(today), MIN_MONTH)
+    if kind == 'range':
+        to = screen_month(date_to, today) if valid_day(date_to) else last_closed(today)
+        frm = screen_month(date_from, today) if valid_day(date_from) else max(MIN_MONTH, to[0:4] + '-01-01')
+        if frm > to:
+            frm, to = to, frm
+        months = month_list(frm, to)[-cap:]
+    else:
+        anchor = screen_month(date_from if valid_day(date_from) else date_to, today)
+        if kind == 'month':
+            lo = hi = anchor
+        elif kind == 'quarter':
+            lo = quarter_first(anchor)
+            hi = add_months(lo, 2)
+        else:
+            lo, hi = anchor[0:4] + '-01-01', anchor[0:4] + '-12-01'
+        months = month_list(max(lo, MIN_MONTH), min(hi, cur))
+    return {'kind': kind, 'from': months[0], 'to': months[-1], 'months': months}
+
+
+def span_step(span, n, today):
+    """Сусідній період для стрілок ‹ ›: на n кроків свого виду — місяць, квартал, рік; «з–по» — на свою довжину. → {'kind', 'from', 'to',
+    'value' (= from)} або False: місяця, кварталу, року цілком поза MIN_MONTH … поточний місяць немає; «з–по» — коли хоч частина поза ними
+    (стрілка не вкорочує період)."""
+    kind = span['kind']
+    cur = max(month_first(today), MIN_MONTH)
+    if kind == 'range':
+        size = len(month_list(span['from'], span['to']))
+        lo, hi = add_months(span['from'], n * size), add_months(span['to'], n * size)
+        ok = lo >= MIN_MONTH and hi <= cur
+    else:
+        if kind == 'month':
+            lo = hi = add_months(span['from'], n)
+        elif kind == 'quarter':
+            lo = add_months(quarter_first(span['from']), 3 * n)
+            hi = add_months(lo, 2)
+        else:
+            lo = '%04d-01-01' % (int(span['from'][0:4]) + n)
+            hi = lo[0:4] + '-12-01'
+        ok = hi >= MIN_MONTH and lo <= cur
+    return {'kind': kind, 'from': lo, 'to': hi, 'value': lo} if ok else False
+
+
+def range_text(frm, to, lang='uk'):
+    """Місяці періоду всередині фрази: «вересень 2026» (один), «січень — вересень 2026» (один рік), «грудень 2026 — березень 2027»."""
+    a, b = month_info(frm, lang), month_info(to, lang)
+    if month_first(frm) == month_first(to):
+        return b['title_in']
+    return '%s — %s' % (a['name'] if frm[0:4] == to[0:4] else a['title_in'], b['title_in'])
+
+
+def span_info(span, lang='uk'):
+    """Підписи періоду → {'kind', 'from', 'to', 'months', 'title' (кнопка: «Вересень 2026», «III квартал 2026», «2026 рік», «Січень —
+    вересень 2026»), 'title_in' (усередині фрази: «Рядки за січень — вересень 2026»), 'text' (під перемикачем: «за період: січень —
+    вересень 2026»; місяць — ''), 'trend' (підказка стрілки плитки: до минулого місяця / до попереднього періоду)}."""
+    kind, frm, to = span['kind'], span['from'], span['to']
+    rng = range_text(frm, to, lang)
+    if kind == 'month':
+        title = month_info(frm, lang)['title']
+    elif kind == 'quarter':
+        title = t('span_quarter', lang) % (QUARTER_NAMES[(int(frm[5:7]) - 1) // 3], frm[0:4])
+    elif kind == 'year':
+        title = t('span_year', lang) % frm[0:4]
+    else:
+        title = rng[0:1].upper() + rng[1:]
+    title_in = title if kind in ('quarter', 'year') else title[0:1].lower() + title[1:]
+    return {'kind': kind, 'from': frm, 'to': to, 'months': list(span['months']), 'title': title, 'title_in': title_in,
+            'text': '' if kind == 'month' else t('span_text', lang) % rng, 'trend': t('trend_month' if kind == 'month' else 'trend_span', lang)}
+
+
+def span_choices(data_months, span, today, lang='uk'):
+    """Що вибирати в перемикачі періоду: 'months' — місяці з даними й обраний (від нових), 'years' — роки з даними й обраний, 'quarters' —
+    I–IV року періоду, що зачіпають MIN_MONTH … поточний місяць, 'options' — усі місяці від MIN_MONTH до поточного («з–по», як у C)."""
+    cur = max(month_first(today), MIN_MONTH)
+    have = sorted({month_first(m) for m in data_months or [] if MIN_MONTH <= month_first(m) <= cur} | {span['from']})
+    year = span['from'][0:4]
+    quarters = []
+    for i, name in enumerate(QUARTER_NAMES):
+        lo = '%s-%02d-01' % (year, 3 * i + 1)
+        if add_months(lo, 2) >= MIN_MONTH and lo <= cur:
+            quarters.append({'value': lo, 'title': t('span_quarter', lang) % (name, year)})
+    years = sorted({m[0:4] for m in have}, reverse=True)
+    return {'months': [month_info(m, lang) for m in reversed(have)], 'years': [{'value': y + '-01-01', 'title': t('span_year', lang) % y} for y in years],
+            'quarters': quarters, 'options': [month_info(m, lang) for m in month_list(MIN_MONTH, cur)]}
+
+
+def span_domain(months):
+    """Місяці періоду в домені «Рядків розрахунку»: один — ('month', '=', …), як і раніше; кілька — від першого до останнього; жодного —
+    нічого (порожній 'in')."""
+    months = sorted(months or [])
+    if not months:
+        return [('month', 'in', [])]
+    if len(months) == 1:
+        return [('month', '=', months[0])]
+    return [('month', '>=', months[0]), ('month', '<=', months[-1])]
+
+
+def span_band(axis, months):
+    """Підсвітка обраного періоду на графіку «Чисто по місяцях»: місяці осі axis, що є в періоді → [перший, останній] номер на осі; жодного
+    (період — поточний неповний місяць, якого на осі немає) — False."""
+    sel = set(months or [])
+    idx = [i for i, m in enumerate(axis or []) if m in sel]
+    return [idx[0], idx[-1]] if idx else False
+
+
+def rows_sum(rows):
+    """Рядки однієї лінії (або всіх) за місяці періоду → один рядок періоду: години й гроші SUM_FIELDS — суми (гроші — до цента), «€ год» —
+    середньозважене: сума ÷ години зі ставкою, як за місяць (годин немає — None); 'months' — місяці рядків."""
+    rows = list(rows or [])
+    out = {f: (round(sum(float(r.get(f) or 0) for r in rows), 2) if f in HOURS else eur(sum(cents(r.get(f)) for r in rows))) for f in SUM_FIELDS}
+    out['net_per_hour'] = per_hour(out['net'], out['hours_rate'])
+    out['remain_per_hour'] = per_hour(out['remain'], out['hours_rate'])
+    out['months'] = sorted({iso(r.get('month')) for r in rows if r.get('month')})
+    return out
+
+
+def checks_summary(months, states, lang='uk'):
+    """«Звірка» за період: months — місяці періоду, states — {місяць: 'ok' / 'bad'} («Звірка місяця»; звірки не було — немає) →
+    {'state' ('ok' — зійшлися всі місяці, інакше 'bad'), 'ok', 'total', 'short' («зійшлося 9 з 9»), 'text' (і місяці з розбіжністю чи без
+    звірки)}."""
+    states = states or {}
+    ok = [m for m in months if states.get(m) == 'ok']
+    bad = [m for m in months if states.get(m) == 'bad']
+    none = [m for m in months if states.get(m) not in ('ok', 'bad')]
+    short = t('v_period', lang) % (len(ok), len(months))
+    parts = [short]
+    if bad:
+        parts.append(t('v_period_bad', lang) % ', '.join(month_info(m, lang)['title_in'] for m in bad))
+    if none:
+        parts.append(t('v_period_none', lang) % ', '.join(month_info(m, lang)['title_in'] for m in none))
+    return {'state': 'ok' if len(ok) == len(months) else 'bad', 'ok': len(ok), 'total': len(months), 'short': short, 'text': '; '.join(parts)}
+
+
+# ——— круг 5: «Що входить у ZUS і загальні» (слово власника 07.11 «хочу видеть что туда входит») ———
+def overhead_breakdown(items, by_analytic):
+    """Склад «ZUS і загальних» місяця, який пише перерахунок у workset.profit.overhead (поле breakdown), — щоб вікно «Що входить» не шукало
+    рахунки й не розкладало місяць наново: items — рахунки ZUS / PIT-4 місяця роботи (_contrib_items: 'move_id', 'kind', 'amount'),
+    by_analytic — {стаття: центи аналітики рахунків ZUS / PIT-4 у її рядку «Офіс»} → {'moves': [[рахунок, вид, сума EUR]], 'office_dup':
+    [[стаття, центи]]} (за id; нульових немає)."""
+    return {'moves': [[i['move_id'], i['kind'], eur(cents(i['amount']))] for i in sorted(items or [], key=lambda i: i['move_id'])],
+            'office_dup': [[int(a), int(c)] for a, c in sorted((by_analytic or {}).items()) if c]}
+
+
+def zus_groups(items):
+    """ZUS і PIT-4 за фірмами: items — рахунки місяців періоду [{'move_id', 'company', 'company_name', 'kind' ('ZUS' / 'PIT-4'), 'amount',
+    'labeled'}] → {'rows': [{'company', 'name', 'zus' (лише ZUS), 'pit4', 'total', 'n' (рахунків), 'ids', 'zus_ids', 'pit4_ids'}] (за назвою
+    фірми), 'total': те саме за всіма, 'unlabeled': {'n', 'amount', 'ids'} (без мітки місяця — уже в сумі)}; гроші — до цента: рядки = підсумку
+    = сумі рахунків."""
+    def blank(**kw):
+        return dict({'zus': 0, 'pit4': 0, 'total': 0, 'ids': set(), 'zus_ids': set(), 'pit4_ids': set()}, **kw)
+    by, tot, unl = {}, blank(), {'amount': 0, 'ids': set()}
+    for it in items or []:
+        c = cents(it.get('amount'))
+        side = 'pit4' if it.get('kind') == 'PIT-4' else 'zus'
+        g = by.setdefault(it.get('company') or 0, blank(company=it.get('company') or 0, name=it.get('company_name') or '—'))
+        for x in (g, tot):
+            x[side] += c
+            x['total'] += c
+            x['ids'].add(it['move_id'])
+            x[side + '_ids'].add(it['move_id'])
+        if not it.get('labeled', True):
+            unl['amount'] += c
+            unl['ids'].add(it['move_id'])
+
+    def done(x):
+        return dict(x, zus=eur(x['zus']), pit4=eur(x['pit4']), total=eur(x['total']), n=len(x['ids']), ids=sorted(x['ids']),
+                    zus_ids=sorted(x['zus_ids']), pit4_ids=sorted(x['pit4_ids']))
+    return {'rows': sorted((done(g) for g in by.values()), key=lambda r: (r['name'], r['company'])), 'total': done(tot),
+            'unlabeled': {'n': len(unl['ids']), 'amount': eur(unl['amount']), 'ids': sorted(unl['ids'])}}
+
+
+def office_split(rows, dup):
+    """Рядки «Офіс» одного місяця → частини «Загальних фірм»: rows — [{'id', 'analytic_id', 'card_id', 'amount'}], dup — {стаття: центи
+    аналітики рахунків ZUS / PIT-4 у її рядку «Офіс»} (або [[стаття, центи]]). Рядок цілком із них — не входить (office_rows_in), решта —
+    сума рядка без цієї аналітики (вона вже в ZUS). → [{'id', 'key' (стаття; картка DKV з метою «офіс» — 'dkv'), 'cents'}]: сума частин =
+    загальні місяця («Офіс» − office_dup) до цента."""
+    dup = dict(dup.items() if isinstance(dup, dict) else (dup or []))
+    kept = set(office_rows_in(rows, dup)['ids'])
+    out = []
+    for r in rows or []:
+        if r['id'] not in kept:
+            continue
+        a = r.get('analytic_id') or 0
+        out.append({'id': r['id'], 'key': a or ('dkv' if r.get('card_id') else 0), 'cents': cents(r.get('amount')) - (dup.get(a, 0) if a else 0)})
+    return out
+
+
+def office_groups(items):
+    """Загальні фірм за статтями: items — частини рядків «Офіс» місяців періоду (office_split) → {'rows': [{'key', 'amount', 'n' (рядків
+    розрахунку), 'ids'}] (від найбільшої витрати; картки DKV — одним рядком 'dkv'), 'total': {'amount', 'n', 'ids'}}; сума рядків = загальні."""
+    by = {}
+    for it in items or []:
+        g = by.setdefault(it.get('key') or 0, {'key': it.get('key') or 0, 'cents': 0, 'ids': set()})
+        g['cents'] += int(it.get('cents') or 0)
+        g['ids'].add(it['id'])
+    rows = sorted(({'key': g['key'], 'amount': eur(g['cents']), 'n': len(g['ids']), 'ids': sorted(g['ids'])} for g in by.values()),
+                  key=lambda r: (r['amount'], str(r['key'])))
+    ids = sorted({i for g in by.values() for i in g['ids']})
+    return {'rows': rows, 'total': {'amount': eur(sum(g['cents'] for g in by.values())), 'n': len(ids), 'ids': ids}}
+
+
+def overhead_how(ohs, part=None):
+    """«Як поділено» (версія 1 — за годинами табеля): ohs — підсумки місяців [{'zus', 'office', 'hours'}] → {'hours', 'zus', 'office',
+    'total', 'zus_ph', 'office_ph', 'per_hour'} (€ на годину — до 4 знаків; годин немає — None) і 'part': частка лінії (або всіх ліній) part —
+    {'hours', 'zus', 'office'} → {'hours', 'zus', 'office', 'total', 'ph' (частка ÷ її години), 'exact' (години × ph дають частку до цента:
+    «=», інакше «≈»)}; part немає — False."""
+    ohs = list(ohs or [])
+    hours = round(sum(float(o.get('hours') or 0) for o in ohs), 2)
+    zc = sum(cents(x.get('zus')) for x in ohs)
+    oc = sum(cents(x.get('office')) for x in ohs)
+
+    def ph(c, h):
+        return round(eur(c) / float(h), 4) if h else None
+    out = {'hours': hours, 'zus': eur(zc), 'office': eur(oc), 'total': eur(zc + oc), 'zus_ph': ph(zc, hours), 'office_ph': ph(oc, hours),
+           'per_hour': ph(zc + oc, hours), 'part': False}
+    if part:
+        h = round(float(part.get('hours') or 0), 2)
+        pz, po = cents(part.get('zus')), cents(part.get('office'))
+        rate = ph(pz + po, h)
+        out['part'] = {'hours': h, 'zus': eur(pz), 'office': eur(po), 'total': eur(pz + po), 'ph': rate,
+                       'exact': rate is not None and cents(rate * h) == pz + po}
+    return out
