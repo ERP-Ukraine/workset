@@ -1486,11 +1486,6 @@ TX.update({
     'ov_g_action': ['Потрібна дія', 'Нужно действие'],
     'ov_g_contract': ['Договір ≠ база — подробиці', 'Договор ≠ база — подробности'],
     'ov_g_data': ['Неповні дані', 'Неполные данные'],
-    # «Сьогодні вирішити» (блок Е): підписи чипів — коротко, число стоїть перед підписом (calc.decide_chips)
-    'ov_d_contract': ['договір ≠ база', 'договор ≠ база'], 'ov_d_low': ['нижче мінімуму', 'ниже минимума'],
-    'ov_d_mismatch': ['вартість години ≠ ставка', 'стоимость часа ≠ ставка'], 'ov_d_rule': ['частка не за правилом', 'доля не по правилу'],
-    'ov_d_no_rate': ['без ставки', 'без ставки'], 'ov_d_nomap': ['проєкти без ставки', 'проекты без ставки'],
-    'ov_d_norule': ['без загальної ставки', 'без общей ставки'],
     'ov_check_head': ['Звірка від %s · %s', 'Сверка от %s · %s'],
     'ov_check_done': ['розібрано', 'разобрано'],
     'ov_tip_check': ['Пункти звірки: рядок на кожну розбіжність — одна ставка може дати кілька пунктів (напр., по картці в кожній фірмі). '
@@ -2040,36 +2035,6 @@ def check_groups(sections, lang, skip=()):
             total = sum(x['count'] for x in items)
             out.append({'key': g, 'title': t('ov_g_' + g, lang), 'total': total, 'total_text': points_text(total, lang), 'items': items})
     return out
-
-
-# «Сьогодні вирішити» (блок Е, на показ; свод UX-разборів 06.11, «Смелые идеи»): один рядок над смугою — лише «Потрібна дія», спершу гроші,
-# далі люди без ставки. Ключ → (звідки: 'check' — розділ звірки групи action, 'live' — жива тривога «Огляду»; підпис у TX; гроші). Порядок
-# рядків = порядок чипів. «Загальної ставки немає» (norule) стоїть у групі «Неповні дані» — чип з'явиться, лише якщо розділ перейде в action
-DECIDE = (('contract', 'check', 'ov_d_contract', True), ('low', 'check', 'ov_d_low', True), ('mismatch', 'check', 'ov_d_mismatch', True),
-          ('rule', 'check', 'ov_d_rule', True), ('no_rate', 'live', 'ov_d_no_rate', False), ('nomap', 'check', 'ov_d_nomap', False),
-          ('norule', 'check', 'ov_d_norule', False))
-DECIDE_MAX = 5
-
-
-def decide_chips(alerts, groups, lang, check_id=False, limit=DECIDE_MAX):
-    """Стрічка «Сьогодні вирішити»: живі тривоги (rates_overview → alerts) і групи «Тривог» (check_groups) → [{'key', 'n', 'label', 'money',
-    'open'}] у порядку DECIDE (гроші першими), лише з групи «Потрібна дія», без нулів, не більше limit. open — те саме, що клік рядка
-    «Тривог»: жива тривога — {'model', 'ids', 'link'} (список, openAlert), розділ звірки — {'check': id запису звірки} (openCheck). Нічого
-    вирішувати — []."""
-    items = {x['key']: x for g in groups or [] if g.get('key') == 'action' for x in g.get('items') or []}
-    live = {a['key']: a for a in alerts or []}
-    out = []
-    for key, src, label, money in DECIDE:
-        if src == 'live':
-            a = live.get(key) or {}
-            n = int(a.get('count') or 0)
-            spec = {'model': a.get('model'), 'ids': list(a.get('ids') or []), 'link': a.get('link', True)}
-        else:
-            n = int((items.get(key) or {}).get('count') or 0)
-            spec = {'check': check_id}
-        if n > 0:
-            out.append({'key': key, 'n': n, 'label': t(label, lang), 'money': money, 'open': spec})
-    return out[:limit]
 
 
 def gantt_stop(state, date_from, date_to, today, days=GANTT_OPEN_DAYS):

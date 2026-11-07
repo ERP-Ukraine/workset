@@ -8,25 +8,6 @@
         <div class="o_action o_workset_rates_ov">
             <Layout display="{ controlPanel: {} }" className="'o_workset_rates_ov_main overflow-auto'">
                 <div class="container-fluid py-3" t-if="data">
-                    <!-- «Сьогодні вирішити» (блок Е, на показ): один рядок над усім — лише «Потрібна дія» (сервер, calc.decide_chips: гроші
-                         першими, не більше 5, нулів немає). Чип — число крупно жирним і підпис звичайним; гроші — червона рамка й число без
-                         заливки, решта — нейтральна рамка; вузько — чипи переносяться. Клік — те саме, що рядок «Тривог» (openChip).
-                         Нічого вирішувати — один сірий рядок -->
-                    <div class="o_workset_rates_ov_decide d-flex flex-wrap align-items-center gap-2 mb-3">
-                        <t t-if="data.decide.length">
-                            <span class="fw-semibold me-1">Сьогодні вирішити</span>
-                            <t t-foreach="data.decide" t-as="chip" t-key="chip.key">
-                                <button type="button" class="btn o_workset_rates_ov_decide_chip d-inline-flex align-items-baseline gap-1"
-                                        t-att-class="(chip.money ? 'o_workset_rates_ov_decide_money' : '') + (chip.open.link === false ? ' pe-none' : '')"
-                                        t-att-title="chip.open.check ? data.labels.tip_check : undefined" t-on-click="() => this.openChip(chip)">
-                                    <span class="o_workset_rates_ov_decide_n" t-esc="int(chip.n)"/>
-                                    <span t-esc="chip.label"/>
-                                </button>
-                            </t>
-                        </t>
-                        <span t-else="" class="text-muted">Сьогодні вирішувати нічого</span>
-                    </div>
-
                     <div class="o_workset_rates_ov_filter d-flex flex-wrap align-items-center gap-2 mb-3">
                         <Dropdown>
                             <button class="btn btn-secondary">

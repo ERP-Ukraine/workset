@@ -153,8 +153,8 @@ class WorksetRateOverview(models.Model):
     @api.model
     def rates_overview(self, domain=None, months=calc.OVERVIEW_DEFAULT, only_working=True):
         """domain — фільтр сторінки (лінії, замовник) на workset.rate; months — 6 / 12 / 24 (інше — 12); only_working — «тільки працюють».
-        → {'today', 'months', 'tiles', 'lines', 'series', 'buckets', 'found', 'open', 'alerts', 'check', 'decide', 'options', 'labels'}; без
-        ставок — нулі й порожні списки ('decide' — чипи стрічки «Сьогодні вирішити», calc.decide_chips). Кожне число, по якому клікають, має поруч опис свого списку (calc.ov_list): плитки й сектори — 'open', картки ліній і
+        → {'today', 'months', 'tiles', 'lines', 'series', 'buckets', 'found', 'open', 'alerts', 'check', 'options', 'labels'}; без ставок — нулі
+        й порожні списки. Кожне число, по якому клікають, має поруч опис свого списку (calc.ov_list): плитки й сектори — 'open', картки ліній і
         стовпці розподілу — 'open' у своєму записі; число картки лінії — 'count' (працюють або, коли «тільки працюють» вимкнено, усі діючі)."""
         self.check_access('read')
         lang = self._lang()
@@ -200,15 +200,12 @@ class WorksetRateOverview(models.Model):
         alerts = self._overview_alerts(base, scope, today, lang)
         # розділ звірки «Проєкти без ставки» — та сама біда, що жива тривога «Працюють без ставки»: коли вона є, розділ не дублюється
         live = {a['key'] for a in alerts if a['count']}
-        check = self._overview_check(lang, skip=('nomap',) if 'no_rate' in live else ())
         return {
             'today': today, 'months': months, 'tiles': tiles, 'lines': lines, 'series': series, 'buckets': buckets,
             'found': calc.found_split([r['found_by'] for r in rows]),
             'open': {'tiles': calc.ov_tiles_open(base, only_working, lang), 'found': found_open},
             'alerts': alerts,
-            'check': check,
-            # «Сьогодні вирішити»: чипи з тих самих тривог і груп звірки, що «Потрібна дія» нижче; клік — як рядок «Тривог»
-            'decide': calc.decide_chips(alerts, check and check['groups'], lang, check and check['id']),
+            'check': self._overview_check(lang, skip=('nomap',) if 'no_rate' in live else ()),
             'options': self._overview_options(),
             'labels': {k: calc.t('ov_' + k, lang) for k in LABELS},
         }
