@@ -18,4 +18,6 @@ access_workset_dkv_txn_editor,workset.dkv.txn editor,model_workset_dkv_txn,works
 access_workset_dkv_txn_system,workset.dkv.txn system,model_workset_dkv_txn,base.group_system,1,1,1,1
 access_workset_profit_check_viewer,workset.profit.check viewer,model_workset_profit_check,workset_profit.group_viewer,1,0,0,0
 access_workset_profit_check_system,workset.profit.check system,model_workset_profit_check,base.group_system,1,1,1,1
+access_workset_profit_overhead_viewer,workset.profit.overhead viewer,model_workset_profit_overhead,workset_profit.group_viewer,1,0,0,0
+access_workset_profit_overhead_system,workset.profit.overhead system,model_workset_profit_overhead,base.group_system,1,1,1,1
 access_workset_line_profit_viewer,workset.line profit viewer,workset_rates.model_workset_line,workset_profit.group_viewer,1,0,0,0
