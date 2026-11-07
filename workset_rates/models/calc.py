@@ -1486,11 +1486,9 @@ TX.update({
     'ov_g_action': ['Потрібна дія', 'Нужно действие'],
     'ov_g_contract': ['Договір ≠ база — подробиці', 'Договор ≠ база — подробности'],
     'ov_g_data': ['Неповні дані', 'Неполные данные'],
-    # «Сьогодні вирішити» (блок Е): підписи чипів — коротко, число стоїть перед підписом (calc.decide_chips)
+    # «Сьогодні вирішити» (блок Е): підписи чипів — коротко, число стоїть перед підписом (calc.decide_chips; з 07.11 — лише живі числа)
     'ov_d_contract': ['договір ≠ база', 'договор ≠ база'], 'ov_d_low': ['нижче мінімуму', 'ниже минимума'],
-    'ov_d_mismatch': ['вартість години ≠ ставка', 'стоимость часа ≠ ставка'], 'ov_d_rule': ['частка не за правилом', 'доля не по правилу'],
-    'ov_d_no_rate': ['без ставки', 'без ставки'], 'ov_d_nomap': ['проєкти без ставки', 'проекты без ставки'],
-    'ov_d_norule': ['без загальної ставки', 'без общей ставки'],
+    'ov_d_no_rate': ['без ставки', 'без ставки'],
     'ov_check_head': ['Звірка від %s · %s', 'Сверка от %s · %s'],
     'ov_check_done': ['розібрано', 'разобрано'],
     'ov_tip_check': ['Пункти звірки: рядок на кожну розбіжність — одна ставка може дати кілька пунктів (напр., по картці в кожній фірмі). '
@@ -2042,33 +2040,35 @@ def check_groups(sections, lang, skip=()):
     return out
 
 
-# «Сьогодні вирішити» (блок Е, на показ; свод UX-разборів 06.11, «Смелые идеи»): один рядок над смугою — лише «Потрібна дія», спершу гроші,
-# далі люди без ставки. Ключ → (звідки: 'check' — розділ звірки групи action, 'live' — жива тривога «Огляду»; підпис у TX; гроші). Порядок
-# рядків = порядок чипів. «Загальної ставки немає» (norule) стоїть у групі «Неповні дані» — чип з'явиться, лише якщо розділ перейде в action
-DECIDE = (('contract', 'check', 'ov_d_contract', True), ('low', 'check', 'ov_d_low', True), ('mismatch', 'check', 'ov_d_mismatch', True),
-          ('rule', 'check', 'ov_d_rule', True), ('no_rate', 'live', 'ov_d_no_rate', False), ('nomap', 'check', 'ov_d_nomap', False),
-          ('norule', 'check', 'ov_d_norule', False))
+# «Сьогодні вирішити» (блок Е, на показ; свод UX-разборів 06.11, «Смелые идеи»): один рядок над смугою — спершу гроші, далі люди без ставки.
+# Слово власника 07.11 «лента: да, только живые числа»: лише те, що «Огляд» рахує по ставках зараз, — плитки (tiles, той самий підрахунок, що
+# полоса підсумків) і жива тривога; розділи звірки (пункти на дату звірки) сюди не йдуть — вони лишаються в «Тривогах». Ключ → (звідки:
+# 'tile' — плитка «Огляду», список — open.tiles того самого ключа; 'live' — жива тривога «Огляду»; підпис і підказка в TX; гроші). Порядок
+# рядків = порядок чипів. «Частка не за правилом» і «вартість години ≠ ставка» живого числа в «Огляді» не мають — є лише в звірці
+DECIDE = (('contract_diff', 'tile', 'ov_d_contract', 'ov_tip_contract', True), ('below_min', 'tile', 'ov_d_low', '', True),
+          ('no_rate', 'live', 'ov_d_no_rate', '', False))
 DECIDE_MAX = 5
 
 
-def decide_chips(alerts, groups, lang, check_id=False, limit=DECIDE_MAX):
-    """Стрічка «Сьогодні вирішити»: живі тривоги (rates_overview → alerts) і групи «Тривог» (check_groups) → [{'key', 'n', 'label', 'money',
-    'open'}] у порядку DECIDE (гроші першими), лише з групи «Потрібна дія», без нулів, не більше limit. open — те саме, що клік рядка
-    «Тривог»: жива тривога — {'model', 'ids', 'link'} (список, openAlert), розділ звірки — {'check': id запису звірки} (openCheck). Нічого
-    вирішувати — []."""
-    items = {x['key']: x for g in groups or [] if g.get('key') == 'action' for x in g.get('items') or []}
+def decide_chips(tiles, opens, alerts, lang, limit=DECIDE_MAX):
+    """Стрічка «Сьогодні вирішити»: плитки «Огляду» (rates_overview → tiles), їхні списки (ov_tiles_open) і живі тривоги (alerts) →
+    [{'key', 'n', 'label', 'tip', 'money', 'open'}] у порядку DECIDE (гроші першими), без нулів, не більше limit. n — те саме число, що в
+    плитки чи тривоги; open — той самий список: плитка — опис ov_list (openList), жива тривога — {'model', 'ids', 'link'} (openAlert);
+    tip — підказка чипа ('' — немає). Нічого вирішувати — []."""
+    tiles = tiles or {}
+    opens = opens or {}
     live = {a['key']: a for a in alerts or []}
     out = []
-    for key, src, label, money in DECIDE:
+    for key, src, label, tip, money in DECIDE:
         if src == 'live':
             a = live.get(key) or {}
             n = int(a.get('count') or 0)
             spec = {'model': a.get('model'), 'ids': list(a.get('ids') or []), 'link': a.get('link', True)}
         else:
-            n = int((items.get(key) or {}).get('count') or 0)
-            spec = {'check': check_id}
+            n = int(tiles.get(key) or 0)
+            spec = dict(opens.get(key) or {})
         if n > 0:
-            out.append({'key': key, 'n': n, 'label': t(label, lang), 'money': money, 'open': spec})
+            out.append({'key': key, 'n': n, 'label': t(label, lang), 'tip': t(tip, lang) if tip else '', 'money': money, 'open': spec})
     return out[:limit]
 
 
