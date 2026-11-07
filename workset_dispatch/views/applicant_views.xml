@@ -130,7 +130,7 @@
                 <filter name="check_dup" string="Перевірити дубль" domain="[('workset_state', '=', 'check_dup')]"/>
                 <filter name="done" string="Оформлено" domain="[('workset_state', '=', 'done')]"/>
                 <filter name="cancel" string="Не поїхав" domain="[('workset_state', '=', 'cancel')]"/>
-                <group string="Групувати">
+                <group>
                     <filter name="group_firm" string="Фірма" context="{'group_by': 'workset_firm_id'}"/>
                     <filter name="group_customer" string="Замовник" context="{'group_by': 'workset_customer_id'}"/>
                     <filter name="group_month" string="Місяць виїзду" context="{'group_by': 'workset_departure_date:month'}"/>
