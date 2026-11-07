@@ -11,8 +11,11 @@
   на розпізнану лінію, × 9; транзитні фрази й нерозпізнані рядки в 4' не входять; AN — від'ємні рядки конверта як є; рахунок «II етапу» в 4'
   не бере участі — лише в ступені 6);
 - 5 — вузли власників, «частка» (статті з параметра) окремо; 6 — аналітика «II етапу» + баланс його рахунку;
-- 7 — неоплачені рахунки клієнтів із часткою рекрутингу: замовники / Energy / міжфірмові (не показуємо).
-Фірми — усі активні мінус периметр «Ставок» (workset.rate._skip_companies). Пересчёт — finance_recompute (кнопка, щоночі, інструмент штабу);
+- 7 — неоплачені рахунки клієнтів із часткою рекрутингу: замовники / Energy / міжфірмові й фірми поза периметром (не показуємо).
+Фірми — усі активні мінус периметр «Ставок» (workset.rate._skip_companies). sudo бачить рядки всіх фірм, тому КОЖНЕ читання рядків аналітики,
+проводок, документів, звірок оплат і виписок обмежене фірмами периметра явно (`('company_id', 'in', cos)`; ступінь 2 — одна фірма Україна).
+«Свої» партнери — як partnerSets у tools/lib/odoo_pnl_guard.js: партнери фірм периметра й архівних — «міжфірмові», партнери фірм поза периметром
+— окремий кошик (не «міжфірмові», не «без місця», не оборот). Пересчёт — finance_recompute (кнопка, щоночі, інструмент штабу);
 звірка для інструмента — finance_verify (рахує наново, нічого не пише). sudo — лише всередині перерахунку й звірки, після перевірки групи.
 Рядки пише лише код (права моделі)."""
 import datetime
@@ -81,7 +84,7 @@ class WorksetFinanceMonth(models.Model):
                                           help='Залишок неоплачених рахунків місяця з часткою рекрутингу; станом на момент перерахунку')
     s7_unpaid_customers_src = fields.Selection(SRC, string='7з: звідки', readonly=True)
     s7_unpaid_energy = fields.Monetary(string='7 Не оплачено Energy', currency_field='currency_id', readonly=True,
-                                       help='Те саме для контрагентів групи Energy (параметр); міжфірмові не показуємо')
+                                       help='Те саме для контрагентів групи Energy (параметр); міжфірмові й фірми поза периметром не показуємо')
     s7_unpaid_energy_src = fields.Selection(SRC, string='7е: звідки', readonly=True)
 
     revenue = fields.Monetary(string='Довідково: дохід', currency_field='currency_id', readonly=True, help='Дохідні рядки вибірки ступеня 1')
@@ -147,6 +150,13 @@ class WorksetFinanceMonth(models.Model):
         skip = set(self.env['workset.rate'].sudo()._skip_companies())
         return sorted(c.id for c in self.env['res.company'].sudo().search([]) if c.id not in skip)
 
+    def _partner_sets(self):
+        """«Свої» партнери (calc.partner_sets) → (міжфірмові, поза периметром): усі фірми, і архівні; фірми поза периметром «Ставок» — окремо."""
+        skip = self.env['workset.rate'].sudo()._skip_companies()
+        firms = self.env['res.company'].sudo().with_context(active_test=False).search([])
+        got = calc.partner_sets([(c.id, c.partner_id.id) for c in firms], skip)
+        return set(got['ic']), set(got['out'])
+
     def _months(self, months):
         """Список місяців: немає — останні RECALC_MONTHS із поточним (не раніше 2026); є — перші числа, не раніше 2026, не більше MAX_MONTHS."""
         if not months:
@@ -203,7 +213,7 @@ class WorksetFinanceMonth(models.Model):
     def _candidates(self, first, last, cos, excl):
         """1г: сплачені рахунки клієнтів без аналітики в рядках товару; місяць — за датою останньої оплати → ({партнер: [центи, ids]}, всього)."""
         Partial = self.env['account.partial.reconcile']
-        partials = Partial.search([('max_date', '>=', first), ('max_date', '<=', last)])
+        partials = Partial.search([('company_id', 'in', cos), ('max_date', '>=', first), ('max_date', '<=', last)])
         moves = (partials.debit_move_id | partials.credit_move_id).move_id.filtered(
             lambda m: m.move_type == 'out_invoice' and m.state == 'posted' and m.payment_state in calc.PAID_STATES and m.company_id.id in cos
             and m.commercial_partner_id.id not in excl)
@@ -248,13 +258,15 @@ class WorksetFinanceMonth(models.Model):
                 unp += calc.unplaced_cents(l.balance, dist, kind_of)
         return control, ic_c, unp
 
-    def _unpaid(self, first, last, cos, p, ic):
-        """7: неоплачені рахунки клієнтів місяця з часткою рекрутингу → ({'customer'|'energy': {партнер: [центи, ids]}})."""
+    def _unpaid(self, first, last, cos, p, ic, out_partners):
+        """7: неоплачені рахунки клієнтів місяця з часткою рекрутингу → ({'customer'|'energy': {партнер: [центи, ids]}}); міжфірмові й партнери
+        фірм поза периметром (не з Energy) не показуємо."""
         Move = self.env['account.move']
         inv = Move.search([('move_type', 'in', list(calc.OUT_TYPES)), ('state', '=', 'posted'), ('company_id', 'in', cos),
                            ('invoice_date', '>=', first), ('invoice_date', '<=', last), ('amount_residual', '>', calc.UNPAID_MIN),
                            ('payment_state', 'not in', list(calc.UNPAID_SKIP))])
-        lines = self.env['account.move.line'].search([('move_id', 'in', inv.ids), ('display_type', '=', 'product')]).filtered('analytic_distribution')
+        lines = self.env['account.move.line'].search([('move_id', 'in', inv.ids), ('display_type', '=', 'product'),
+                                                      ('company_id', 'in', cos)]).filtered('analytic_distribution')
         keys = set()
         for l in lines:
             for ids, _pc in calc.dist_keys(l.analytic_distribution):
@@ -265,8 +277,8 @@ class WorksetFinanceMonth(models.Model):
         out = {'customer': {}, 'energy': {}}
         for m in inv.filtered(lambda x: x.id in rec_moves):
             partner = m.commercial_partner_id.id
-            bucket = calc.unpaid_bucket(partner, ic, energy)
-            if bucket == 'interco':
+            bucket = calc.unpaid_bucket(partner, ic, energy, out_partners)
+            if bucket not in out:
                 continue
             row = out[bucket].setdefault(partner, [0, []])
             row[0] += calc.cents((-1 if m.move_type == 'out_refund' else 1) * m.amount_residual)
@@ -283,8 +295,9 @@ class WorksetFinanceMonth(models.Model):
         today = calc.iso(me._today())
         dates = [('date', '>=', first), ('date', '<=', last)]
         AAL, ML = 'account.analytic.line', 'account.move.line'
-        ic = set(me.env['res.company'].with_context(active_test=False).search([]).partner_id.ids)
-        excl = ic | set(p['excluded_partner_ids'])
+        # «свої» партнери: міжфірмові (ic) і фірми поза периметром (out) — окремо; обидва, як і посередники-виняток, поза «без місця» й оборотом
+        ic, out = me._partner_sets()
+        excl = ic | out | set(p['excluded_partner_ids'])
         items = []
         item = me._item
 
@@ -311,7 +324,7 @@ class WorksetFinanceMonth(models.Model):
         items.append(item('step', 's2_ukraine', s2, model=AAL, domain=dom2, note='s2_ukraine'))
 
         # 5 власники
-        dom5 = [('account_id.plan_id', 'child_of', p['owners_plan_id'])] + dates
+        dom5 = [('account_id.plan_id', 'child_of', p['owners_plan_id']), ('company_id', 'in', cos)] + dates
         share_ids = set(p['owners_share_analytic_ids'])
         s5 = s5_share = 0
         for acc, amount, n in me.env[AAL]._read_group(dom5, ['account_id'], ['amount:sum', '__count']):
@@ -324,8 +337,8 @@ class WorksetFinanceMonth(models.Model):
         s5, s5_share = calc.eur(s5), calc.eur(s5_share)
 
         # 6 II етап і 4' (перекази партнерам нетто)
-        dom6a = [('account_id', '=', p['stage2_analytic_id'])] + dates
-        dom6m = [('account_id', '=', p['stage2_account_id']), ('parent_state', '=', 'posted')] + dates
+        dom6a = [('account_id', '=', p['stage2_analytic_id']), ('company_id', 'in', cos)] + dates
+        dom6m = [('account_id', '=', p['stage2_account_id']), ('parent_state', '=', 'posted'), ('company_id', 'in', cos)] + dates
         a6 = me._asum(dom6a)
         items.append(item('stage2', 'analytic', a6, model=AAL, domain=dom6a, note='analytic'))
         m6 = 0
@@ -361,7 +374,7 @@ class WorksetFinanceMonth(models.Model):
         notes = [calc.t('line_missing', lang) % lost_lines] if lost_lines else []
         an = 0.0
         if p['an_envelope_analytic_id']:
-            dom_an = [('account_id', '=', p['an_envelope_analytic_id']), ('amount', '<', 0)] + dates
+            dom_an = [('account_id', '=', p['an_envelope_analytic_id']), ('amount', '<', 0), ('company_id', 'in', cos)] + dates
             an = -me._asum(dom_an)
             items.append(item('cash', 'AN', an, model=AAL, domain=dom_an, note='AN'))
         cash_out = calc.eur(partner_net + calc.cents(an))
@@ -382,7 +395,7 @@ class WorksetFinanceMonth(models.Model):
                               model='account.move', domain=[('id', 'in', ids)]))
 
         # 7 неоплачено
-        unpaid = me._unpaid(first, last, cos, p, ic)
+        unpaid = me._unpaid(first, last, cos, p, ic, out)
         sums = {}
         for bucket, rows in unpaid.items():
             sums[bucket] = sum(v[0] for v in rows.values())
@@ -405,7 +418,7 @@ class WorksetFinanceMonth(models.Model):
         # посередництво
         med_in = med_cost = 0.0
         if p['mediation_plan_id']:
-            dom_m = [('account_id.plan_id', 'child_of', p['mediation_plan_id'])] + dates
+            dom_m = [('account_id.plan_id', 'child_of', p['mediation_plan_id']), ('company_id', 'in', cos)] + dates
             med_in = me._asum(dom_m + [('amount', '>', 0)])
             med_cost = -me._asum(dom_m + [('amount', '<', 0)])
 
@@ -413,7 +426,7 @@ class WorksetFinanceMonth(models.Model):
         control, ic_c, unp = me._pl_pass(first, last, cos, p, ic, excl)
         transit_dom = [('move_id', 'not in', p['quality_transit_move_ids'])] if p['quality_transit_move_ids'] else []
         ext = -me._asum([('parent_state', '=', 'posted'), ('account_id.account_type', 'in', list(calc.INCOME_TYPES)), ('company_id', 'in', cos),
-                         ('move_id.move_type', 'in', list(calc.OUT_TYPES)), ('move_id.commercial_partner_id', 'not in', sorted(excl))] + transit_dom + dates,
+                         ('move_id.move_type', 'in', list(calc.EXT_TYPES)), ('move_id.commercial_partner_id', 'not in', sorted(excl))] + transit_dom + dates,
                         model=ML, field='balance')
         cut = min(last, calc.add_days(today, -calc.BANK_GAP_DAYS))
         dom_nd = [('company_id', 'in', cos), ('is_reconciled', '=', False), ('amount', '<', 0), ('date', '>=', first), ('date', '<=', cut)]
@@ -438,7 +451,7 @@ class WorksetFinanceMonth(models.Model):
         steps['q_pct'] = calc.pct_quality(v) or 0.0
         return {'steps': steps, 'src': calc.sources(calc.eur(sp['s1g']), calc.eur(sp['s3'])), 'items': items, 'control': control,
                 'cand': {'count': cand_n, 'amount': calc.eur(cand_total)}, 'state': 'closed' if me._closed(cos, last) else 'open',
-                'notes': notes, 'companies': cos, 'ic': sorted(ic)}
+                'notes': notes, 'companies': cos, 'ic': sorted(ic), 'out': sorted(out)}
 
     # ——— перерахунок ———
     def _recompute_month(self, month):
@@ -505,21 +518,21 @@ class WorksetFinanceMonth(models.Model):
     def finance_verify(self, months=None):
         """Лише читання: числа місяців, пораховані наново (нічого не пишуться), — для зовнішньої звірки JS-драбиною. Право — «Власник».
         → {'months': [{'month', 'steps': {поле: число}, 'src', 'cand', 'ok', 'text', 'stale': True — збережене не збігається з тим, що зараз у
-        книгах}], 'companies': [id фірм периметра], 'intercompany_partner_ids': [партнери всіх фірм, і архівних]} — периметр і «свої» партнери
-        віддає сам модуль: зовнішня звірка бере їх звідси, а не читає res.company правами ключа."""
+        книгах}], 'companies': [id фірм периметра], 'intercompany_partner_ids': [партнери фірм периметра й архівних — «міжфірмові»],
+        'out_of_perimeter_partner_ids': [партнери фірм поза периметром]} — як модуль їх бачить; зовнішня звірка рахує «своїх» сама
+        (partnerSets штабу) і порівнює з цими списками: розбіжність — знахідка."""
         self._check_screen('owner')
         me = self.sudo()
-        out, cos, ic = [], me._perimeter(), []
+        out, cos = [], me._perimeter()
+        ic, out_p = me._partner_sets()
         for m in self._months(months):
             res = me._compute_month(m)
             chk = me._check_of(m, res)
             rec = me.search([('month', '=', m)], limit=1)
             stale = (not rec) or any(calc.cents(rec[k]) != calc.cents(res['steps'][k]) for k in calc.MONEY)
             out.append(dict(chk, month=m, steps=res['steps'], src=res['src'], cand=res['cand'], stale=stale))
-            cos, ic = res['companies'], res['ic']
-        if not out:
-            ic = sorted(me.env['res.company'].with_context(active_test=False).search([]).partner_id.ids)
-        return {'months': out, 'companies': cos, 'intercompany_partner_ids': ic}
+            cos, ic, out_p = res['companies'], res['ic'], res['out']
+        return {'months': out, 'companies': cos, 'intercompany_partner_ids': sorted(ic), 'out_of_perimeter_partner_ids': sorted(out_p)}
 
     @api.model
     def finance_owner(self, month=None):

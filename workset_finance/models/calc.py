@@ -24,10 +24,12 @@ STAGE2_BRUTTO = 10         # брутто переказу партнеру = р
 BANK_GAP_DAYS = 14        # «банк без документа» — рядок виписки старший за стільки днів
 TRUTH_PCT = 1.0            # поріг «місяць правдивий» (рішення власника 14.10.2026: 1 %), як MC.truthShare
 UNPAID_MIN = 0.005         # залишок рахунку менший за це — вважається оплаченим
+MAX_ID = 2147483647        # найбільший id запису (integer PostgreSQL): лінія пари більша — пропуск (інакше browse упаде на SQL)
 
 PL_TYPES = ('income', 'income_other', 'expense', 'expense_other', 'expense_depreciation', 'expense_direct_cost')  # tools/lib/odoo_pnl_types.js
 INCOME_TYPES = ('income', 'income_other')
-OUT_TYPES = ('out_invoice', 'out_refund')
+OUT_TYPES = ('out_invoice', 'out_refund')   # «не оплачено» (ступінь 7): рахунки й повернення клієнтам
+EXT_TYPES = ('out_invoice', 'out_refund', 'out_receipt')   # оборот із зовнішніми: усі out_*, і чеки продажу, як /^out_/ у MC.truthTurnover
 PAID_STATES = ('paid', 'in_payment')
 UNPAID_SKIP = ('paid', 'in_payment', 'reversed')
 
@@ -214,6 +216,15 @@ def parse_map(text):
     return out
 
 
+def _no_constant(name):
+    raise ValueError('JSON: %s' % name)
+
+
+def json_loads(text):
+    """json.loads без NaN / Infinity / -Infinity: JSON.parse у JS їх не приймає — інакше Python прийняв би те, що драбина JS відкидає."""
+    return json.loads(text, parse_constant=_no_constant)
+
+
 def parse_phrases(text):
     """JSON-масив рядків → [str] (порожні пропускаються, дубль — один раз); не JSON-масив — увесь рядок як одна фраза (сумісність зі старою
     формою параметра); порожнє — []."""
@@ -221,7 +232,7 @@ def parse_phrases(text):
     if not raw:
         return []
     try:
-        got = json.loads(raw)
+        got = json_loads(raw)
     except (TypeError, ValueError):
         got = raw
     if isinstance(got, dict):
@@ -236,22 +247,33 @@ def parse_phrases(text):
     return out
 
 
+def pair_line(v):
+    """Лінія пари фраз → int або 0: лише JSON-число без дробової частини (не bool), від 1 до MAX_ID. Рядок «5», 5.5, true, null, [5] — 0."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return 0
+    if isinstance(v, float) and not v.is_integer():
+        return 0
+    n = int(v)
+    return n if 0 < n <= MAX_ID else 0
+
+
 def parse_phrase_pairs(text):
-    """JSON-МАСИВ пар [["фраза", лінія], …] → [(фраза, лінія)] у порядку масиву (порядок = пріоритет збігу); фраза без крайніх пробілів і не
-    порожня, лінія — додатне ціле; сміття й не-масив (зокрема об'єкт) пропускаються."""
+    """JSON-МАСИВ пар [["фраза", лінія], …] → [(фраза, лінія)] у порядку масиву (порядок = пріоритет збігу). Ті самі правила, що parsePhrasePairs
+    у tools/lib/odoo_finance_ladder.js (спільні випадки — tools/tests/fixtures/finance_phrase_pairs_cases.json); помилки тут не буває ніколи:
+    не JSON (і NaN / Infinity) чи не масив (зокрема об'єкт) — []; пара — лише масив рівно з двох; фраза — рядок, не порожній після strip;
+    лінія — pair_line; інша пара — пропуск. Явну помилку дає посів (--seed інструмента штабу)."""
     try:
-        raw = json.loads(text) if text else []
+        raw = json_loads(text) if text else []
     except (TypeError, ValueError):
         return []
     out = []
     if isinstance(raw, list):
         for pair in raw:
-            try:
-                ph, line = pair
-                if isinstance(ph, str) and ph.strip() and int(line) > 0:
-                    out.append((ph.strip(), int(line)))
-            except (TypeError, ValueError):
+            if not isinstance(pair, list) or len(pair) != 2:
                 continue
+            ph, line = pair[0], pair_line(pair[1])
+            if isinstance(ph, str) and ph.strip() and line:
+                out.append((ph.strip(), line))
     return out
 
 
@@ -388,12 +410,27 @@ def unplaced_cents(balance, dist, kind_of):
     return cents(-float(balance or 0) * max(0.0, 100.0 - placed) / 100.0)
 
 
-def unpaid_bucket(partner, company_partners, energy_partners):
-    """Куди неоплачений рахунок: 'energy' (перевіряємо першим: фірма групи Energy є фірмою в Odoo, її партнер є і серед своїх фірм), 'interco'
-    (контрагент — своя фірма; не показуємо), 'customer'."""
+def partner_sets(companies, excluded):
+    """«Свої» партнери, як partnerSets у tools/lib/odoo_pnl_guard.js (і закриття місяця): companies — [(id фірми, id партнера)] усіх фірм, і
+    архівних; excluded — id фірм поза периметром → {'ic': [партнери інших фірм — «міжфірмові»], 'out': [партнери фірм поза периметром —
+    окремий кошик, не «міжфірмові»]}. Партнер двох фірм (у периметрі й поза ним) — в обох списках; «міжфірмові» перевіряються раніше."""
+    skip = set(excluded or [])
+    ic, out = set(), set()
+    for cid, pid in companies or []:
+        if pid:
+            (out if cid in skip else ic).add(pid)
+    return {'ic': sorted(ic), 'out': sorted(out)}
+
+
+def unpaid_bucket(partner, company_partners, energy_partners, out_partners=()):
+    """Куди неоплачений рахунок: 'energy' (перевіряємо першим: контрагент групи Energy з параметра, хоч би й фірма в Odoo), 'interco'
+    (контрагент — своя фірма периметра чи архівна; не показуємо), 'excl' (партнер фірми поза периметром, не з Energy; не показуємо, як і до
+    круга 1г), 'customer'."""
     if partner in energy_partners:
         return 'energy'
-    return 'interco' if partner in company_partners else 'customer'
+    if partner in company_partners:
+        return 'interco'
+    return 'excl' if partner in out_partners else 'customer'
 
 
 def has_phrase(text, phrases):

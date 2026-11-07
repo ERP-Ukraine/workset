@@ -11,7 +11,9 @@ workset_finance). Усі дані — вигадані в самому тест�
   частка 10 %: +10 («PHRASE A», фраза з карти ліній), +4 (жодної фрази), +6 («Transit one», транзитна фраза, яка теж є в карті ліній) + рядки рахунку 10 і 4; конверт AN −8 (і +3, яке не рахується).
 - «Energy» — партнер третьої фірми (res.company.partner_id): його неоплачений рахунок 20 мусить іти в «Energy», а не в «міжфірмові».
 Очікується (березень): 1 = 130, 1а = 10, 2 = −12, до часток = 128; 5 = 16 (з них частка 6); 6 = 20 + 14 = 34; за грошима: 128 − (10 × 9 + 8) = 30;
-7: замовники 100, Energy 20 (міжфірмовий не показуємо); кандидати 1г: 1 на 50; дохід довідково 175."""
+7: замовники 100, Energy 20 (міжфірмовий не показуємо); кандидати 1г: 1 на 50; дохід довідково 175.
+Круг 1г: тести з фірмою поза периметром («Test firm Out», дописується в workset_rates.out_of_perimeter_company_ids у самому тесті) — її рядки
+в ступені не входять, її партнер — окремий кошик, не «міжфірмові»."""
 import json
 
 from odoo.exceptions import AccessError, UserError, ValidationError
@@ -135,9 +137,9 @@ class TestWorksetFinance(TransactionCase):
         return move
 
     @classmethod
-    def _invoice(cls, partner, amount, day, dist):
+    def _invoice(cls, partner, amount, day, dist, move_type='out_invoice'):
         move = cls.env['account.move'].with_company(cls.co).create({
-            'move_type': 'out_invoice', 'partner_id': partner.id, 'invoice_date': day, 'date': day, 'journal_id': cls.sale.id,
+            'move_type': move_type, 'partner_id': partner.id, 'invoice_date': day, 'date': day, 'journal_id': cls.sale.id,
             'invoice_line_ids': [(0, 0, {'name': 'service', 'quantity': 1, 'price_unit': amount, 'account_id': cls.income.id, 'tax_ids': [(6, 0, [])],
                                          'analytic_distribution': dist or False})]})
         move.action_post()
@@ -160,6 +162,15 @@ class TestWorksetFinance(TransactionCase):
 
     def _adjust(self, step, amount, month=M, **kw):
         return self.Adjust.create(dict({'month': month, 'step': step, 'amount': amount, 'basis': 'test basis'}, **kw))
+
+    def _out_company(self):
+        """Нова фірма поза периметром «Ставок» (дописана в workset_rates.out_of_perimeter_company_ids) і її рахунок."""
+        co = self.env['res.company'].create({'name': 'Test firm Out', 'currency_id': self.eur.id})
+        Param = self.env['ir.config_parameter'].sudo()
+        key = 'workset_rates.out_of_perimeter_company_ids'
+        Param.set_param(key, ','.join(str(x) for x in calc.parse_ids(Param.get_param(key) or '') + [co.id]))
+        acc = self.env['account.account'].with_company(co).create({'name': 'Test cash O', 'code': '199931', 'account_type': 'asset_current'})
+        return co, acc
 
     # ——— ступені до цента ———
     def test_steps_match_to_the_cent(self):
@@ -245,6 +256,68 @@ class TestWorksetFinance(TransactionCase):
         Param.set_param(P + 'stage2_partner_lines', json.dumps({'phrase a': self.line.id}))
         self._run()
         self.assertAlmostEqual(self._month().cash_out, 8, msg="обєкт замість масиву пар — нічого не розпізнано (посів такий файл відхиляє)")
+
+    def test_stage2_partner_text_is_name_not_display_name(self):
+        """Текст рядка «II етапу» бере ім'я партнера (name), а не display_name: у контакту фірми display_name — «Фірма, Людина». JS-драбина
+        читає res.partner.name так само (паритет, круг 1г)."""
+        P = calc.P_PREFIX
+        contact = self.env['res.partner'].create({'name': 'Contact Person', 'parent_id': self.part_b.id})
+        self.assertIn('Stage partner B', contact.display_name, 'передумова: ім\'я фірми є лише в display_name контакту')
+        row = self._aal(self.co, self.a_stage2, 3, self.cash, name='nothing here')
+        row.partner_id = contact
+        Param = self.env['ir.config_parameter'].sudo()
+        Param.set_param(P + 'stage2_partner_lines', json.dumps([['stage partner b', self.line.id], ['phrase a', self.line.id]]))
+        self._run()
+        self.assertAlmostEqual(self._month().cash_out, 98, msg='фраза з імені фірми-батька контакту не розпізнає рядок: 90 + AN 8')
+        Param.set_param(P + 'stage2_partner_lines', json.dumps([['contact person', self.line.id], ['phrase a', self.line.id]]))
+        self._run()
+        self.assertAlmostEqual(self._month().cash_out, 125, msg='ім\'я самого контакту — розпізнано: 3 × 9 = 27 + 90 + AN 8')
+
+    def test_out_of_perimeter_firm_rows_not_in_steps(self):
+        """Під sudo видно рядки всіх фірм: рядки аналітики фірми поза периметром (AN, «II етап», власники) у ступені не входять (круг 1г:
+        на копії модуль брав AN чужих фірм)."""
+        co_out, acc_out = self._out_company()
+        self.assertNotIn(co_out.id, self.Month._perimeter())
+        self._aal(co_out, self.a_an, -50, acc_out)
+        self._aal(co_out, self.a_stage2, 7, acc_out, name='Payout PHRASE A to Y')
+        self._aal(co_out, self.a_owner, -9, acc_out)
+        res = self._run()
+        self.assertTrue(res['verify'][0]['ok'], res['verify'][0]['text'])
+        m = self._month()
+        self.assertEqual(self._r(m.cash_out, m.s4c_cash, m.s5_owners, m.s6_stage2), [98, 30, 16, 34],
+                         'AN −50 (було б 148), «II етап» 7 × 9 (було б 161), власник −9 і аналітика «II етапу» 7 фірми поза периметром не рахуються')
+        items = self.env['workset.finance.item'].search([('month', '=', M), ('kind', '=', 'cash'), ('note', '=', 'AN')])
+        self.assertNotIn(co_out, self.env['account.analytic.line'].search(json.loads(items.domain)).company_id, 'список кліку — ті самі рядки, без чужої фірми')
+
+    def test_out_of_perimeter_partner_not_intercompany(self):
+        """Партнер фірми поза периметром — окремий кошик (як partnerSets закриття місяця): не «міжфірмові», не «без місця», не оборот,
+        неоплачене не показуємо; finance_verify віддає його окремим списком."""
+        co_out, _acc = self._out_company()
+        partner = co_out.partner_id
+        partner.with_company(self.co).property_account_receivable_id = self.recv
+        self._invoice(partner, 10, '2030-03-12', {str(self.a_node_a.id): 60})
+        self._run()
+        m = self._month()
+        self.assertAlmostEqual(m.s1_docs, 136, msg='дохід за документом фірми периметра лишається: 130 + 60 % від 10')
+        self.assertEqual(self._r(m.q_ic, m.q_unplaced, m.q_ext), [35, 83, 183],
+                         'не «міжфірмові» (до круга 1г було б 45); 40 % без розподілу — не «без місця» (без окремого кошика було б 87); не оборот (було б 193)')
+        self.assertEqual(self._r(m.s7_unpaid_customers, m.s7_unpaid_energy), [100, 20], 'рахунок фірмі поза периметром — не замовник')
+        full = self.Month.finance_verify([M])
+        self.assertIn(partner.id, full['out_of_perimeter_partner_ids'])
+        self.assertNotIn(partner.id, full['intercompany_partner_ids'])
+        self.assertIn(self.co_ua.partner_id.id, full['intercompany_partner_ids'], 'фірма периметра — «міжфірмова»')
+
+    def test_out_receipt_counts_in_turnover(self):
+        """Оборот із зовнішніми (q_ext) — усі out_*: рахунки, повернення й чеки продажу (out_receipt), як /^out_/ у MC.truthTurnover;
+        «не оплачено» (ступінь 7) — лише рахунки й повернення."""
+        if 'out_receipt' not in dict(self.env['account.move']._fields['move_type'].selection):
+            self.skipTest('у цій збірці Odoo немає out_receipt')
+        self._invoice(self.cust3, 9, '2030-03-13', {str(self.a_node_a.id): 100}, move_type='out_receipt')
+        self._run()
+        m = self._month()
+        self.assertAlmostEqual(m.q_ext, 192, msg='чек продажу 9 — в обороті: 183 + 9')
+        self.assertAlmostEqual(m.s1_docs, 139, msg='і в ступені 1, як будь-який документ із часткою рекрутингу')
+        self.assertEqual(self._r(m.s7_unpaid_customers, m.s7_unpaid_energy), [100, 20], 'чек у «не оплачено» не входить')
 
     def test_quality_transit_documents_excluded(self):
         self.env['ir.config_parameter'].sudo().set_param(calc.P_PREFIX + 'quality_transit_move_ids', str(self.inv_noshare.id))
