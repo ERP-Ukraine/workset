@@ -9,7 +9,8 @@
  *  (line.color — той самий, що ряд лінії на графіку «По лініях»); усі числа — з роздільником тисяч (groupNumber).
  *  Круг вигляду 06.11 (слово власника «лише важливе, без порожнього й обрізаного»): нульові «пігулки» сховані; картка лінії коротка, решта —
  *  у підказці (lineTip), клік — фільтр сторінки за лінією; «Тривоги» трьома групами (alertGroups); графік місяців — три лінії зі значенням на
- *  останній точці, «Розподіл» — число над стовпцем; кольори графіків — з обчисленого стилю сторінки (Odoo 19 не задає CSS-змінні Bootstrap). */
+ *  останній точці, «Розподіл» — число над стовпцем; кольори графіків — з обчисленого стилю сторінки (Odoo 19 не задає CSS-змінні Bootstrap).
+ *  Блок Е (на показ): стрічка «Сьогодні вирішити» над усім — чипи «Потрібна дія» із сервера (data.decide), клік — openChip. */
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { loadBundle } from "@web/core/assets";
@@ -371,6 +372,13 @@ export class RatesOverview extends Component {
         }
         const action = await this.action.loadAction(ALERT_ACTIONS[alert.model] || ALL);
         this.action.doAction({ ...action, domain: [["id", "in", alert.ids]], context: {} });
+    }
+
+    /** Чип «Сьогодні вирішити» — той самий перехід, що рядок «Тривог» (опис — із сервера, calc.decide_chips): розділ звірки — запис
+     *  звірки (openCheck), жива тривога — її список (openAlert, і link === false так само не посилання). */
+    openChip(chip) {
+        const open = chip.open || {};
+        return open.check ? this.openCheck() : this.openAlert(open);
     }
 
     /** Рядок тривоги: запис; у «Працюють без ставки» — нова ставка цієї пари (форма з працівником і замовником); click === false — без кліку. */

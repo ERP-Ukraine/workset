@@ -9,13 +9,17 @@
          колір лінії (gantt_color: місце лінії в ряду карток «Огляду»; минула й без лінії — без кольору); низька частка — decoration-danger
          і «⚠ низька частка» в підписі й у вікні; підпис «Замовник · зарплата → платять нам €» — display_name у контексті дії; вікно над смугою — готові
          рядки gantt_* (calc.gantt_popover). Перетягнути можна лише майбутню, лише редактору й лише на дату після сьогодні, у тому самому
-         рядку (перевірка в write запису з «Смуга до»); нових ставок і планування зі «Стрічки» немає -->
+         рядку (перевірка в write запису з «Смуга до»); нових ставок і планування зі «Стрічки» немає.
+         Період за замовчуванням — default_range="year" (копія 20, 06.11: у web_gantt 18+ показаний період задає default_range — day / week /
+         month / quarter / year, а default_scale на нього не впливає: «Стрічка» відкривалась на «Місяць»); default_scale="year" лишаємо для
+         узгодженості (колонки — місяці). Що сполучення range="year" + scales="month,year" Odoo 19 приймає без обмежень — за документацією
+         web_gantt, перевіряється на копії. Підпис смуги «прилипає» до лівого краю видимої частини — scss (.o_gantt_view .o_gantt_pill_title) -->
     <record id="view_rate_gantt" model="ir.ui.view">
         <field name="name">workset.rate.gantt</field>
         <field name="model">workset.rate</field>
         <field name="arch" type="xml">
-            <gantt string="Стрічка" date_start="date_from" date_stop="gantt_stop" default_group_by="line_id,person_id" default_scale="year"
-                   scales="month,year" color="gantt_color" create="0" delete="0" plan="0"
+            <gantt string="Стрічка" date_start="date_from" date_stop="gantt_stop" default_group_by="line_id,person_id" default_range="year"
+                   default_scale="year" scales="month,year" color="gantt_color" create="0" delete="0" plan="0"
                    decoration-danger="state != 'past' and (share_level == 'low' or net_level == 'low')">
                 <field name="state"/>
                 <field name="share_level"/>
