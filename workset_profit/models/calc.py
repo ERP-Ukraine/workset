@@ -1549,8 +1549,10 @@ def quarter_first(day):
 def screen_span(kind, date_from, date_to, today, cap=MATRIX_MAX):
     """Період екрана A чи B: kind — 'month' (місяць date_from), 'quarter' / 'year' (квартал / рік, у якому місяць date_from), 'range' (з
     date_from по date_to, як у C: немає «з» — з січня року «по»; немає «по» — останній закритий; переплутані — місцями; довше cap —
-    останні cap); інший kind — місяць. Місяць — screen_month (лише від MIN_MONTH до поточного; немає — останній закритий); квартал і рік —
-    їхні місяці в тих самих межах (поточний рік — по поточний місяць). → {'kind', 'from', 'to', 'months'} (перші числа місяців)."""
+    останні cap); інший kind — місяць. Місяць — screen_month (лише від MIN_MONTH до поточного; немає — останній закритий). Круг 5б: квартал
+    і рік — їхні місяці від MIN_MONTH до останнього закритого (last_closed — той самий, що вид за замовчуванням і графік): поточний
+    неповний місяць — лише явно, «Місяць» чи «Період»; місяць у поточному (якір) — як останній закритий: «Рік» у листопаді — січень …
+    жовтень, у січні наступного року — увесь минулий. → {'kind', 'from', 'to', 'months'} (перші числа місяців)."""
     kind = kind if kind in SPAN_KINDS else 'month'
     cur = max(month_first(today), MIN_MONTH)
     if kind == 'range':
@@ -1561,21 +1563,27 @@ def screen_span(kind, date_from, date_to, today, cap=MATRIX_MAX):
         months = month_list(frm, to)[-cap:]
     else:
         anchor = screen_month(date_from if valid_day(date_from) else date_to, today)
+        top = cur
         if kind == 'month':
             lo = hi = anchor
-        elif kind == 'quarter':
-            lo = quarter_first(anchor)
-            hi = add_months(lo, 2)
         else:
-            lo, hi = anchor[0:4] + '-01-01', anchor[0:4] + '-12-01'
-        months = month_list(max(lo, MIN_MONTH), min(hi, cur))
+            # круг 5б (замір на копії 07.11: «Рік» — «січень — листопад», «Звірка 10 з 11» через неповний листопад)
+            top = last_closed(today)
+            anchor = min(anchor, top)
+            if kind == 'quarter':
+                lo = quarter_first(anchor)
+                hi = add_months(lo, 2)
+            else:
+                lo, hi = anchor[0:4] + '-01-01', anchor[0:4] + '-12-01'
+        months = month_list(max(lo, MIN_MONTH), min(hi, top))
     return {'kind': kind, 'from': months[0], 'to': months[-1], 'months': months}
 
 
 def span_step(span, n, today):
     """Сусідній період для стрілок ‹ ›: на n кроків свого виду — місяць, квартал, рік; «з–по» — на свою довжину. → {'kind', 'from', 'to',
-    'value' (= from)} або False: місяця, кварталу, року цілком поза MIN_MONTH … поточний місяць немає; «з–по» — коли хоч частина поза ними
-    (стрілка не вкорочує період)."""
+    'value' (= from)} або False: місяця цілком поза MIN_MONTH … поточний місяць немає, кварталу й року (круг 5б) — поза MIN_MONTH … останній
+    закритий (screen_span: у них поточного неповного місяця немає); «з–по» — коли хоч частина поза MIN_MONTH … поточний (стрілка не вкорочує
+    період)."""
     kind = span['kind']
     cur = max(month_first(today), MIN_MONTH)
     if kind == 'range':
@@ -1583,15 +1591,18 @@ def span_step(span, n, today):
         lo, hi = add_months(span['from'], n * size), add_months(span['to'], n * size)
         ok = lo >= MIN_MONTH and hi <= cur
     else:
+        top = cur
         if kind == 'month':
             lo = hi = add_months(span['from'], n)
         elif kind == 'quarter':
             lo = add_months(quarter_first(span['from']), 3 * n)
             hi = add_months(lo, 2)
+            top = last_closed(today)
         else:
             lo = '%04d-01-01' % (int(span['from'][0:4]) + n)
             hi = lo[0:4] + '-12-01'
-        ok = hi >= MIN_MONTH and lo <= cur
+            top = last_closed(today)
+        ok = hi >= MIN_MONTH and lo <= top
     return {'kind': kind, 'from': lo, 'to': hi, 'value': lo} if ok else False
 
 
@@ -1624,16 +1635,18 @@ def span_info(span, lang='uk'):
 
 def span_choices(data_months, span, today, lang='uk'):
     """Що вибирати в перемикачі періоду: 'months' — місяці з даними й обраний (від нових), 'years' — роки з даними й обраний, 'quarters' —
-    I–IV року періоду, що зачіпають MIN_MONTH … поточний місяць, 'options' — усі місяці від MIN_MONTH до поточного («з–по», як у C)."""
+    I–IV року періоду, 'options' — усі місяці від MIN_MONTH до поточного («з–по», як у C). Круг 5б: квартали й роки — лише ті, де є
+    закритий місяць (MIN_MONTH … last_closed; рік останнього закритого — завжди): квартал і рік поточного неповного місяця не беруть."""
     cur = max(month_first(today), MIN_MONTH)
+    top = last_closed(today)
     have = sorted({month_first(m) for m in data_months or [] if MIN_MONTH <= month_first(m) <= cur} | {span['from']})
     year = span['from'][0:4]
     quarters = []
     for i, name in enumerate(QUARTER_NAMES):
         lo = '%s-%02d-01' % (year, 3 * i + 1)
-        if add_months(lo, 2) >= MIN_MONTH and lo <= cur:
+        if add_months(lo, 2) >= MIN_MONTH and lo <= top:
             quarters.append({'value': lo, 'title': t('span_quarter', lang) % (name, year)})
-    years = sorted({m[0:4] for m in have}, reverse=True)
+    years = sorted({m[0:4] for m in have if m <= top} | {top[0:4]}, reverse=True)
     return {'months': [month_info(m, lang) for m in reversed(have)], 'years': [{'value': y + '-01-01', 'title': t('span_year', lang) % y} for y in years],
             'quarters': quarters, 'options': [month_info(m, lang) for m in month_list(MIN_MONTH, cur)]}
 
@@ -1756,8 +1769,10 @@ def office_groups(items):
 def overhead_how(ohs, part=None):
     """«Як поділено» (версія 1 — за годинами табеля): ohs — підсумки місяців [{'zus', 'office', 'hours'}] → {'hours', 'zus', 'office',
     'total', 'zus_ph', 'office_ph', 'per_hour'} (€ на годину — до 4 знаків; годин немає — None) і 'part': частка лінії (або всіх ліній) part —
-    {'hours', 'zus', 'office'} → {'hours', 'zus', 'office', 'total', 'ph' (частка ÷ її години), 'exact' (години × ph дають частку до цента:
-    «=», інакше «≈»)}; part немає — False."""
+    {'hours', 'zus', 'office', 'hours_rate', 'screen'} → {'hours', 'zus', 'office', 'total', 'ph' (частка ÷ її години табеля), 'exact'
+    (години × ph дають частку до цента: «=», інакше «≈»), круг 5б — 'hours_rate', 'rate_ph' (частка ÷ години зі ставкою — те саме число й
+    округлення, що «ZUS і загальні € год» екрана: remain_totals; годин зі ставкою немає — None), 'screen' (число стоїть на екрані, з якого
+    клікнули)}; part немає — False."""
     ohs = list(ohs or [])
     hours = round(sum(float(o.get('hours') or 0) for o in ohs), 2)
     zc = sum(cents(x.get('zus')) for x in ohs)
@@ -1771,6 +1786,60 @@ def overhead_how(ohs, part=None):
         h = round(float(part.get('hours') or 0), 2)
         pz, po = cents(part.get('zus')), cents(part.get('office'))
         rate = ph(pz + po, h)
+        hr = round(float(part.get('hours_rate') or 0), 2)
         out['part'] = {'hours': h, 'zus': eur(pz), 'office': eur(po), 'total': eur(pz + po), 'ph': rate,
-                       'exact': rate is not None and cents(rate * h) == pz + po}
+                       'exact': rate is not None and cents(rate * h) == pz + po,
+                       'hours_rate': hr, 'rate_ph': per_hour(eur(pz + po), hr), 'screen': bool(part.get('screen'))}
     return out
+
+
+# ——— круг 5б: «Рядки» картки лінії за період — склад місяця, який пише перерахунок ———
+def card_groups(entries, refs):
+    """Склад «Рядків» картки лінії за місяць (перерахунок пише його в рядок лінії — поле card_groups; ті самі записи розкладу, з яких
+    числа рядка): записи розкладу (_month_entries: entries і refs), що лягли на лінію, — за групою «Рядків»: перевезення за прибуттями
+    ['pool', поле], картка DKV ['card', картка, поле], стаття й рахунок аналітики ['aal', стаття, рахунок, поле] → {лінія: {'groups': [{'k':
+    ключ, 'c': центи, 'aal': [id], 'txn': [id]}]}} — групи в порядку першого запису, id без повторів за зростанням; записи не лінії (без
+    лінії, компанія) не беруться. Картка за кілька місяців лише складає групи місяців (groups_merge) — не розкладає кожен місяць наново."""
+    by = {}
+    for e, ref in zip(entries or [], refs or []):
+        key = e.get('key') or ()
+        if not key or key[0] != 'line' or not key[1]:
+            continue
+        ref = ref or {}
+        if ref.get('pool'):
+            k = ('pool', e['field'])
+        elif ref.get('txn'):
+            k = ('card', ref.get('card') or 0, e['field'])
+        else:
+            k = ('aal', ref.get('analytic') or 0, ref.get('account') or 0, e['field'])
+        g = by.setdefault(key[1], {}).setdefault(k, {'c': 0, 'aal': set(), 'txn': set()})
+        g['c'] += cents(e['amount'])
+        g['aal'].update(ref.get('aal') or [])
+        g['txn'].update(ref.get('txn') or [])
+    return {line: {'groups': [{'k': list(k), 'c': g['c'], 'aal': sorted(g['aal']), 'txn': sorted(g['txn'])} for k, g in gs.items()]}
+            for line, gs in by.items()}
+
+
+def groups_merge(months):
+    """Групи «Рядків» лінії за кілька місяців: months — [групи місяця (card_groups … ['groups'])] за зростанням місяців → [{'k', 'amount'
+    (центи — сума місяців), 'aal', 'txn' (id без повторів за зростанням)}] у порядку першої появи (той самий порядок, що в розкладі місяців
+    підряд): «Рядки» за період = сума «Рядків» місяців по одному."""
+    out = {}
+    for groups in months or []:
+        for g in groups or []:
+            x = out.setdefault(tuple(g['k']), {'k': list(g['k']), 'amount': 0, 'aal': set(), 'txn': set()})
+            x['amount'] += int(g.get('c') or 0)
+            x['aal'].update(g.get('aal') or [])
+            x['txn'].update(g.get('txn') or [])
+    return [dict(x, aal=sorted(x['aal']), txn=sorted(x['txn'])) for x in out.values()]
+
+
+def groups_kinds(groups):
+    """Записи кожного виду лінії з груп «Рядків» (groups_merge) → {поле: {'aal': [id], 'txn': [id]}} — те саме, що kind_refs розкладу для
+    однієї лінії (крок водоспаду й сегмент відкривають ті самі записи, що група)."""
+    out = {}
+    for g in groups or []:
+        x = out.setdefault(g['k'][-1], {'aal': set(), 'txn': set()})
+        x['aal'].update(g.get('aal') or [])
+        x['txn'].update(g.get('txn') or [])
+    return {f: {'aal': sorted(x['aal']), 'txn': sorted(x['txn'])} for f, x in out.items()}

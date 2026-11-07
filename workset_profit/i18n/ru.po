@@ -695,6 +695,16 @@ msgid "З транзакцій DKV"
 msgstr "Из транзакций DKV"
 
 #. module: workset_profit
+#: model:ir.model.fields,field_description:workset_profit.field_workset_profit_month__card_groups
+msgid "Склад «Рядків» картки"
+msgstr "Состав «Строк» карточки"
+
+#. module: workset_profit
+#: model:ir.model.fields,help:workset_profit.field_workset_profit_month__card_groups
+msgid "Службове для картки лінії за період: групи «Рядків» місяця (стаття й рахунок аналітики, картка DKV, перевезення за прибуттями) — сума й записи. Пише перерахунок"
+msgstr "Служебное для карточки линии за период: группы «Строк» месяца (статья и счёт аналитики, карта DKV, перевозка по прибытиям) — сумма и записи. Пишет пересчёт"
+
+#. module: workset_profit
 #: model:ir.model,name:workset_profit.model_workset_profit_overhead
 msgid "ZUS і загальні місяця"
 msgstr "ZUS и общие месяца"
@@ -1650,6 +1660,18 @@ msgstr "ч ×"
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "з них ZUS, PIT-4 · загальні фірм"
 msgstr "из них ZUS, PIT-4 · общие фирм"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "На годину зі ставкою"
+msgstr "На час со ставкой"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "(як на екрані)"
+msgstr "(как на экране)"
 
 #. module: workset_profit
 #. odoo-javascript

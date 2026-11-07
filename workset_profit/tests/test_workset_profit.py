@@ -14,6 +14,7 @@ workset_profit). Усі дані — вигадані в самому тесті
 - компанія: власник −10, картка офісу −3, картка без періоду −1,2, рахунок DKV з транзакціями −17,7 (розкладено), рахунок DKV без
   транзакцій −4, стаття без розмітки −2,5 (підказка «інструмент»);
 - круг 4: картка офісу −3 — загальні фірм березня, діляться за годинами табеля (A 20, B 16); рахунки ZUS / PIT-4 — лише в своєму тесті."""
+import re
 from unittest.mock import patch
 
 from psycopg2 import IntegrityError
@@ -944,10 +945,11 @@ class TestWorksetProfit(TransactionCase):
         self.assertIsNotNone(done['totals']['remain'])
 
     # ——— круг 5: період і рік; «Що входить у ZUS і загальні» ———
-    def test_screen_period_sums_months_and_overhead_window(self):
+    def _two_months(self, outside=True):
         # березень і квітень 2030: квітень — табелі A 8 і B 8 год, житло A −5, картка офісу −2 (без рахунку в Odoo); ZUS «03/2030» 12
-        # (проведено 10.04, аналітика — у статтю «офіс» квітня), ZUS «04/2030» 6 (проведено 05.05), PIT-4 без мітки 2,5 (20.04 — квітень),
-        # ZUS з міткою «01/2029», проведений 15.04, — поза вікном (не входить у жоден місяць)
+        # (проведено 10.04, аналітика — у статтю «офіс» квітня), ZUS «04/2030» 6 (проведено 05.05), PIT-4 без мітки 2,5 (20.04 — квітень);
+        # outside — ще ZUS з міткою «01/2029», проведений 15.04, — поза вікном (не входить у жоден місяць). Перерахунок обох місяців (звірки
+        # сходяться) → (стаття «офіс», рахунки березня, квітня, PIT-4, поза вікном або None)
         zus, tax, office_acc = self._contrib_setup()
         AAL = self.env['account.analytic.line'].with_company(self.co)
         for emp, proj, day in ((self.e1, self.p1, '2030-04-07'), (self.e2, self.p2, '2030-04-08')):
@@ -958,10 +960,15 @@ class TestWorksetProfit(TransactionCase):
         bill_mar = self._contrib_bill(zus, '2030-04-10', 'ZUS 03/2030', 12, office_acc)
         bill_apr = self._contrib_bill(zus, '2030-05-05', 'ZUS 04/2030', 6)
         bill_pit = self._contrib_bill(tax, '2030-04-20', 'PIT-4', 2.5)
-        bill_out = self._contrib_bill(zus, '2030-04-15', 'ZUS 01/2029', 1)
+        bill_out = self._contrib_bill(zus, '2030-04-15', 'ZUS 01/2029', 1) if outside else None
         res = self._run(M, '2030-04-30')
         for check in res['verify']:
             self.assertTrue(check['ok'], check['text'])
+        return office_acc, bill_mar, bill_apr, bill_pit, bill_out
+
+    def test_screen_period_sums_months_and_overhead_window(self):
+        # березень і квітень 2030 (_two_months): ZUS березня й квітня, PIT-4 без мітки, ZUS з міткою поза вікном
+        office_acc, bill_mar, bill_apr, bill_pit, bill_out = self._two_months()
         lang = self.Month._lang()
         rows = {(r.month.isoformat(), r.line_id.id): r for r in self.Month.search([('month', 'in', [M, APR]), ('row_kind', '=', 'line')])}
         a = [rows[(M, self.line_a.id)], rows[(APR, self.line_a.id)]]
@@ -975,6 +982,11 @@ class TestWorksetProfit(TransactionCase):
             per = Screen.profit_overview(M, 'range', '2030-04-30')
             year = Screen.profit_overview(APR, 'year')
             quarter = Screen.profit_overview(APR, 'quarter')
+            # круг 5б: рік і квартал від поточного (неповного) травня — теж до квітня; «Рік → Місяць» — останній закритий
+            year_cur = Screen.profit_overview('2030-05-01', 'year')
+            quarter_cur = Screen.profit_overview('2030-05-01', 'quarter')
+            month_back = Screen.profit_overview(year['span']['to'], 'month')
+            may = Screen.profit_overview('2030-05-01', 'month')
             card = Screen.profit_line_card(self.line_a.id, M, 'range', '2030-04-30')
             data = Screen.profit_matrix(M, '2030-04-30')
         # A: період = сума місяців; € год — середньозважене (сума ÷ години зі ставкою), підпис «за період»
@@ -986,10 +998,16 @@ class TestWorksetProfit(TransactionCase):
         self.assertEqual(tot['net_ph'], round(net / tot['hours_rate'], 2), '€ год за період — середньозважене')
         self.assertEqual(tot['remain'], round(sum(both.mapped('remain')), 2))
         self.assertAlmostEqual(tot['net'] + tot['overhead'], tot['remain'])
-        self.assertEqual((year['totals']['net'], year['span']['months']), (net, ['2030-0%d-01' % i for i in range(1, 6)]),
-                         'рік 2030 — січень … травень (поточний), сума — березень і квітень')
-        self.assertEqual((quarter['span']['months'], quarter['span']['title']), ([APR, '2030-05-01'], calc.t('span_quarter', lang) % ('II', '2030')))
+        # круг 5б: рік і квартал — до останнього закритого місяця (квітень), поточного неповного травня в них немає
+        self.assertEqual((year['totals']['net'], year['span']['months']), (net, ['2030-0%d-01' % i for i in range(1, 5)]),
+                         'рік 2030 — січень … квітень (останній закритий), сума — березень і квітень')
+        self.assertEqual(year['span']['text'], calc.t('span_text', lang) % calc.range_text('2030-01-01', APR, lang), 'підпис — до квітня')
+        self.assertEqual((quarter['span']['months'], quarter['span']['title']), ([APR], calc.t('span_quarter', lang) % ('II', '2030')))
         self.assertEqual(quarter['totals']['net'], round(sum(r.net for (m, _l), r in rows.items() if m == APR), 2), 'II квартал — квітень')
+        self.assertEqual((year_cur['span']['months'], quarter_cur['span']['months']), (year['span']['months'], [APR]),
+                         'від поточного травня — так само до квітня')
+        self.assertEqual((month_back['span']['kind'], month_back['span']['months']), ('month', [APR]), '«Рік → Місяць» — квітень, не травень')
+        self.assertEqual(may['span']['months'], ['2030-05-01'], 'поточний місяць — лише явно, «Місяць»')
         tile = [t for t in per['lines'] if t['id'] == self.line_a.id][0]
         self.assertEqual((tile['net'], tile['hours']), (round(a[0].net + a[1].net, 2), 28))
         self.assertEqual(tile['net_ph'], round((a[0].net + a[1].net) / (a[0].hours_rate + a[1].hours_rate), 2))
@@ -1002,8 +1020,8 @@ class TestWorksetProfit(TransactionCase):
         alerts = {x['key']: x for x in per['alerts']}
         self.assertEqual((alerts['check']['summary'], alerts['check']['state']), (calc.t('v_period', lang) % (2, 2), 'ok'))
         self.assertEqual(len(self.env['workset.profit.check'].search(alerts['check']['open']['domain'])), 2, 'клік — звірки обох місяців')
-        self.assertEqual(year['alerts'][[x['key'] for x in year['alerts']].index('check')]['summary'], calc.t('v_period', lang) % (2, 5),
-                         'рік: місяці без звірки — не зійшлися')
+        self.assertEqual(year['alerts'][[x['key'] for x in year['alerts']].index('check')]['summary'], calc.t('v_period', lang) % (2, 4),
+                         'рік: місяці без звірки (січень, лютий) — не зійшлися; неповного травня в «Звірці» немає')
         self.assertEqual((per['prev']['from'], per['prev']['to'], per['next']), ('2030-01-01', '2030-02-01', False),
                          'стрілки «з–по» — на свою довжину; травень–червень — не весь у межах')
         self.assertEqual(per['series']['band'], [[m['value'] for m in per['series']['months']].index(M),
@@ -1024,6 +1042,11 @@ class TestWorksetProfit(TransactionCase):
                          'клік — рядки «Офіс», що ввійшли в число (без статті, цілком з рахунку ZUS)')
         self.assertEqual((win['how']['hours'], win['how']['total']), (52, -25.5))
         self.assertEqual(win['how']['part']['total'], tot['overhead'], 'частка ліній = число «ZUS і загальні», по якому клікнули')
+        # круг 5б: «На годину зі ставкою (як на екрані)» — рівно «ZUS і загальні € год» A до цента (40 год зі ставкою, не 52 табеля)
+        wp = win['how']['part']
+        self.assertIsNotNone(tot['overhead_ph'])
+        self.assertEqual((wp['rate_ph'], wp['hours_rate'], wp['screen']), (tot['overhead_ph'], tot['hours_rate'], True))
+        self.assertNotEqual(round(wp['ph'], 2), wp['rate_ph'], 'рядок «на годину табеля» лишається своїм числом')
         # B: картка за період — водоспад до «чисто» й «Залишається» сумами місяців; «Рядки» — за статтею з числом записів
         self.assertEqual((card['span']['kind'], card['totals']['net'], card['totals']['hours']), ('range', round(a[0].net + a[1].net, 2), 28))
         bars = {b['key']: b for b in card['waterfall']['bars']}
@@ -1032,7 +1055,9 @@ class TestWorksetProfit(TransactionCase):
         self.assertEqual(bars['remain']['amount'], round(a[0].remain + a[1].remain, 2))
         part = card['oh_details']['span']['how']['part']
         self.assertEqual((part['hours'], part['zus'], part['office']), (28, bars['zus']['amount'], bars['office']['amount']), 'вікно B = кроки')
-        house = [r for r in card['rows'] if r['title'] == self.a_house_a.display_name][0]
+        self.assertEqual((part['rate_ph'], part['screen']), (card['totals']['overhead_ph'], False),
+                         'B: на годину зі ставкою лінії; одним числом на екрані B його немає — без «як на екрані»')
+        house =[r for r in card['rows'] if r['title'] == self.a_house_a.display_name][0]
         self.assertEqual(house['amount'], -15)
         self.assertTrue(house['sub'].endswith(calc.records_text(2, lang)), house['sub'])
         self.assertEqual(sorted(self.env['account.analytic.line'].search(house['open']['domain']).mapped('amount')), [-10, -5],
@@ -1044,6 +1069,91 @@ class TestWorksetProfit(TransactionCase):
         self.assertEqual(data['oh_details'][APR]['zus']['total']['total'], -8.5)
         self.assertEqual(data['oh_details']['period']['office']['total']['amount'], data['office']['total'])
         self.assertEqual(data['office']['open']['ref'], 'period')
+
+    # ——— круг 5б: картка за період зі складу місяців; вікно «Що входить» до перерахунку ———
+    def test_screen_card_period_rows_sum_of_months(self):
+        # картка лінії за період складає склад «Рядків» місяців (card_groups — пише перерахунок), а не розкладає кожен місяць: «Рядки» за
+        # березень — квітень = «Рядки» березня + «Рядки» квітня (кожен окремо — розклад наново) до цента й до запису; рядок без складу
+        # (перераховано до 19.0.5, одразу після -u) — розклад місяця, те саме
+        self._two_months(outside=False)
+        Model = type(self.Month)
+        real = Model._month_parts
+        seen = []
+
+        def counted(me, month, hr=None, with_ts=True):
+            seen.append(month)
+            return real(me, month, hr, with_ts)
+        Screen = self.Month.with_context(profit_today='2030-05-20')
+        line_rows = self.Month.search([('month', 'in', [M, APR]), ('row_kind', '=', 'line')])
+        self.assertTrue(all(isinstance(r.card_groups, dict) and r.card_groups.get('groups') for r in line_rows.filtered(
+            lambda r: r.line_id == self.line_a)), 'перерахунок пише склад «Рядків» у рядок лінії')
+        with self._deals():
+            mar = Screen.profit_line_card(self.line_a.id, M)
+            apr = Screen.profit_line_card(self.line_a.id, APR)
+            with patch.object(Model, '_month_parts', counted):
+                per = Screen.profit_line_card(self.line_a.id, M, 'range', '2030-04-30')
+            self.assertEqual(seen, [], 'склад обох місяців є — місяці не розкладаються')
+            line_rows.sudo().write({'card_groups': False})
+            with patch.object(Model, '_month_parts', counted):
+                bare = Screen.profit_line_card(self.line_a.id, M, 'range', '2030-04-30')
+        self.assertEqual(sorted(seen), [M, APR], 'складу немає — розклад кожного місяця, як до 19.0.5')
+
+        def groups(card):
+            # «Рядки» без табелів і часток ZUS / загальних: (назва без лічильника, підпис без числа записів) → (центи, записи списку)
+            out = {}
+            for r in card['rows']:
+                if r.get('timesheets') or r.get('overhead'):
+                    continue
+                key = (r['title'].split(' — ')[0], re.sub(r' · \d+ \S+$', '', r['sub']))
+                ids = self.env[r['open']['model']].search(r['open']['domain']).ids if r['open'] else []
+                c, got = out.get(key, (0, []))
+                out[key] = (c + calc.cents(r['amount']), sorted(set(got) | set(ids)))
+            return out
+        want = groups(mar)
+        for key, (c, ids) in groups(apr).items():
+            c0, ids0 = want.get(key, (0, []))
+            want[key] = (c0 + c, sorted(set(ids0) | set(ids)))
+        self.assertTrue(len(want) >= 4, want)
+        self.assertEqual(groups(per), want, '«Рядки» за два місяці = сума «Рядків» двох місяців по одному')
+        self.assertEqual((per['rows'], per['waterfall'], per['stale']), (bare['rows'], bare['waterfall'], False),
+                         'склад і розклад наново — ті самі рядки, суми, кроки водоспаду й записи кліків')
+        house = [r for r in per['rows'] if r['title'] == self.a_house_a.display_name][0]
+        self.assertEqual(house['amount'], -15, 'житло A: березень −10 + квітень −5')
+
+    def test_overhead_window_without_breakdown_before_recalc(self):
+        # стан одразу після -u до перерахунку: підсумок місяця є, складу breakdown немає (місяць перераховано до 19.0.4) — вікно «Що
+        # входить» складає запасна гілка (рахунки — _contrib_moves за рахунками підсумку, статті «Офісу» — розклад місяця, бо в квітні
+        # office_dup ≠ 0) і сходиться з числом, по якому клікнули, — так само, як зі складом
+        self._two_months(outside=False)
+        Model = type(self.Month)
+        real_moves, real_rows = Model._contrib_moves, Model._contrib_in_rows
+        calls = []
+
+        def moves(me, dom):
+            calls.append('moves')
+            return real_moves(me, dom)
+
+        def in_rows(me, entries, refs):
+            calls.append('rows')
+            return real_rows(me, entries, refs)
+        Screen = self.Month.with_context(profit_today='2030-05-20')
+        ohs = self.env['workset.profit.overhead'].search([('month', 'in', [M, APR])])
+        with self._deals(), patch.object(Model, '_contrib_moves', moves), patch.object(Model, '_contrib_in_rows', in_rows):
+            full = Screen.profit_overview(M, 'range', '2030-04-30')
+            self.assertEqual(calls, [], 'склад є — рахунки й розклад місяця не читаються')
+            ohs.sudo().write({'breakdown': False})
+            bare = Screen.profit_overview(M, 'range', '2030-04-30')
+        self.assertIn('moves', calls, 'без складу — рахунки ZUS / PIT-4 підсумку місяця (запасна гілка)')
+        self.assertIn('rows', calls, 'без складу — аналітика рахунків ZUS у «Офісі» квітня з розкладу місяця')
+        a, b = full['oh_details']['span'], bare['oh_details']['span']
+        self.assertEqual((b['zus'], b['office'], b['how']), (a['zus'], a['office'], a['how']), 'запасна гілка = склад: рядки, суми, записи')
+        tot = bare['totals']
+        self.assertEqual(b['zus']['total']['total'], round(sum(ohs.mapped('zus')), 2), 'ZUS вікна = ZUS підсумків місяців')
+        self.assertEqual(b['office']['total']['amount'], round(sum(ohs.mapped('office')), 2), 'загальні вікна = загальні підсумків')
+        self.assertEqual((b['office']['dup'], [r['key'] for r in b['office']['rows']]), (-12, ['dkv']), 'стаття «офіс» квітня — уся з ZUS')
+        self.assertEqual((b['how']['part']['total'], b['how']['part']['rate_ph']), (tot['overhead'], tot['overhead_ph']),
+                         'частка ліній і на годину зі ставкою = число «ZUS і загальні»')
+        self.assertTrue(b['zus']['rows'] and b['zus']['unlabeled'], 'рахунки й «без мітки» — є')
 
     def test_screen_access_only_viewer_group(self):
         viewer = new_test_user(self.env, login='ws_profit_screen_viewer', groups='base.group_user,workset_profit.group_viewer')

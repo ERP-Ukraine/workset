@@ -694,6 +694,11 @@
                         <span class="text-nowrap"><t t-esc="whole(how.part.hours)"/> год × <t t-esc="rate(how.part.ph)"/> € <t t-if="how.part.exact">=</t><t t-else="">≈</t> <t t-esc="money(how.part.total)"/> €</span>
                     </li>
                     <li t-if="how.part" class="d-flex justify-content-between gap-2 text-muted"><span>з них ZUS, PIT-4 · загальні фірм</span><span class="text-nowrap"><t t-esc="money(how.part.zus)"/> · <t t-esc="money(how.part.office)"/></span></li>
+                    <!-- круг 5б: та сама частка на години зі ставкою — число «ZUS і загальні € год» екрана A до цента (рядок вище — на години табеля) -->
+                    <li t-if="how.part" class="d-flex justify-content-between gap-2 fw-semibold">
+                        <span>На годину зі ставкою<t t-if="how.part.screen"> (як на екрані)</t></span>
+                        <span class="text-nowrap"><t t-esc="perHour(how.part.rate_ph)"/><t t-if="hasPh(how.part.rate_ph)"> € год</t></span>
+                    </li>
                 </ul>
                 <div class="small o_workset_profit_muted" t-esc="d.hint"/>
             </div>

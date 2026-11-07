@@ -16,8 +16,9 @@
     'website': 'https://workset.com.ua',
     'license': 'LGPL-3',
     'category': 'Accounting',
-    # 19.0.4 (круг 5) — поле workset.profit.overhead.breakdown (склад для вікна «Що входить»): -u і перерахунок місяців
-    'version': '19.0.4.0.0',
+    # 19.0.4 (круг 5) — поле workset.profit.overhead.breakdown (склад для вікна «Що входить»): -u і перерахунок місяців;
+    # 19.0.5 (круг 5б) — поле workset.profit.month.card_groups (склад «Рядків» картки лінії за період): -u і --recalc
+    'version': '19.0.5.0.0',
     # workset_rates — лінії, ставки (_plan_at), житло ліній (_housing_at), периметр фірм; через нього — account (аналітика, рахунки),
     # hr_timesheet (табелі), project, web (Chart.js для екранів). fleet — машина картки DKV (додаток «Автопарк» на проді встановлений)
     'depends': ['workset_rates', 'fleet'],
