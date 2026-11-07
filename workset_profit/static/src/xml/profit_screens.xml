@@ -52,7 +52,8 @@
                             <!-- круг 4: «ZUS і загальні» — частки ліній за годинами табеля (версія 1); число — сума обох, клік — кожна окремо -->
                             <div class="o_workset_profit_band_cell text-center">
                                 <span class="d-block text-muted text-truncate" title="ZUS і загальні розподілено за годинами табеля (версія 1)">ZUS і загальні</span>
-                                <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num"><t t-esc="perHour(tot.overhead_ph)"/><span t-if="hasPh(tot.overhead_ph)" class="o_workset_profit_unit text-muted fw-normal">€ год</span></span>
+                                <!-- круг 4б: число — частка ліній за годинами, а клік «ZUS» — усі рахунки місяця (сума списку більша на частку «без лінії») -->
+                                <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" title="частка ліній за годинами; клік — усі рахунки місяця"><t t-esc="perHour(tot.overhead_ph)"/><span t-if="hasPh(tot.overhead_ph)" class="o_workset_profit_unit text-muted fw-normal">€ год</span></span>
                                 <span class="small text-muted text-nowrap">
                                     <span t-att-class="clickCls(op.zus)" t-att-title="hint(op.zus)" t-att-role="role(op.zus)" t-att-tabindex="tab(op.zus)" t-on-click="() => this.openList(op.zus)" t-on-keydown="(ev) => this.keyOpen(ev, op.zus)">ZUS <t t-esc="perHour(tot.zus_ph)"/></span>
                                     · <span t-att-class="clickCls(op.office)" t-att-title="hint(op.office)" t-att-role="role(op.office)" t-att-tabindex="tab(op.office)" t-on-click="() => this.openList(op.office)" t-on-keydown="(ev) => this.keyOpen(ev, op.office)">загальні <t t-esc="perHour(tot.office_ph)"/></span>
@@ -68,10 +69,12 @@
                             </div>
                             <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.remain_month)" t-att-title="hint(op.remain_month)" t-att-role="role(op.remain_month)" t-att-tabindex="tab(op.remain_month)" t-on-click="() => this.openList(op.remain_month)" t-on-keydown="(ev) => this.keyOpen(ev, op.remain_month)">
                                 <span class="d-block text-muted text-truncate">Залишається за місяць</span>
-                                <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" t-att-class="tot.remain &lt; 0 ? 'text-danger' : ''"><t t-esc="euros(tot.remain)"/><span class="o_workset_profit_unit text-muted fw-normal">€</span></span>
+                                <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" t-att-class="tot.remain &lt; 0 ? 'text-danger' : ''"><t t-if="tot.remain === null">—</t><t t-else=""><t t-esc="euros(tot.remain)"/><span class="o_workset_profit_unit text-muted fw-normal">€</span></t></span>
                             </div>
                         </div>
-                        <div t-if="tot.overhead" class="small o_workset_profit_muted mb-3">ZUS і загальні розподілено за годинами табеля (версія 1)</div>
+                        <!-- круг 4б: місяць пораховано до круга 4 — «—» у «ZUS і загальні» та «Залишається» і підказка, а не нуль -->
+                        <div t-if="data.oh_missing" class="small text-warning mb-3" t-esc="data.oh_hint"/>
+                        <div t-elif="tot.overhead" class="small o_workset_profit_muted mb-3">ZUS і загальні розподілено за годинами табеля (версія 1)</div>
 
                         <!-- тривоги: підпис, лічильник у сірій капсулі, крапка кольору тривоги; клік — список рядків («Звірка» — її текст);
                              «Власники» — один нейтральний чип без кольору (сума, під нею кожна стаття), останнім -->
@@ -137,7 +140,7 @@
                                     </div>
                                     <!-- круг 4: після ZUS і загальних (частка лінії за годинами) — дрібно; мінус — червоним -->
                                     <div class="small text-nowrap" t-att-class="line.remain_tone === 'neg' ? 'text-danger' : 'text-muted'">
-                                        залишається <t t-if="hasPh(line.remain_ph)"><t t-esc="perHour(line.remain_ph)"/> € год</t><t t-else=""><t t-esc="euros(line.remain)"/> € за місяць</t>
+                                        залишається <t t-if="hasPh(line.remain_ph)"><t t-esc="perHour(line.remain_ph)"/> € год</t><t t-elif="line.remain === null">—</t><t t-else=""><t t-esc="euros(line.remain)"/> € за місяць</t>
                                     </div>
                                 </button>
                             </t>
@@ -243,6 +246,7 @@
                             </div>
                         </div>
 
+                        <div t-if="data.oh_missing" class="small text-warning mb-3" t-esc="data.oh_hint"/>
                         <div class="o_workset_profit_card_top mb-3">
                             <!-- водоспад: лінія нуля, пунктир між кроками, сума — над плюсом і під мінусом (однаково в усіх), повернення (плюс між
                                  часткою й «чисто») — кольором частки з підписом «повернення»; назва й € год під полем; нульових кроків немає -->
@@ -417,7 +421,7 @@
                                         <th class="o_workset_profit_sticky fw-normal text-nowrap" t-esc="line.name"/>
                                         <t t-foreach="line.cells" t-as="cell" t-key="cell.month">
                                             <!-- без годин зі ставкою — без заливки: «—» або дрібно червоним сума за місяць (calc.cell_tone 'neg_text') -->
-                                            <td t-if="cell.has" class="text-end text-nowrap o_workset_profit_cell" t-att-class="cellClass(cell)" role="button" tabindex="0"
+                                            <td t-if="cell.has" class="text-end text-nowrap o_workset_profit_cell" t-att-class="cellClass(cell)" t-att-title="missHint(cell)" role="button" tabindex="0"
                                                 t-on-click="(ev) => this.onCell(ev, line, cell)" t-on-keydown="(ev) => this.keyCell(ev, line, cell)">
                                                 <span t-att-class="cellSmall(cell) ? 'small' : ''" t-esc="cellValue(cell)"/>
                                             </td>
@@ -482,7 +486,14 @@
                                 </tbody>
                             </table>
                         </div>
-                        <div class="small o_workset_profit_muted text-end mt-2">
+                        <!-- круг 4б: легенда — про обраний показник («чисто» або «залишається»); «—» у «Залишається» — місяць не перераховано -->
+                        <div t-if="view.metric === 'remain'" class="small o_workset_profit_muted text-end mt-2">
+                            <span class="text-danger">червоний</span> — залишається нижче нуля, <span class="text-warning">жовтий</span> — залишається впало більше ніж на
+                            <t t-esc="plain(data.threshold)"/> € год порівняно з минулим місяцем;
+                            <span class="text-danger">мінус червоним дрібно «€/міс»</span> — місяць без годин зі ставкою, але з витратами;
+                            «—» — місяць не перераховано після оновлення; клік по клітинці — ланцюжок до «Залишається».
+                        </div>
+                        <div t-else="" class="small o_workset_profit_muted text-end mt-2">
                             <span class="text-danger">червоний</span> — чисто нижче нуля, <span class="text-warning">жовтий</span> — упало більше ніж на
                             <t t-esc="plain(data.threshold)"/> € год порівняно з минулим місяцем;
                             <span class="text-danger">мінус червоним дрібно «€/міс»</span> — місяць без годин зі ставкою, але з витратами;

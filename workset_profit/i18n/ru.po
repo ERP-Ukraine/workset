@@ -1132,6 +1132,12 @@ msgstr "ZUS и общие"
 #. module: workset_profit
 #. odoo-javascript
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "частка ліній за годинами; клік — усі рахунки місяця"
+msgstr "доля линий по часам; клик — все счета месяца"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "загальні"
 msgstr "общие"
 
@@ -1438,8 +1444,8 @@ msgstr "красный"
 #. module: workset_profit
 #. odoo-javascript
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
-msgid "— чисто нижче нуля,"
-msgstr "— чисто ниже нуля,"
+msgid "— залишається нижче нуля,"
+msgstr "— остаётся ниже нуля,"
 
 #. module: workset_profit
 #. odoo-javascript
@@ -1450,8 +1456,8 @@ msgstr "жёлтый"
 #. module: workset_profit
 #. odoo-javascript
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
-msgid "— упало більше ніж на"
-msgstr "— упало больше чем на"
+msgid "— залишається впало більше ніж на"
+msgstr "— остаётся упало больше чем на"
 
 #. module: workset_profit
 #. odoo-javascript
@@ -1464,6 +1470,24 @@ msgstr "€ ч по сравнению с прошлым месяцем;"
 #: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
 msgid "мінус червоним дрібно «€/міс»"
 msgstr "минус красным мелко «€/мес»"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "— місяць без годин зі ставкою, але з витратами; «—» — місяць не перераховано після оновлення; клік по клітинці — ланцюжок до «Залишається»."
+msgstr "— месяц без часов со ставкой, но с расходами; «—» — месяц не пересчитан после обновления; клик по ячейке — цепочка до «Остаётся»."
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "— чисто нижче нуля,"
+msgstr "— чисто ниже нуля,"
+
+#. module: workset_profit
+#. odoo-javascript
+#: code:addons/workset_profit/static/src/xml/profit_screens.xml:0
+msgid "— упало більше ніж на"
+msgstr "— упало больше чем на"
 
 #. module: workset_profit
 #. odoo-javascript

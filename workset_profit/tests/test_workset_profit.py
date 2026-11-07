@@ -880,6 +880,38 @@ class TestWorksetProfit(TransactionCase):
         self.assertEqual((cell['remain'], cell['remain_ph'], cell['remain_tone']), (30.27, a.remain_per_hour, ''))
         self.assertEqual([s['key'] for s in cell['remain_chain']], ['zus', 'office', 'remain'])
 
+    def test_screen_month_without_overhead_not_recomputed(self):
+        # круг 4б: рядки, пораховані до круга 4 (підсумку «ZUS і загальні» місяця немає), — екрани кажуть «не перераховано», а не
+        # «Залишається 0 €»: A — признак, «—» і без кліку; B — без кроків ZUS / загальні; C — «—» без тону й без «N місяців»
+        self._screen_rows()
+        Screen = self.Month.with_context(profit_today='2030-08-10')
+        with self._deals():
+            over = Screen.profit_overview('2030-06-01')
+            card = Screen.profit_line_card(self.line_a.id, '2030-06-01')
+            data = Screen.profit_matrix('2030-05-01', '2030-07-31')
+        self.assertTrue(over['oh_missing'])
+        self.assertEqual(over['oh_hint'], calc.t('oh_missing', self.Month._lang()))
+        self.assertEqual((over['totals']['remain'], over['totals']['remain_ph'], over['totals']['overhead_ph']), (None, None, None))
+        self.assertEqual(over['totals']['net'], 70, '«чисто» — як було')
+        self.assertFalse(over['opens']['remain'])
+        tile = [t for t in over['lines'] if t['id'] == self.line_a.id][0]
+        self.assertEqual((tile['remain'], tile['remain_ph']), (None, None))
+        self.assertTrue(card['oh_missing'])
+        self.assertEqual(card['waterfall']['bars'][-1]['key'], 'net', 'кроків ZUS / загальні немає')
+        self.assertIsNone(card['totals']['remain_ph'])
+        self.assertTrue(all(v is None for v in card['series']['remain']), 'точок «Залишається» немає')
+        cells = [x for x in data['lines'] if x['id'] == self.line_a.id][0]['cells']
+        self.assertEqual([(c['remain'], c['remain_ph'], c['remain_tone'], c['oh_missing']) for c in cells], [(None, None, '', True)] * 3)
+        self.assertEqual([c['tone'] for c in cells], ['', 'drop', 'neg'], '«чисто» — тони як були')
+        total = [x for x in data['lines'] if x['id'] == self.line_a.id][0]['total']
+        self.assertEqual((total['remain'], total['remain_ph'], total['oh_missing']), (None, None, True))
+        # після перерахунку (березень) підсумок є — признака немає
+        self._run()
+        with self._deals():
+            done = self.Month.with_context(profit_today='2030-04-20').profit_overview(M)
+        self.assertFalse(done['oh_missing'])
+        self.assertIsNotNone(done['totals']['remain'])
+
     def test_screen_access_only_viewer_group(self):
         viewer = new_test_user(self.env, login='ws_profit_screen_viewer', groups='base.group_user,workset_profit.group_viewer')
         plain = new_test_user(self.env, login='ws_profit_screen_plain', groups='base.group_user')

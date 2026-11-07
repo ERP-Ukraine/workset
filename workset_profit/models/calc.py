@@ -189,6 +189,10 @@ TX = {
     'v_office': ['Загальні фірм: у рядках %s, в «Офісі» %s, різниця %s.', 'Общие фирм: в строках %s, в «Офисе» %s, разница %s.'],
     'v_unlabeled': ['ZUS без мітки місяця: %d, сума %s — місяць за датою проводки.',
                     'ZUS без метки месяца: %d, сумма %s — месяц по дате проводки.'],
+    'v_outside': ['ZUS/PIT-4 з міткою поза вікном: %d, сума %s — жоден місяць їх не рахує (перевірити мітку).',
+                  'ZUS/PIT-4 с меткой вне окна: %d, сумма %s — ни один месяц их не считает (проверить метку).'],
+    'oh_missing': ['Місяць не перераховано після оновлення — натисніть «Перерахувати»',
+                   'Месяц не пересчитан после обновления — нажмите «Пересчитать»'],
     'v_zus_elsewhere': ['Аналітика рахунків ZUS / PIT-4 поза «Офісом»: %s — можливий подвійний рахунок (розмітити «ігнор»).',
                         'Аналитика счетов ZUS / PIT-4 вне «Офиса»: %s — возможен двойной счёт (разметить «игнор»).'],
     'months': [('січень', 'лютий', 'березень', 'квітень', 'травень', 'червень', 'липень', 'серпень', 'вересень', 'жовтень', 'листопад',
@@ -922,6 +926,16 @@ def contrib_window(first):
     return add_months(first, -CONTRIB_AHEAD), month_last(add_months(first, CONTRIB_BACK))
 
 
+def contrib_outside(texts, day):
+    """Рахунок з єдиною міткою, проведений поза вікном її місяця (calc.contrib_window: раніше за місяць до місяця роботи або пізніше за рік
+    після) — його не знайде перерахунок жодного місяця (круг 4б: показати в звірці місяця проводки). → місяць мітки «РРРР-ММ-01» або ''."""
+    work = contrib_month(texts, day)
+    if not work['labeled']:
+        return ''
+    lo, hi = contrib_window(work['month'])
+    return '' if lo <= iso(day) <= hi else work['month']
+
+
 def contrib_sum(items):
     """Рахунки ZUS / PIT-4 місяця роботи → {'zus' (усі, EUR; витрата — мінус), 'pit4' (з них PIT-4), 'move_ids', 'unlabeled_ids',
     'unlabeled' (сума без мітки)}. items — [{'move_id', 'kind', 'amount', 'labeled'}]."""
@@ -959,7 +973,7 @@ def overhead(rows, zus, office):
     """Загальні місяця за годинами табеля (версія 1): zus — ZUS і PIT-4 місяця роботи, office — загальні фірм (рядки «Офіс» без рахунків
     ZUS / PIT-4), EUR, витрата — мінус. Ділиться на години (hours_total) рядків ліній і «без лінії» (overhead_split — окремо ZUS і
     окремо загальні). rows — рядки assemble → (рядки з полями OVERHEAD_FIELDS: zus_amount, office_amount — частки (мінус), remain =
-    net + обидві частки (лише лінія й «без лінії»), remain_per_hour — на години зі ставкою, як net_per_hour; підсумок {'zus', 'office',
+    net + обидві частки (лише лінія й «без лінії»), remain_per_hour — на години зі ставкою (годин немає — None, круг 4б); підсумок {'zus', 'office',
     'total', 'hours', 'per_hour', 'zus_rest', 'office_rest'}: rest — що не розподілено, бо годин місяця немає). Чисто й інші поля не
     змінюються."""
     rows = [dict(r) for r in rows or []]
@@ -973,11 +987,27 @@ def overhead(rows, zus, office):
         remain = cents(r.get('net')) + z + o if mine else 0
         hr = round(float(r.get('hours_rate') or 0), 2)
         r.update({'zus_amount': eur(z), 'office_amount': eur(o), 'remain': eur(remain),
-                  'remain_per_hour': round(eur(remain) / hr, 2) if (mine and hr) else 0.0})
+                  'remain_per_hour': round(eur(remain) / hr, 2) if (mine and hr) else None})
     hours = round(sum(w for _k, w in weights), 2)
     return rows, {'zus': eur(zc), 'office': eur(oc), 'total': eur(zc + oc), 'hours': hours,
                   'per_hour': round(eur(zc + oc) / hours, 4) if hours else 0.0,
                   'zus_rest': eur(zc - sum(zs.values())), 'office_rest': eur(oc - sum(ofs.values()))}
+
+
+def office_rows_in(rows, dup):
+    """Рядки «Офіс», з яких складено «Загальні фірм» (круг 4б: клік = число): rows — [{'id', 'analytic_id', 'amount'}] рядків «Офіс»
+    місяця, dup — {стаття: центи аналітики рахунків ZUS / PIT-4 у її рядку «Офіс»} (або [[стаття, центи]]). Рядок цілком із рахунків
+    ZUS / PIT-4 — не входить (він уже в ZUS); решта — входить. → {'ids', 'partial' (рядки, де ZUS лише частина: у списку весь рядок)}."""
+    dup = dict(dup.items() if isinstance(dup, dict) else (dup or []))
+    ids, partial = [], []
+    for r in rows or []:
+        d = dup.get(r.get('analytic_id') or 0, 0)
+        if d and d == cents(r.get('amount')):
+            continue
+        ids.append(r['id'])
+        if d:
+            partial.append(r['id'])
+    return {'ids': ids, 'partial': partial}
 
 
 def remain_steps(row):
@@ -1050,7 +1080,8 @@ def verify(rows, aal_expected, dkv_expected, month, lang='uk', raw=None, moved=0
     без транзакцій» — попередження про можливий подвійний рахунок).
     overhead (круг 4; немає — не звіряється) — {'zus_books' (ZUS і PIT-4 місяця за рахунками), 'zus_rows' (частки рядків + не
     розподілене), 'office_books' (рядки «Офіс» без рахунків ZUS / PIT-4), 'office_rows', 'unlabeled_n', 'unlabeled', 'elsewhere'
-    (аналітика рахунків ZUS / PIT-4 у рядках не «Офіс»)}: розподілене = книгам до цента; без мітки й «поза Офісом» — довідково.
+    (аналітика рахунків ZUS / PIT-4 у рядках не «Офіс»), 'outside_n', 'outside' (круг 4б: рахунки місяця проводки з міткою поза вікном
+    пошуку — contrib_outside)}: розподілене = книгам до цента; без мітки, «поза Офісом» і «поза вікном» — довідково.
     rows — [{'name', 'tag', поля SPREAD, 'aal_amount', 'dkv_amount'}] → {'ok', 'aal', 'aal_expected', 'dkv', 'dkv_expected', 'bad',
     'raw_bad', 'text'}."""
     aal = sum(cents(r.get('aal_amount')) for r in rows or [])
@@ -1088,6 +1119,8 @@ def verify(rows, aal_expected, dkv_expected, month, lang='uk', raw=None, moved=0
         parts.append(t('v_unlabeled', lang) % (oh['unlabeled_n'], money_text(oh.get('unlabeled'))))
     if cents(oh.get('elsewhere')):
         parts.append(t('v_zus_elsewhere', lang) % money_text(oh.get('elsewhere')))
+    if oh.get('outside_n'):
+        parts.append(t('v_outside', lang) % (oh['outside_n'], money_text(oh.get('outside'))))
     if cents(moved):
         parts.append(t('v_moved', lang) % money_text(moved))
     nb = nobill or {}

@@ -28,7 +28,8 @@ IDS_MAX = 2000  # id в описі списку «Рядків за місяць
 COST_FIELDS = tuple(f for f in calc.CHAIN if f != 'share')  # між часткою й «чисто»: оренда авто плюсом, витрати лінії мінусом
 # витрати з аналітики й транзакцій DKV (без оренди авто — вона зі ставок, і без житла, яке вираховує замовник, — воно з правил)
 RECORD_COSTS = tuple(f for f in COST_FIELDS if f not in ('car_rent', 'housing_customer'))
-OVERHEAD_READ = ['month', 'zus', 'office', 'total', 'hours', 'per_hour', 'move_ids', 'unlabeled_ids']
+OVERHEAD_READ = ['month', 'zus', 'office', 'office_dup', 'total', 'hours', 'per_hour', 'move_ids', 'unlabeled_ids']
+REMAIN_KEYS = ('zus', 'office', 'overhead', 'remain', 'zus_ph', 'office_ph', 'overhead_ph', 'remain_ph')  # calc.remain_totals
 
 
 class WorksetProfitScreens(models.Model):
@@ -86,7 +87,7 @@ class WorksetProfitScreens(models.Model):
         cust_lines, line_nodes = me._lines_index()
         ts = me._timesheets(calc.add_days(first, -(calc.STINT_GAP_DAYS + 1)), last) if with_ts else None
         entries, refs = me._month_entries(first, last, cust_lines, line_nodes, ts, hr)
-        return {'entries': entries, 'refs': refs, 'ts': ts, 'cust_lines': cust_lines, 'kinds': calc.kind_refs(entries, refs)}
+        return {'month': month, 'entries': entries, 'refs': refs, 'ts': ts, 'cust_lines': cust_lines, 'kinds': calc.kind_refs(entries, refs)}
 
     def _overheads(self, months):
         """«ZUS і загальні місяця» (workset.profit.overhead — пише перерахунок) → {місяць: {'id', 'zus', 'office', 'total', 'hours',
@@ -103,9 +104,31 @@ class WorksetProfitScreens(models.Model):
             return False
         return self._open(title, [('id', 'in', sorted(ids)[:IDS_MAX])], 'account.move')
 
-    def _office_open(self, months, title):
-        """Загальні фірм — рядки «Офіс» місяців months (з них загальні; аналітика рахунків ZUS / PIT-4 у них — у підсумку місяця окремо)."""
-        return self._open(title, [('month', 'in', sorted(months)), ('row_kind', '=', 'office')])
+    def _office_open(self, months, title, parts=None, ohs=None):
+        """Загальні фірм — рядки «Офіс» місяців months, з яких складено число (круг 4б: клік = число): місяць без аналітики рахунків
+        ZUS / PIT-4 в «Офісі» (office_dup = 0) — усі рядки «Офіс»; є — без рядків, складених цілком із неї (calc.office_rows_in; розклад
+        місяця — parts, якщо це той самий місяць, інакше _month_parts без табелів). ohs — підсумки місяців (_overheads; немає — читаються).
+        Рядків немає — False."""
+        months = sorted(months)
+        ohs = ohs if ohs is not None else self._overheads(months)
+        if not any(calc.cents((ohs.get(m) or {}).get('office_dup')) for m in months):
+            dom = [('month', 'in', months), ('row_kind', '=', 'office')]
+            return bool(self.search_count(dom)) and self._open(title, dom)
+        ids = []
+        for m in months:
+            rows = self.search_read([('month', '=', m), ('row_kind', '=', 'office')], ['analytic_id', 'amount'])
+            for r in rows:
+                r['analytic_id'] = r['analytic_id'][0] if r['analytic_id'] else 0
+            dup = {}
+            if calc.cents((ohs.get(m) or {}).get('office_dup')):
+                p = parts if (parts and parts.get('month') == m) else self._month_parts(m, with_ts=False)
+                dup = self.sudo()._contrib_in_rows(p['entries'], p['refs'])['by_analytic']
+            ids += calc.office_rows_in(rows, dup)['ids']
+        return bool(ids) and self._open(title, [('id', 'in', sorted(ids)[:IDS_MAX])])
+
+    def _no_overhead(self, totals):
+        """Круг 4б: місяць пораховано до круга 4 (підсумку «ZUS і загальні» немає) — «Залишається» й частки невідомі, а не 0: None."""
+        return dict(totals, **{k: None for k in REMAIN_KEYS})
 
     def _costs_open(self, now, parts, fallback, label, lang):
         """«Житло, авто, паливо, інструмент» «Огляду» (круг 4, ревю 3в): записи витрат ліній місяця, як кроки водоспаду B — рядки аналітики
@@ -223,10 +246,16 @@ class WorksetProfitScreens(models.Model):
         series['axis'] = calc.chart_axis(series['lines'] + [{'name': series['total_label'], 'values': series['total']}], series['labels'])
         # круг 4: «ZUS і загальні» і «Залишається» — з рядків ліній (частки за годинами), рахунки й чип «без мітки» — з підсумку місяця
         oh = self._overheads([month]).get(month)
+        # круг 4б: підсумку місяця немає (пораховано до круга 4) — «—» і підказка «не перераховано», а не «Залишається 0 €»
+        tot = dict(calc.totals(now), **calc.remain_totals(now))
+        if now and not oh:
+            tot = self._no_overhead(tot)
+            for x in lines:
+                x.update(remain=None, remain_ph=None, remain_tone='')
         return {
             'month': calc.month_info(month, lang),
             'months': [calc.month_info(m, lang) for m in sorted({r['month'] for r in line_rows} | {month}, reverse=True)],
-            'has': bool(now), 'totals': dict(calc.totals(now), **calc.remain_totals(now)),
+            'has': bool(now), 'totals': tot, 'oh_missing': bool(now) and not oh, 'oh_hint': calc.t('oh_missing', lang),
             'opens': self._overview_opens(month, now, parts, label, lang, mine, oh),
             'alerts': self._overview_alerts(month, mine, line_rows, lang, oh),
             'lines': calc.tile_order(lines), 'series': series,
@@ -251,9 +280,12 @@ class WorksetProfitScreens(models.Model):
                               line_dom + ['|'] * (len(COST_FIELDS) - 1) + [(f, '!=', 0) for f in COST_FIELDS])
         costs = self._costs_open(now, parts, fallback, label, lang)
         zus = self._moves_open((oh or {}).get('move_ids'), calc.t('o_zus', lang) % label)
-        office = any(r['row_kind'] == 'office' for r in month_rows) and self._office_open([month], calc.t('o_office', lang) % label)
+        office = any(r['row_kind'] == 'office' for r in month_rows) and self._office_open(
+            [month], calc.t('o_office', lang) % label, parts, {month: oh} if oh else {})
+        # круг 4б: місяць без підсумку «ZUS і загальні» — «Залишається» невідоме: без кліку
+        remain = rows if oh else False
         return {'hours': hours, 'share': rows, 'costs': costs, 'net': rows, 'net_month': rows, 'zus': zus, 'office': office,
-                'remain': rows, 'remain_month': rows}
+                'remain': remain, 'remain_month': remain}
 
     def _housing_from(self, line_id, day, hr):
         """Житло лінії не з наших грошей на day (правило лінії й правила її замовників — як _housing_at «Ставок», з правил hr, прочитаних
@@ -341,11 +373,13 @@ class WorksetProfitScreens(models.Model):
         out['line'] = {'id': line.id, 'name': line.sudo().display_name}
         # графік — лише місяці, де в лінії є години зі ставкою (€ год є), без порожніх місяців до старту лінії (круг 3а)
         data_months = [m for m in all_months if m in by_month and by_month[m]['hours_rate']]
+        done = set(self._overheads(data_months))
         # круг 4: друга серія — «Залишається» € год (лінія поверх стовпців «чисто»)
         out['series'] = {'months': [calc.month_info(m, lang) for m in data_months], 'labels': calc.month_axis(data_months, lang),
                          'net_label': calc.t('l_net', lang), 'share_label': calc.t('l_share', lang), 'remain_label': calc.t('l_remain', lang),
                          'net': [by_month[m]['net_per_hour'] for m in data_months],
-                         'remain': [by_month[m]['remain_per_hour'] for m in data_months],
+                         # місяць без підсумку «ZUS і загальні» (не перераховано, круг 4б) — без точки, не 0
+                         'remain': [by_month[m]['remain_per_hour'] if m in done else None for m in data_months],
                          'share': [calc.per_hour(by_month[m]['share'], by_month[m]['hours_rate']) for m in data_months]}
         row = by_month.get(month)
         if not row:
@@ -356,9 +390,10 @@ class WorksetProfitScreens(models.Model):
         line_open = self._line_open(line.id, name, month, label, lang)
         oh = self._overheads([month]).get(month) or {}
         zus_open = self._moves_open(oh.get('move_ids'), calc.t('o_zus', lang) % label)
-        office_open = self._office_open([month], calc.t('o_office', lang) % label)
-        # круг 4: після «чисто» — − ZUS, PIT-4 → − Загальні фірм → = Залишається (calc.remain_steps; часток немає — кроків немає)
-        steps = calc.chain_steps(row) + calc.remain_steps(row)
+        office_open = self._office_open([month], calc.t('o_office', lang) % label, parts, {month: oh} if oh else {})
+        # круг 4: після «чисто» — − ZUS, PIT-4 → − Загальні фірм → = Залишається (calc.remain_steps; часток немає — кроків немає); круг 4б:
+        # підсумку місяця немає (не перераховано після оновлення) — кроків теж немає, «Залишається» — «—»
+        steps = calc.chain_steps(row) + (calc.remain_steps(row) if oh else [])
         for s in steps:
             s['label'] = calc.t('s_' + s['key'], lang)
             # круг 3в: крок водоспаду — записи свого виду (як група «Рядків»); частка й «чисто» — рядок лінії; круг 4: ZUS — рахунки
@@ -382,15 +417,17 @@ class WorksetProfitScreens(models.Model):
         fold = calc.pays_fold(pays, lang)
         # згорнутий рядок «Усе платимо ми» — правила «Хто платить» лінії (немає — порожній список: «правил немає → ми»)
         fold['open'] = self._open(calc.t('o_rules', lang) % name, [('line_id', '=', line.id)], COST_RULE)
-        out.update({'has': True, 'row_id': row['id'], 'totals': dict(calc.totals([row]), **calc.remain_totals([row])),
-                    'waterfall': calc.waterfall(steps), 'pays': pays, 'pays_fold': fold, 'no_rate': no_rate,
+        totals = dict(calc.totals([row]), **calc.remain_totals([row]))
+        out.update({'has': True, 'row_id': row['id'], 'totals': totals if oh else self._no_overhead(totals),
+                    'oh_missing': not oh, 'oh_hint': calc.t('oh_missing', lang), 'waterfall': calc.waterfall(steps), 'pays': pays, 'pays_fold': fold, 'no_rate': no_rate,
                     'aside': [{'key': f, 'label': calc.aside_label(f, lang), 'amount': row[f]} for f in calc.ASIDE if calc.cents(row[f])],
                     'recomputed': self._stamp(row.get('write_date'))})
         out.update(self._card_rows(line, month, row, lang, parts, {'hours': oh.get('hours') or 0, 'zus': zus_open, 'office': office_open}))
         # підсумки (круг 3в): «Години» — табелі лінії (той самий список, що рядок табелів), решта — рядок лінії місяця; круг 4 — шостий,
         # «Залишається», теж рядок лінії
         ts = out['rows'][-1]['open']
-        out['opens'] = {'hours': ts, 'share': line_open, 'costs': line_open, 'net': line_open, 'net_month': line_open, 'remain': line_open}
+        out['opens'] = {'hours': ts, 'share': line_open, 'costs': line_open, 'net': line_open, 'net_month': line_open,
+                        'remain': line_open if oh else False}
         return out
 
     def _stamp(self, dt):
@@ -563,6 +600,8 @@ class WorksetProfitScreens(models.Model):
         # колонка «N місяців» відкриває рядки за весь період таблиці: «січень 2026 — жовтень 2026»
         span = '%s — %s' % (calc.month_info(months[0], lang)['title_in'], calc.month_info(months[-1], lang)['title_in'])
         period = [('month', '>=', months[0]), ('month', '<=', months[-1])]
+        # круг 4б: місяці з підсумком «ZUS і загальні» (разом із попереднім — для тону); без нього «Залишається» невідоме — «—» без тону
+        ohs = self._overheads(([before] if before >= calc.MIN_MONTH else []) + months)
         lines = []
         for lid in sorted({r['line'] for r in in_period if r['row_kind'] == 'line'}, key=lambda i: (order.get(i, 10 ** 6), i)):
             mine = by_line[lid]
@@ -572,30 +611,35 @@ class WorksetProfitScreens(models.Model):
                 if not r:
                     cells.append({'month': m, 'has': False})
                     continue
-                p = mine.get(calc.add_months(m, -1))
+                pm = calc.add_months(m, -1)
+                p = mine.get(pm)
                 prev_ph = p['net_per_hour'] if p and p['hours_rate'] else None
                 net_ph = r['net_per_hour'] if r['hours_rate'] else None
                 # круг 4: показник «Залишається» — ті самі правила тону на remain / remain_per_hour
-                prev_rph = p['remain_per_hour'] if p and p['hours_rate'] else None
-                remain_ph = r['remain_per_hour'] if r['hours_rate'] else None
+                done = m in ohs
+                prev_rph = p['remain_per_hour'] if p and p['hours_rate'] and pm in ohs else None
+                remain_ph = r['remain_per_hour'] if r['hours_rate'] and done else None
                 steps = calc.chain_steps(r)
-                more = calc.remain_steps(r)
+                more = calc.remain_steps(r) if done else []
                 for s in steps + more:
                     s['label'] = calc.t('s_' + s['key'], lang)
                 cells.append({'month': m, 'has': True, 'net': r['net'], 'net_ph': net_ph,
                               # годин зі ставкою немає — без заливки (calc.cell_tone: 'neg_text' — дрібно червоним € за місяць)
                               'tone': calc.cell_tone(r['net'], net_ph, prev_ph, threshold),
-                              'remain': r['remain'], 'remain_ph': remain_ph,
-                              'remain_tone': calc.cell_tone(r['remain'], remain_ph, prev_rph, threshold),
+                              'remain': r['remain'] if done else None, 'remain_ph': remain_ph, 'oh_missing': not done,
+                              'remain_tone': calc.cell_tone(r['remain'], remain_ph, prev_rph, threshold) if done else '',
                               'chain': steps, 'remain_chain': more})
             mine_rows = [mine[m] for m in months if m in mine]
             tot = dict(calc.totals(mine_rows), **calc.remain_totals(mine_rows))
+            # «Залишається» за період — лише коли всі місяці лінії перераховано після круга 4 (інакше сума неповна)
+            full = all(m in ohs for m in months if m in mine)
             # підсумок періоду нижче нуля — червоним, як клітинки (круг 3б); клік — рядки лінії за весь період таблиці (круг 3в)
             lines.append({'id': lid, 'name': names[lid], 'cells': cells,
                           'total': {'net': tot['net'], 'net_ph': tot['net_ph'] if tot['hours_rate'] else None,
                                     'tone': 'neg' if calc.cents(tot['net']) < 0 else '',
-                                    'remain': tot['remain'], 'remain_ph': tot['remain_ph'] if tot['hours_rate'] else None,
-                                    'remain_tone': 'neg' if calc.cents(tot['remain']) < 0 else '',
+                                    'remain': tot['remain'] if full else None,
+                                    'remain_ph': tot['remain_ph'] if (tot['hours_rate'] and full) else None, 'oh_missing': not full,
+                                    'remain_tone': 'neg' if (full and calc.cents(tot['remain']) < 0) else '',
                                     'open': self._open(calc.t('o_line', lang) % (names[lid], span), period + [('row_kind', '=', 'line'),
                                                                                                                ('line_id', '=', lid)])}})
 
@@ -616,7 +660,6 @@ class WorksetProfitScreens(models.Model):
             if r['row_kind'] == 'owner':
                 owners.setdefault(r['analytic_id'][1] if r['analytic_id'] else '—', []).append(r)
         checks = self._checks(months)
-        ohs = self._overheads(months)
 
         def overhead_row(field, opener, title):
             # круг 4: «ZUS, PIT-4» і «Загальні фірм» — суми місяця з підсумку «ZUS і загальні місяця» (уся компанія, не частки ліній);
@@ -645,11 +688,11 @@ class WorksetProfitScreens(models.Model):
             'period': {'from': months[0], 'to': months[-1], 'text': calc.months_text(len(months), lang)},
             'options': [calc.month_info(m, lang) for m in calc.month_list(calc.MIN_MONTH, self._cur_month(today))],
             'threshold': threshold, 'has': bool(lines), 'lines': lines,
-            'labels': {'hour': calc.t('l_hour', lang), 'month': calc.t('l_month', lang)},
+            'labels': {'hour': calc.t('l_hour', lang), 'month': calc.t('l_month', lang), 'oh_missing': calc.t('oh_missing', lang)},
             'unallocated': company(un, 'unallocated', lambda x: calc.t('t_unalloc', lang) % x) if un else False,
             'owners': [dict(company(owners[code], 'owner', lambda x, code=code: calc.t('t_owner', lang) % (code, x)), code=code)
                        for code in sorted(owners)],
             'zus': overhead_row('zus', zus_open, lambda x: calc.t('o_zus', lang) % x),
-            'office': overhead_row('office', self._office_open, lambda x: calc.t('o_office', lang) % x),
+            'office': overhead_row('office', lambda ms, title: self._office_open(ms, title, None, ohs), lambda x: calc.t('o_office', lang) % x),
             'checks': [check_cell(m) for m in months],
         }

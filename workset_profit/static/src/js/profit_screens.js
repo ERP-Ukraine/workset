@@ -765,6 +765,10 @@ export class ProfitMatrix extends ProfitScreen {
      *  Годин зі ставкою немає: «—», а місяць нижче нуля — сума за місяць з одиницею «€/міс», дрібно червоним. */
     cellValue(cell) {
         const v = this.pick(cell);
+        // круг 4б: місяць не перераховано після оновлення — «Залишається» невідоме: «—», не 0
+        if (v.amount === null || v.amount === undefined) {
+            return "—";
+        }
         if (this.view.unit === "hour") {
             if (hasPh(v.ph)) {
                 return perHour(v.ph);
@@ -779,9 +783,17 @@ export class ProfitMatrix extends ProfitScreen {
         return this.view.unit === "hour" && this.pick(cell).tone === "neg_text";
     }
 
+    /** Підказка клітинки (круг 4б): у режимі «Залишається» місяць без підсумку «ZUS і загальні» — «не перераховано, натисніть …». */
+    missHint(x) {
+        return this.view.metric === "remain" && x.oh_missing ? this.data.labels.oh_missing : false;
+    }
+
     /** Підсумок періоду лінії в обраному показнику: «€ год» (немає годин — «—») або € за місяць. */
     totalValue(total) {
         const v = this.pick(total);
+        if (v.amount === null || v.amount === undefined) {
+            return "—";
+        }
         if (this.view.unit === "hour") {
             return hasPh(v.ph) ? perHour(v.ph) : "—";
         }

@@ -409,15 +409,18 @@ class WorksetProfitMonth(models.Model):
         skip = self.env['workset.rate'].sudo()._skip_companies()
         if skip:
             dom.append(('company_id', 'not in', skip))
+        return [dict(it, labeled=calc.contrib_month(it['texts'], it['date'])['labeled'])
+                for it in self._contrib_moves(dom) if calc.contrib_month(it['texts'], it['date'])['month'] == first]
+
+    def _contrib_moves(self, dom):
+        """Рахунки ZUS / PIT-4 за доменом account.move (вид — calc.contrib_kind) → [{'move_id', 'kind', 'amount', 'date', 'texts'}]; сума —
+        рядки рахунку (display_type 'product': без податку й кредиторки), balance у валюті фірми → EUR за датою рядка, мінусом."""
         eur = self.env.ref('base.EUR')
         out = []
         for move in self.env['account.move'].sudo().search(dom, order='date, id'):
             texts = self._move_texts(move)
             kind = calc.contrib_kind(move.partner_id.name, texts)
             if not kind:
-                continue
-            work = calc.contrib_month(texts, calc.iso(move.date))
-            if work['month'] != first:
                 continue
             cur = move.company_id.currency_id
             total = 0
@@ -426,8 +429,19 @@ class WorksetProfitMonth(models.Model):
                 if cur and cur != eur:
                     amount = cur._convert(amount, eur, move.company_id, ml.date)
                 total += calc.cents(amount)
-            out.append({'move_id': move.id, 'kind': kind, 'amount': calc.eur(total), 'labeled': work['labeled']})
+            out.append({'move_id': move.id, 'kind': kind, 'amount': calc.eur(total), 'date': calc.iso(move.date), 'texts': texts})
         return out
+
+    def _contrib_outside(self, first, last):
+        """Круг 4б: рахунки ZUS / PIT-4, проведені в місяці first – last, з міткою, до вікна якої дата проводки не входить
+        (calc.contrib_outside) — їх не рахує жоден місяць → {'n', 'amount'} для звірки (довідково)."""
+        dom = [('state', '=', 'posted'), ('move_type', 'in', list(calc.CONTRIB_TYPES)), ('date', '>=', first), ('date', '<=', last),
+               '|', ('partner_id.name', 'ilike', 'ubezpiecze'), ('partner_id.name', 'ilike', 'skarbow')]
+        skip = self.env['workset.rate'].sudo()._skip_companies()
+        if skip:
+            dom.append(('company_id', 'not in', skip))
+        got = [it for it in self._contrib_moves(dom) if calc.contrib_outside(it['texts'], it['date'])]
+        return {'n': len(got), 'amount': calc.eur(sum(calc.cents(it['amount']) for it in got))}
 
     def _contrib_ids(self, move_ids):
         """Які з рахунків move_ids — ZUS / PIT-4 (партнер і calc.contrib_kind) → множина id. Тексти рядків читаються лише в рахунків
@@ -442,18 +456,20 @@ class WorksetProfitMonth(models.Model):
     def _contrib_in_rows(self, entries, refs):
         """Аналітика рахунків ZUS / PIT-4 у розкладі місяця (за рахунком рядка аналітики — refs[i]['move']) → {'office' (у рядках «Офіс»:
         із загальних виключається — інакше двічі), 'elsewhere' (у лініях, «без лінії», «Не розподілено», «Власник» — довідково в
-        звірці)}, EUR."""
+        звірці), 'by_analytic' (круг 4б: {стаття рядка «Офіс»: центи} — для calc.office_rows_in)}, EUR."""
         moves = {(ref or {}).get('move') for ref in refs or []} - {0, None}
         mine = self._contrib_ids(moves) if moves else set()
         office = elsewhere = 0
+        by_analytic = {}
         for e, ref in zip(entries or [], refs or []):
             if (ref or {}).get('move') not in mine:
                 continue
             if e['key'][0] == 'office':
                 office += calc.cents(e['amount'])
+                by_analytic[e['key'][3]] = by_analytic.get(e['key'][3], 0) + calc.cents(e['amount'])
             elif e['key'][0] in ('line', 'noline', 'unallocated', 'owner'):
                 elsewhere += calc.cents(e['amount'])
-        return {'office': calc.eur(office), 'elsewhere': calc.eur(elsewhere)}
+        return {'office': calc.eur(office), 'elsewhere': calc.eur(elsewhere), 'by_analytic': by_analytic}
 
     def _month_entries(self, first, last, cust_lines, line_nodes, ts=None, hr=None):
         """Записи розкладу місяця (кроки 2–4 перерахунку): аналітика за розміткою, транзакції DKV за періодом картки, перевезення без лінії —
@@ -560,7 +576,8 @@ class WorksetProfitMonth(models.Model):
                 'account_id': r['account_id'] or False, 'card_id': r['card_id'] or False, 'tag': r['tag'] or False,
                 'hint_kind': r['hint'] or False, 'net': r['net'], 'net_per_hour': r['net_per_hour'], 'fund_left': r['fund_left']}
         vals.update({f: r[f] for f in calc.HOURS + calc.MONEY})
-        vals.update({f: r.get(f) or 0.0 for f in calc.OVERHEAD_FIELDS})
+        # remain_per_hour без годин зі ставкою — пусто (calc.overhead → None), як «немає числа», а не 0 (круг 4б)
+        vals.update({f: (r.get(f) if r.get(f) is not None else False) for f in calc.OVERHEAD_FIELDS})
         return vals
 
     # ——— звірка ———
@@ -595,11 +612,13 @@ class WorksetProfitMonth(models.Model):
         if not oh:
             return None
         contrib = calc.contrib_sum(self._contrib_items(first))
+        outside = self._contrib_outside(first, calc.month_last(first))
         office = sum(calc.cents(r['amount']) for r in rows if r.get('row_kind') == 'office') - calc.cents(oh.office_dup)
         return {'zus_books': contrib['zus'], 'zus_rows': calc.eur(sum(calc.cents(r.get('zus_amount')) for r in rows) + calc.cents(oh.zus_rest)),
                 'office_books': calc.eur(office),
                 'office_rows': calc.eur(sum(calc.cents(r.get('office_amount')) for r in rows) + calc.cents(oh.office_rest)),
-                'unlabeled_n': len(contrib['unlabeled_ids']), 'unlabeled': contrib['unlabeled'], 'elsewhere': oh.zus_elsewhere}
+                'unlabeled_n': len(contrib['unlabeled_ids']), 'unlabeled': contrib['unlabeled'], 'elsewhere': oh.zus_elsewhere,
+                'outside_n': outside['n'], 'outside': outside['amount']}
 
     # ——— публічне: інструмент штабу, кнопки, плановое ———
     @api.model
