@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Екран «Власник» (круг 2; макет A + таблиця «Драбина» макета B під ним): client action OWL (static/src/js/finance_screens.js), один
+         виклик сервера finance_owner (models/workset_finance_screens.py). path — постійна адреса сторінки (/odoo/workset-finance-owner):
+         посилання не залежить від номера дії в базі. Бачить лише група «Власник» — меню й метод сервера (_check_screen); місяць — у params дії
+         (з посилання «Прибутковість ліній» і назад), без нього — за замовчуванням сервера -->
+    <record id="action_owner" model="ir.actions.client">
+        <field name="name">Власник</field>
+        <field name="tag">workset_finance.owner</field>
+        <field name="path">workset-finance-owner</field>
+    </record>
+</odoo>

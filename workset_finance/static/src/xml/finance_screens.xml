@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <!-- Екран «Власник» (круг 2): макет A — шапка з вибором місяця, п'ять плиток однієї сітки з «з початку року», чипи (лише коли є що
+         сказати), водоспад і графік року поруч, нижній ряд «Власники» · «Перекази на особисті рахунки» · «Окремо від прибутку» (порожньої картки
+         немає); під усім — таблиця «Драбина» макета B і один рядок-легенда, без порожнього поля нижче. Стиль — «Прибутковість» (М3): колір лише
+         в тривог (червоне — нижче нуля чи розбіжність, жовте — увага) і в чистого прибутку (бренд), решта — класи й змінні теми Bootstrap.
+         Кожне число з описом 'open' відкриває свої записи (клік, Enter, пробіл); без опису — просто текст. Телефон: плитки — в один стовпець,
+         таблиця гортається вбік із закріпленою першою колонкою. Круг 2б: позначка джерела видна без наведення («розр.» / «попр.» у таблиці,
+         «розрахунок штабу» / «з поправкою» у плиток і стовпців водоспаду); неповний місяць — «неповний, по ДД.ММ» -->
+    <t t-name="workset_finance.Owner">
+        <div class="o_action o_workset_finance">
+            <Layout display="{ controlPanel: {} }" className="'o_workset_finance_main overflow-auto'">
+                <div class="container-fluid py-3" t-if="data">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                        <span class="fs-4">Власник — прибуток компанії</span>
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <span t-if="data.month.partial" class="small o_workset_finance_muted text-nowrap">неповний, по <t t-esc="data.month.partial"/></span>
+                            <!-- лише місяці, по яких є запис місяця драбини (з січня 2026), від останнього -->
+                            <Dropdown t-if="data.choices.length">
+                                <button class="btn btn-secondary"><i class="fa fa-calendar me-2"/><t t-esc="data.month.title"/></button>
+                                <t t-set-slot="content">
+                                    <t t-foreach="data.choices" t-as="m" t-key="m.value">
+                                        <DropdownItem onSelected="() => this.setMonth(m.value)"><t t-esc="m.title"/></DropdownItem>
+                                    </t>
+                                </t>
+                            </Dropdown>
+                        </div>
+                    </div>
+                    <!-- сервер не відповів на зміну місяця — дані попередні, з позначкою (і повідомлення Odoo) -->
+                    <div t-if="state.failed" class="alert alert-warning py-2">Не вдалося оновити — на екрані попередні дані</div>
+
+                    <t t-if="data.has">
+                        <!-- п'ять плиток: число місяця (клік — його записи), під ним — «з початку року» (Σ місяців від січня до обраного) і
+                             сіра позначка, якщо в сумі є розрахунок штабу чи поправка, і неповний місяць -->
+                        <div class="card o_workset_finance_band mb-3">
+                            <t t-foreach="data.tiles" t-as="tile" t-key="tile.key">
+                                <div class="o_workset_finance_band_cell text-center" t-att-class="clickCls(tile.open)" t-att-title="hint(tile.open)" t-att-role="role(tile.open)"
+                                     t-att-tabindex="tab(tile.open)" t-on-click="() => this.openList(tile.open)" t-on-keydown="(ev) => this.keyOpen(ev, tile.open)">
+                                    <span class="d-block text-muted">
+                                        <t t-if="tile.key === 's4_net'">Чистий прибуток</t>
+                                        <t t-elif="tile.key === 's4c_cash'">За грошима</t>
+                                        <t t-elif="tile.key === 'recruiting'">Рекрутинг разом</t>
+                                        <t t-elif="tile.key === 's2_ukraine'">Україна</t>
+                                        <t t-else="">Частки партнерів</t>
+                                    </span>
+                                    <span class="d-block fw-semibold lh-sm text-nowrap o_workset_finance_num o_workset_finance_tile_num" t-att-class="tileCls(tile)"><t t-esc="euros(tile.value)"/> €</span>
+                                    <span t-if="tile.key === 'recruiting'" class="d-block small o_workset_finance_muted">1 + 1а + 1г</span>
+                                    <span class="d-block small o_workset_finance_muted">з початку року <span class="text-nowrap"><t t-esc="euros(tile.ytd)"/> €</span></span>
+                                    <span t-if="tile.src or data.month.partial" class="d-block small o_workset_finance_muted">
+                                        <t t-if="tile.src === 'adjust'"><span>з поправкою</span></t>
+                                        <t t-elif="tile.src === 'calc'"><span>розрахунок штабу</span></t>
+                                        <t t-if="tile.src and data.month.partial"> · </t>
+                                        <t t-if="data.month.partial"><span class="text-nowrap">неповний, по <t t-esc="data.month.partial"/></span></t>
+                                    </span>
+                                </div>
+                            </t>
+                        </div>
+
+                        <!-- чипи в один рядок: місяць не закрито (жовта крапка), звірка (не зійшлася — червоним), якість даних (≥ порогу —
+                             червона крапка; поріг і «не розібрано X € із Y €» — у підказці й вікні; клік — три кошики), поправки, коли
+                             перераховано (за Києвом) -->
+                        <div t-if="data.chips.length" class="o_workset_finance_chips mb-3">
+                            <t t-foreach="data.chips" t-as="c" t-key="c.key">
+                                <div class="card rounded-pill flex-row align-items-center gap-2 px-3 py-2 o_workset_finance_chip" t-att-class="clickCls(c.open)" t-att-title="chipTitle(c)"
+                                     t-att-role="role(c.open)" t-att-tabindex="tab(c.open)" t-on-click="() => this.openList(c.open)" t-on-keydown="(ev) => this.keyOpen(ev, c.open)">
+                                    <t t-if="c.key === 'open'">
+                                        <span class="o_workset_finance_dot rounded-circle bg-warning"/>
+                                        <span class="text-nowrap">Місяць не закрито</span>
+                                    </t>
+                                    <t t-elif="c.key === 'check'">
+                                        <t t-if="c.ok"><i class="fa fa-check"/><span class="text-nowrap">Звірка зійшлася</span></t>
+                                        <t t-else=""><span class="o_workset_finance_dot rounded-circle bg-danger"/><span class="text-nowrap text-danger">Звірка не зійшлася</span></t>
+                                    </t>
+                                    <t t-elif="c.key === 'quality'">
+                                        <span t-if="c.bad" class="o_workset_finance_dot rounded-circle bg-danger"/>
+                                        <span class="text-nowrap">Якість даних</span>
+                                        <span class="badge rounded-pill o_workset_finance_count"><t t-esc="plain(c.pct)"/> %</span>
+                                    </t>
+                                    <t t-elif="c.key === 'adjust'">
+                                        <span class="text-nowrap">Поправки</span>
+                                        <span class="badge rounded-pill o_workset_finance_count" t-esc="c.count"/>
+                                    </t>
+                                    <t t-else="">
+                                        <span class="text-nowrap">Перераховано</span>
+                                        <span class="badge rounded-pill o_workset_finance_count" t-esc="c.text"/>
+                                    </t>
+                                </div>
+                            </t>
+                        </div>
+
+                        <div class="o_workset_finance_panels mb-3">
+                            <!-- водоспад: 1 → 1а → 1г → 2 → до часток → частки → чистий прибуток; нульові ступені сховано; сума — € над плюсом і
+                                 під мінусом; пунктир — рівень після кроку; стовпець — записи свого ступеня -->
+                            <div class="card">
+                                <div class="card-header fw-semibold">Як складається прибуток · <t t-esc="data.month.name"/></div>
+                                <div class="card-body">
+                                    <div class="o_workset_finance_fall">
+                                        <t t-foreach="data.waterfall.bars" t-as="b" t-key="b.key">
+                                            <div class="o_workset_finance_fall_col" t-att-class="clickCls(b.open)" t-att-title="hint(b.open)" t-att-role="role(b.open)"
+                                                 t-att-tabindex="tab(b.open)" t-on-click="() => this.openList(b.open)" t-on-keydown="(ev) => this.keyOpen(ev, b.open)">
+                                                <div class="o_workset_finance_fall_area">
+                                                    <div class="o_workset_finance_fall_zero" t-attf-style="bottom: {{data.waterfall.zero}}%;"/>
+                                                    <div t-if="!b_last" class="o_workset_finance_fall_link" t-att-style="linkStyle(b)"/>
+                                                    <div class="o_workset_finance_fall_bar" t-att-class="barClass(b)" t-att-style="barStyle(b)"/>
+                                                    <div class="o_workset_finance_fall_value small fw-semibold text-nowrap" t-att-class="b.dir === 'total' and b.amount &lt; 0 ? 'text-danger' : ''"
+                                                         t-att-style="valueStyle(b)"><t t-esc="stepAmount(b)"/> €</div>
+                                                </div>
+                                                <div class="o_workset_finance_fall_label small text-center">
+                                                    <span class="d-block" t-att-class="b.key === 's4_net' ? 'fw-semibold' : ''" t-esc="b.label"/>
+                                                    <!-- стовпець, чия сума — розрахунок штабу чи з поправкою: сіра позначка під підписом -->
+                                                    <span t-if="b.src" class="d-block o_workset_finance_muted o_workset_finance_note">
+                                                        <t t-if="b.src === 'adjust'">з поправкою</t>
+                                                        <t t-else="">розрахунок штабу</t>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </t>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- графік року: стовпці — чистий прибуток, лінія — до часток (тис. €); обраний місяць виділено; клік по місяцю — вибрати
+                                 його -->
+                            <div t-if="data.series" class="card">
+                                <div class="card-header fw-semibold">Чистий прибуток <t t-esc="data.year"/>, <span class="text-muted fw-normal">тис. €</span></div>
+                                <div class="card-body d-flex flex-column">
+                                    <div class="o_workset_finance_chart"><canvas t-ref="chart"/></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- нижній ряд: лише картки, де є що показати; ширина й висота — однакові -->
+                        <div t-if="bottomCount" t-attf-class="o_workset_finance_bottom o_workset_finance_bottom_{{bottomCount}} mb-3">
+                            <!-- «Власники»: сума місяця (клік — усі рядки власників), рядок на код власника — смуга, сума; частка окремо від витрат
+                                 компанії — дрібно під рядком, лише коли в рядку є стаття «частка»; колонка суми — фіксованої ширини: суми — правим
+                                 краєм на одній лінії, смуги — однієї шкали; клік — рядки аналітики -->
+                            <div t-if="data.owners" class="card">
+                                <div class="card-header d-flex justify-content-between align-items-baseline gap-2">
+                                    <span class="fw-semibold text-truncate">Власники · <t t-esc="data.month.name"/></span>
+                                    <span class="fw-semibold text-nowrap" t-att-class="clickCls(data.owners.open)" t-att-title="hint(data.owners.open)" t-att-role="role(data.owners.open)"
+                                          t-att-tabindex="tab(data.owners.open)" t-on-click="() => this.openList(data.owners.open)"
+                                          t-on-keydown="(ev) => this.keyOpen(ev, data.owners.open)"><t t-esc="euros(data.owners.total)"/> €</span>
+                                </div>
+                                <div class="card-body">
+                                    <t t-foreach="data.owners.rows" t-as="o" t-key="o_index">
+                                        <div class="o_workset_finance_owner" t-att-class="clickCls(o.open)" t-att-title="hint(o.open)" t-att-role="role(o.open)" t-att-tabindex="tab(o.open)"
+                                             t-on-click="() => this.openList(o.open)" t-on-keydown="(ev) => this.keyOpen(ev, o.open)">
+                                            <span class="text-truncate" t-att-title="o.code" t-esc="o.code"/>
+                                            <span class="o_workset_finance_owner_bar"><span class="o_workset_finance_owner_fill" t-attf-style="width: {{o.pct}}%;"/></span>
+                                            <span class="text-nowrap text-end"><t t-esc="euros(o.total)"/> €</span>
+                                            <span t-if="o.share" class="o_workset_finance_owner_sub small o_workset_finance_muted">частка <t t-esc="euros(o.share)"/><t t-if="o.company"> € · витрати компанії <t t-esc="euros(o.company)"/></t> €</span>
+                                        </div>
+                                    </t>
+                                </div>
+                            </div>
+                            <!-- «Перекази на особисті рахунки»: одержувач × сума × статус («без документа» — червона крапка); колонки суми й статусу —
+                                 фіксованої ширини (суми — правим краєм на одній лінії); клік — рядки виписки -->
+                            <div t-if="data.transfers" class="card">
+                                <div class="card-header fw-semibold">Перекази на особисті рахунки · <t t-esc="data.month.name"/></div>
+                                <div class="list-group list-group-flush">
+                                    <t t-foreach="data.transfers.rows" t-as="r" t-key="r.id">
+                                        <div class="list-group-item o_workset_finance_transfer" t-att-class="clickCls(r.open)" t-att-title="hint(r.open)" t-att-role="role(r.open)"
+                                             t-att-tabindex="tab(r.open)" t-on-click="() => this.openList(r.open)" t-on-keydown="(ev) => this.keyOpen(ev, r.open)">
+                                            <span class="text-truncate" t-att-title="r.name" t-esc="r.name"/>
+                                            <span class="text-nowrap text-end"><t t-esc="euros(r.amount)"/> €</span>
+                                            <span class="badge rounded-pill o_workset_finance_count o_workset_finance_status">
+                                                <t t-if="r.status === 'nodoc'"><span class="o_workset_finance_dot rounded-circle bg-danger"/>без документа</t>
+                                                <t t-else="">розібрано</t>
+                                            </span>
+                                        </div>
+                                    </t>
+                                    <div t-if="data.transfers.total &gt; data.transfers.rows.length" class="list-group-item small o_workset_finance_muted" t-att-class="clickCls(data.transfers.open)"
+                                         t-att-role="role(data.transfers.open)" t-att-tabindex="tab(data.transfers.open)" t-on-click="() => this.openList(data.transfers.open)"
+                                         t-on-keydown="(ev) => this.keyOpen(ev, data.transfers.open)">
+                                        Показано <t t-esc="data.transfers.rows.length"/> з <t t-esc="data.transfers.total"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- «Окремо від прибутку»: II етап, не оплачено замовниками, не оплачено групою Energy (жовта крапка; назва групи — з
+                                 Odoo під час роботи, a.firm, у коді модуля її немає); посилання — якщо «Прибутковість ліній» установлена -->
+                            <div t-if="data.aside" class="card">
+                                <div class="card-header fw-semibold">Окремо від прибутку</div>
+                                <div class="card-body d-flex flex-column gap-2">
+                                    <t t-foreach="data.aside.rows" t-as="a" t-key="a.key">
+                                        <div class="d-flex justify-content-between align-items-baseline gap-2" t-att-class="clickCls(a.open)" t-att-title="hint(a.open)" t-att-role="role(a.open)"
+                                             t-att-tabindex="tab(a.open)" t-on-click="() => this.openList(a.open)" t-on-keydown="(ev) => this.keyOpen(ev, a.open)">
+                                            <span>
+                                                <t t-if="a.key === 'stage2'">II етап</t>
+                                                <t t-elif="a.key === 'customers'">Не оплачено замовниками</t>
+                                                <t t-else="">Не оплачено <t t-esc="a.firm"/></t>
+                                            </span>
+                                            <span class="text-nowrap d-inline-flex align-items-center gap-1"><span t-if="a.warn" class="o_workset_finance_dot rounded-circle bg-warning"/><t t-esc="euros(a.amount)"/> €</span>
+                                        </div>
+                                    </t>
+                                    <button t-if="data.aside.profit" type="button" class="btn btn-link p-0 mt-auto align-self-end" t-on-click="() => this.openProfit()">Прибутковість ліній <i class="fa fa-arrow-right ms-1"/></button>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+                    <div t-else="" class="alert alert-info">немає даних за <t t-esc="data.month.title_in"/></div>
+
+                    <!-- таблиця «Драбина»: рядки 1, 1а, 1г, 2, = до часток, 3, 4, 4′ × пораховані місяці від січня до обраного + «Разом»
+                         (= «з початку року» плиток); обраний місяць підсвічено, неповний — «по ДД.ММ» під назвою; ноль — «—»; число з
+                         позначкою — сіра мітка «розр.» / «попр.» поруч (місце мітки є в кожній клітинці — числа стовпця на одній лінії) і
+                         підказка з підставою; клік — його записи -->
+                    <t t-if="data.ladder">
+                        <div class="card">
+                            <div class="card-header fw-semibold">Драбина <t t-esc="data.year"/>, <span class="text-muted fw-normal">тис. €</span></div>
+                            <div class="o_workset_finance_scroll">
+                                <table class="table mb-0 o_workset_finance_ladder">
+                                    <thead>
+                                        <tr>
+                                            <th class="o_workset_finance_sticky text-nowrap">Ступінь</th>
+                                            <th t-foreach="data.ladder.months" t-as="m" t-key="m.value" class="text-end text-nowrap"
+                                                t-att-class="m_index === data.ladder.selected ? 'o_workset_finance_sel' : ''" t-att-title="m.hint">
+                                                <t t-esc="m.short"/><span class="o_workset_finance_tag"/>
+                                                <span t-if="m.partial" class="d-block o_workset_finance_note fw-normal">по <t t-esc="m.partial"/><span class="o_workset_finance_tag"/></span>
+                                            </th>
+                                            <th class="text-end text-nowrap o_workset_finance_total">Разом<span class="o_workset_finance_tag"/></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr t-foreach="data.ladder.rows" t-as="r" t-key="r.key" t-attf-class="o_workset_finance_row_{{r.style}}">
+                                            <th class="o_workset_finance_sticky text-nowrap"><span class="o_workset_finance_rownum" t-esc="r.num"/><t t-esc="r.label"/></th>
+                                            <td t-foreach="r.cells" t-as="cell" t-key="cell.month" class="text-end text-nowrap" t-att-class="cellCls(cell, cell_index)" t-att-title="cellTitle(cell)"
+                                                t-att-role="role(cell.open)" t-att-tabindex="tab(cell.open)" t-on-click="() => this.openList(cell.open)"
+                                                t-on-keydown="(ev) => this.keyOpen(ev, cell.open)">
+                                                <t t-esc="cell.text"/><span class="o_workset_finance_tag"><t t-if="cell.src === 'calc'">розр.</t><t t-elif="cell.src === 'adjust'">попр.</t></span>
+                                            </td>
+                                            <td class="text-end text-nowrap o_workset_finance_total" t-att-class="clickCls(r.total.open)" t-att-title="cellTitle(r.total)" t-att-role="role(r.total.open)"
+                                                t-att-tabindex="tab(r.total.open)" t-on-click="() => this.openList(r.total.open)" t-on-keydown="(ev) => this.keyOpen(ev, r.total.open)">
+                                                <t t-esc="r.total.text"/><span class="o_workset_finance_tag"><t t-if="r.total.src === 'calc'">розр.</t><t t-elif="r.total.src === 'adjust'">попр.</t></span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="small o_workset_finance_muted mt-2">без позначки — з Odoo · розр. — розрахунок штабу · попр. — поправка з підставою (у підказці числа) · клік по числу відкриває записи</div>
+                    </t>
+                </div>
+            </Layout>
+        </div>
+    </t>
+
+    <!-- вікно «Якість даних: три кошики» (вміст — chip.baskets відповіді екрана): частка й поріг, скільки не розібрано з обороту (у чипі їх
+         немає — чип в один рядок), далі кошик — підпис за кодом мовою користувача, сума, скільки записів; клік — закрити вікно й відкрити
+         записи кошика. Діалог Odoo: Esc закриває, на телефоні — на всю ширину -->
+    <t t-name="workset_finance.QualityDialog">
+        <Dialog t-props="dialogProps">
+            <div class="o_workset_finance">
+                <div class="small o_workset_finance_muted mb-2">
+                    <span class="text-nowrap"><span>Якість даних</span> <t t-esc="plain(chip.pct)"/> %</span>
+                    <span class="text-nowrap">(поріг <t t-esc="plain(chip.threshold)"/> %)</span> ·
+                    <span>не розібрано <t t-esc="euros(chip.parts)"/> € із <t t-esc="euros(chip.ext)"/> € обороту</span>
+                </div>
+                <div class="list-group">
+                    <t t-foreach="chip.baskets" t-as="b" t-key="b.id">
+                        <div class="list-group-item d-flex justify-content-between align-items-baseline gap-2" t-att-class="b.open ? 'o_workset_finance_click' : ''"
+                             t-att-role="b.open ? 'button' : false" t-att-tabindex="b.open ? '0' : false" t-on-click="() => this.open(b.open)" t-on-keydown="(ev) => this.keyOpen(ev, b.open)">
+                            <span t-esc="b.label"/>
+                            <span class="text-nowrap"><t t-esc="euros(b.amount)"/> €<span t-if="b.count" class="o_workset_finance_muted ms-2">· <t t-esc="b.count"/></span></span>
+                        </div>
+                    </t>
+                </div>
+            </div>
+        </Dialog>
+    </t>
+</templates>

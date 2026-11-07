@@ -1,0 +1,900 @@
+# Russian translation of the Odoo module workset_finance.
+# Згенеровано tools/odoo_addon_po.py — не правити вручну.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Language: ru\n"
+"Plural-Forms: \n"
+
+#. module: workset_finance
+#: model:ir.model,name:workset_finance.model_workset_finance_adjust
+msgid "Фінанси: поправка"
+msgstr "Финансы: поправка"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_adjust__month
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_check__month
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_item__month
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__month
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_month_search
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_item_search
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_adjust_search
+msgid "Місяць"
+msgstr "Месяц"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_adjust__month
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__month
+msgid "Перше число місяця, не раніше січня 2026"
+msgstr "Первое число месяца, не раньше января 2026"
+
+#. module: workset_finance
+#. odoo-javascript
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_adjust__step
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_item__kind__step
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_adjust_search
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Ступінь"
+msgstr "Ступень"
+
+#. module: workset_finance
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_adjust__step__s1g
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s1g_no_analytic
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_adjust_search
+msgid "1г Дохід без аналітики"
+msgstr "1г Доход без аналитики"
+
+#. module: workset_finance
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_adjust__step__s3
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s3_shares
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_adjust_search
+msgid "3 Частки партнерів"
+msgstr "3 Доли партнёров"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_adjust__line_id
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_item__line_id
+msgid "Лінія"
+msgstr "Линия"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_adjust__line_id
+msgid "Для ступеня 3: чия частка (можна без лінії — одним числом)"
+msgstr "Для ступени 3: чья доля (можно без линии — одним числом)"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_adjust__amount
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_item__amount
+msgid "Сума"
+msgstr "Сумма"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_adjust__amount
+msgid "Ступінь 3: частки, що віднімаються від «до часток» (додатне). Ступінь 1г: дохід, що додається (додатне)"
+msgstr "Ступень 3: доли, которые вычитаются из «до долей» (положительное). Ступень 1г: доход, который прибавляется (положительное)"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_adjust__basis
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_adjust_form
+msgid "Підстава"
+msgstr "Основание"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_adjust__basis
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_adjust_form
+msgid "Звідки число: документ, розрахунок, рішення"
+msgstr "Откуда число: документ, расчёт, решение"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_adjust__source_date
+msgid "Дата джерела"
+msgstr "Дата источника"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_adjust__active
+msgid "Діє"
+msgstr "Действует"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_adjust__active
+msgid "Знята з архіву поправка знову входить у драбину при наступному перерахунку"
+msgstr "Снятая с архива поправка снова входит в лестницу при следующем пересчёте"
+
+#. module: workset_finance
+#: model:ir.model,name:workset_finance.model_workset_finance_check
+msgid "Фінанси: звірка місяця"
+msgstr "Финансы: сверка месяца"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_check__month
+msgid "Перше число місяця"
+msgstr "Первое число месяца"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_check__ok
+msgid "Зійшлося"
+msgstr "Сошлось"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_check__text
+msgid "Текст звірки"
+msgstr "Текст сверки"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_check__checked_at
+msgid "Звірено"
+msgstr "Сверено"
+
+#. module: workset_finance
+#: model:ir.model,name:workset_finance.model_workset_finance_item
+msgid "Фінанси: рядок деталізації"
+msgstr "Финансы: строка детализации"
+
+#. module: workset_finance
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_item__kind__owner
+msgid "Власники: витрати компанії"
+msgstr "Владельцы: расходы компании"
+
+#. module: workset_finance
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_item__kind__owner_share
+msgid "Власники: частка"
+msgstr "Владельцы: доля"
+
+#. module: workset_finance
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_item__kind__transfer
+msgid "Переказ на особистий рахунок"
+msgstr "Перевод на личный счёт"
+
+#. module: workset_finance
+#. odoo-javascript
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_item__kind__stage2
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "II етап"
+msgstr "II этап"
+
+#. module: workset_finance
+#. odoo-javascript
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_item__kind__cash
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "За грошима"
+msgstr "По деньгам"
+
+#. module: workset_finance
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_item__kind__cash_other
+msgid "II етап: не в «за грошима»"
+msgstr "II этап: не в «по деньгам»"
+
+#. module: workset_finance
+#. odoo-javascript
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_item__kind__quality
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Якість даних"
+msgstr "Качество данных"
+
+#. module: workset_finance
+#. odoo-javascript
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_item__kind__ukraine
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Україна"
+msgstr "Украина"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_item__name
+msgid "Рядок"
+msgstr "Строка"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_item__analytic_id
+msgid "Стаття аналітики"
+msgstr "Статья аналитики"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_item__count
+msgid "Записів"
+msgstr "Записей"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_item__note
+msgid "Примітка"
+msgstr "Примечание"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_item__note
+msgid "Службове: ключ ступеня, розібрано / без документа, кошик, не розпізнано"
+msgstr "Служебное: ключ ступени, разобрано / без документа, корзина, не распознано"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_item__res_model
+msgid "Модель списку"
+msgstr "Модель списка"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_item__domain
+msgid "Домен списку"
+msgstr "Домен списка"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_item__domain
+msgid "JSON: домен, який відкриває клік по рядку"
+msgstr "JSON: домен, который открывает клик по строке"
+
+#. module: workset_finance
+#: model:ir.model,name:workset_finance.model_workset_finance_month
+msgid "Фінанси: місяць драбини"
+msgstr "Финансы: месяц лестницы"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__state
+msgid "Стан місяця"
+msgstr "Состояние месяца"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__state
+msgid "Закрито: дати блокування всіх фірм периметра не раніше останнього дня місяця"
+msgstr "Закрыт: даты блокировки всех фирм периметра не раньше последнего дня месяца"
+
+#. module: workset_finance
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_month__state__open
+msgid "Не закрито"
+msgstr "Не закрыт"
+
+#. module: workset_finance
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_month__state__closed
+msgid "Закрито"
+msgstr "Закрыт"
+
+#. module: workset_finance
+#. odoo-javascript
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__recomputed_at
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Перераховано"
+msgstr "Пересчитано"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s1_docs
+msgid "1 Рекрутинг за документами"
+msgstr "1 Рекрутинг по документам"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__s1_docs
+msgid "Аналітика кореня плану рекрутингу за P&L-рахунками проведених документів фірм периметра"
+msgstr "Аналитика корня плана рекрутинга по P&L-счетам проведённых документов фирм периметра"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s1_docs_src
+msgid "1: звідки"
+msgstr "1: откуда"
+
+#. module: workset_finance
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_month__s1_docs_src__calc
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_month__s1a_owners_in_pl_src__calc
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_month__s1g_no_analytic_src__calc
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_month__s2_ukraine_src__calc
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_month__base_src__calc
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_month__s3_shares_src__calc
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_month__s4_net_src__calc
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_month__s4c_cash_src__calc
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_month__s5_owners_src__calc
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_month__s6_stage2_src__calc
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_month__s7_unpaid_customers_src__calc
+#: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_month__s7_unpaid_energy_src__calc
+msgid "розрах."
+msgstr "расч."
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s1a_owners_in_pl
+msgid "1а Власники в P&L"
+msgstr "1а Владельцы в P&L"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__s1a_owners_in_pl
+msgid "Мінус те, що вузли власників дали у вибірці ступеня 1: ці гроші йдуть у ступінь 5"
+msgstr "Минус то, что узлы владельцев дали в выборке ступени 1: эти деньги идут в ступень 5"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s1a_owners_in_pl_src
+msgid "1а: звідки"
+msgstr "1а: откуда"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__s1g_no_analytic
+msgid "Лише поправки штабу (з підставою): сплачені рахунки клієнтів без аналітики, за датою оплати"
+msgstr "Только поправки штаба (с основанием): оплаченные счета клиентов без аналитики, по дате оплаты"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s1g_no_analytic_src
+msgid "1г: звідки"
+msgstr "1г: откуда"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s2_ukraine
+msgid "2 Україна"
+msgstr "2 Украина"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__s2_ukraine
+msgid "Передача ліквідності в Україну: рядки аналітики фірми Україна на рахунку ліквідності за планом Україна"
+msgstr "Передача ликвидности в Украину: строки аналитики фирмы Украина на счёте ликвидности по плану Украина"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s2_ukraine_src
+msgid "2: звідки"
+msgstr "2: откуда"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__base
+msgid "До часток"
+msgstr "До долей"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__base_src
+msgid "До часток: звідки"
+msgstr "До долей: откуда"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__s3_shares
+msgid "Сума активних поправок ступеня 3 (додатне число — віднімається від «до часток»)"
+msgstr "Сумма активных поправок ступени 3 (положительное число — вычитается из «до долей»)"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s3_shares_src
+msgid "3: звідки"
+msgstr "3: откуда"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s4_net
+msgid "4 Чистий прибуток"
+msgstr "4 Чистая прибыль"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__s4_net
+msgid "До часток мінус частки партнерів"
+msgstr "До долей минус доли партнёров"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s4_net_src
+msgid "4: звідки"
+msgstr "4: откуда"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s4c_cash
+msgid "4' За грошима"
+msgstr "4' По деньгам"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__s4c_cash
+msgid "До часток мінус перекази партнерам нетто (проводки «II етапу» на розпізнаних лініях × 9: рядок аналітики, без нього — рядки рахунку без аналітики; без транзиту; конверт AN)"
+msgstr "До долей минус переводы партнёрам нетто (проводки «II этапа» на распознанных линиях × 9: строка аналитики, без неё — строки счёта без аналитики; без транзита; конверт AN)"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s4c_cash_src
+msgid "4': звідки"
+msgstr "4': откуда"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s5_owners
+msgid "5 Власники"
+msgstr "5 Владельцы"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__s5_owners
+msgid "Мінус аналітика вузлів власників (витрати — додатне число)"
+msgstr "Минус аналитика узлов владельцев (расходы — положительное число)"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s5_owners_src
+msgid "5: звідки"
+msgstr "5: откуда"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s5_owners_share
+msgid "5 з них частка"
+msgstr "5 из них доля"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__s5_owners_share
+msgid "Частина ступеня 5 на статтях «частка» (параметр); решта — витрати компанії"
+msgstr "Часть ступени 5 на статьях «доля» (параметр); остальное — расходы компании"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s6_stage2
+msgid "6 II етап"
+msgstr "6 II этап"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__s6_stage2
+msgid "Аналітика статті «II етап» + баланс рахунку «II етапу» за проведеними рядками"
+msgstr "Аналитика статьи «II этап» + баланс счёта «II этапа» по проведённым строкам"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s6_stage2_src
+msgid "6: звідки"
+msgstr "6: откуда"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s7_unpaid_customers
+msgid "7 Не оплачено замовниками"
+msgstr "7 Не оплачено заказчиками"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__s7_unpaid_customers
+msgid "Залишок неоплачених рахунків місяця з часткою рекрутингу; станом на момент перерахунку"
+msgstr "Остаток неоплаченных счетов месяца с долей рекрутинга; на момент пересчёта"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s7_unpaid_customers_src
+msgid "7з: звідки"
+msgstr "7з: откуда"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__s7_unpaid_energy
+msgid "Те саме для контрагентів групи Energy (параметр); міжфірмові й фірми поза периметром не показуємо"
+msgstr "То же для контрагентов группы Energy (параметр); межфирменные и фирмы вне периметра не показываем"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__s7_unpaid_energy_src
+msgid "7е: звідки"
+msgstr "7е: откуда"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__revenue
+msgid "Довідково: дохід"
+msgstr "Справочно: доход"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__revenue
+msgid "Дохідні рядки вибірки ступеня 1"
+msgstr "Доходные строки выборки ступени 1"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__payroll
+msgid "Довідково: зарплата"
+msgstr "Справочно: зарплата"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__payroll
+msgid "Витрати вибірки ступеня 1 у журналах зарплати (параметр)"
+msgstr "Расходы выборки ступени 1 в журналах зарплаты (параметр)"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__contrib_zus
+msgid "Довідково: ZUS і PIT-4"
+msgstr "Справочно: ZUS и PIT-4"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__contrib_zus
+msgid "Витрати вибірки ступеня 1 на контрагентах ZUS (параметр)"
+msgstr "Расходы выборки ступени 1 на контрагентах ZUS (параметр)"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__cash_out
+msgid "Перекази партнерам нетто"
+msgstr "Переводы партнёрам нетто"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__cash_out
+msgid "Що віднімається в «за грошима»"
+msgstr "Что вычитается в «по деньгам»"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__mediation_income
+msgid "Посередництво: дохід"
+msgstr "Посредничество: доход"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__mediation_cost
+msgid "Посередництво: витрати"
+msgstr "Посредничество: расходы"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__mediation_net
+msgid "Посередництво: залишок"
+msgstr "Посредничество: остаток"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__g_cand_amount
+msgid "1г: кандидати, сума"
+msgstr "1г: кандидаты, сумма"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__g_cand_amount
+msgid "Сплачені рахунки клієнтів без аналітики за датою оплати — для порівняння з поправкою 1г"
+msgstr "Оплаченные счета клиентов без аналитики по дате оплаты — для сравнения с поправкой 1г"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__g_cand_count
+msgid "1г: кандидатів"
+msgstr "1г: кандидатов"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__q_ic
+msgid "Якість: міжфірмові"
+msgstr "Качество: межфирменные"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__q_unplaced
+msgid "Якість: без місця"
+msgstr "Качество: без места"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__q_unplaced
+msgid "Як PG.identity закриття місяця: сума зі знаком (дохід мінус витрата), частка — від її модуля"
+msgstr "Как PG.identity закрытия месяца: сумма со знаком (доход минус расход), доля — от её модуля"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__q_nodoc
+msgid "Якість: банк без документа"
+msgstr "Качество: банк без документа"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__q_nodoc
+msgid "Несвірені витрати виписок місяця 4 видів (ZUS і податки, без партнера, фірма й фізособа без рахунків), EUR"
+msgstr "Несверенные расходы выписок месяца 4 видов (ZUS и налоги, без партнёра, фирма и физлицо без счетов), EUR"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__q_ext
+msgid "Якість: оборот із зовнішніми"
+msgstr "Качество: оборот с внешними"
+
+#. module: workset_finance
+#: model:ir.model.fields,field_description:workset_finance.field_workset_finance_month__q_pct
+msgid "Якість даних, %"
+msgstr "Качество данных, %"
+
+#. module: workset_finance
+#: model:ir.model.fields,help:workset_finance.field_workset_finance_month__q_pct
+msgid "(|міжфірмові| + |без місця| + |банк без документа|) ÷ оборот із зовнішніми"
+msgstr "(|межфирменные| + |без места| + |банк без документа|) ÷ оборот с внешними"
+
+#. module: workset_finance
+#: model:res.groups.privilege,name:workset_finance.res_groups_privilege_finance
+#: model:ir.ui.menu,name:workset_finance.menu_root
+msgid "Фінанси"
+msgstr "Финансы"
+
+#. module: workset_finance
+#: model:res.groups,name:workset_finance.group_customers
+msgid "Замовники"
+msgstr "Заказчики"
+
+#. module: workset_finance
+#: model:res.groups,comment:workset_finance.group_customers
+msgid "Екран «Замовники»: години, ставки клієнтів, дебіторка (круг 3)"
+msgstr "Экран «Заказчики»: часы, ставки клиентов, дебиторка (круг 3)"
+
+#. module: workset_finance
+#: model:res.groups,name:workset_finance.group_firms
+msgid "Фірми: закриття місяця"
+msgstr "Фирмы: закрытие месяца"
+
+#. module: workset_finance
+#: model:res.groups,comment:workset_finance.group_firms
+msgid "Екран «Фірми: закриття місяця»: чернетки, банк, межфірмові (круг 4)"
+msgstr "Экран «Фирмы: закрытие месяца»: черновики, банк, межфирменные (круг 4)"
+
+#. module: workset_finance
+#: model:res.groups,name:workset_finance.group_payroll
+msgid "Зарплата й конверти"
+msgstr "Зарплата и конверты"
+
+#. module: workset_finance
+#: model:res.groups,comment:workset_finance.group_payroll
+msgid "Екран «Зарплата й конверти»: листи, табелі без рахунку, конверти (круг 5)"
+msgstr "Экран «Зарплата и конверты»: листы, табели без счёта, конверты (круг 5)"
+
+#. module: workset_finance
+#: model:res.groups,name:workset_finance.group_owner
+#: model:ir.actions.client,name:workset_finance.action_owner
+#: model:ir.ui.menu,name:workset_finance.menu_owner
+msgid "Власник"
+msgstr "Владелец"
+
+#. module: workset_finance
+#: model:res.groups,comment:workset_finance.group_owner
+msgid "Бачить екран «Власник» (драбину прибутку, власників, II етап, неоплачено) і всі інші екрани. Лише ця група — і меню, і методи екрана"
+msgstr "Видит экран «Владелец» (лестницу прибыли, владельцев, II этап, неоплаченное) и все остальные экраны. Только эта группа — и меню, и методы экрана"
+
+#. module: workset_finance
+#: model:res.groups,comment:workset_finance.group_editor
+msgid "Пише поправки драбини (1г, частки партнерів) з підставою; перераховує місяці кнопкою «Перерахувати»"
+msgstr "Пишет поправки лестницы (1г, доли партнёров) с основанием; пересчитывает месяцы кнопкой «Пересчитать»"
+
+#. module: workset_finance
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_month_list
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_month_search
+#: model:ir.actions.act_window,name:workset_finance.action_months
+#: model:ir.ui.menu,name:workset_finance.menu_months
+msgid "Місяці драбини"
+msgstr "Месяцы лестницы"
+
+#. module: workset_finance
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_month_list
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_month_form
+msgid "Перерахувати"
+msgstr "Пересчитать"
+
+#. module: workset_finance
+#. odoo-javascript
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_month_list
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_item_list
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_adjust_list
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Разом"
+msgstr "Итого"
+
+#. module: workset_finance
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_month_form
+msgid "Місяць драбини"
+msgstr "Месяц лестницы"
+
+#. module: workset_finance
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_month_form
+msgid "Перераховано:"
+msgstr "Пересчитано:"
+
+#. module: workset_finance
+#. odoo-javascript
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_month_form
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Драбина"
+msgstr "Лестница"
+
+#. module: workset_finance
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_month_form
+msgid "Окремо, не в драбині"
+msgstr "Отдельно, не в лестнице"
+
+#. module: workset_finance
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_month_form
+msgid "Якість даних і кандидати 1г"
+msgstr "Качество данных и кандидаты 1г"
+
+#. module: workset_finance
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_month_pivot
+msgid "Драбина по місяцях"
+msgstr "Лестница по месяцам"
+
+#. module: workset_finance
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_month_search
+msgid "Закриті"
+msgstr "Закрытые"
+
+#. module: workset_finance
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_month_search
+msgid "Не закриті"
+msgstr "Не закрытые"
+
+#. module: workset_finance
+#: model_terms:ir.actions.act_window,help:workset_finance.action_months
+msgid "Розрахунку ще немає"
+msgstr "Расчёта ещё нет"
+
+#. module: workset_finance
+#: model_terms:ir.actions.act_window,help:workset_finance.action_months
+msgid "Натисніть «Перерахувати»: останні місяці порахуються з аналітики, проводок і банку."
+msgstr "Нажмите «Пересчитать»: последние месяцы посчитаются из аналитики, проводок и банка."
+
+#. module: workset_finance
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_item_list
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_item_search
+#: model:ir.actions.act_window,name:workset_finance.action_items
+#: model:ir.ui.menu,name:workset_finance.menu_items
+msgid "Рядки"
+msgstr "Строки"
+
+#. module: workset_finance
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_item_pivot
+msgid "Рядки за видами"
+msgstr "Строки по видам"
+
+#. module: workset_finance
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_adjust_form
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_adjust_search
+msgid "В архіві"
+msgstr "В архиве"
+
+#. module: workset_finance
+#: model_terms:ir.actions.act_window,help:workset_finance.action_adjusts
+msgid "Поправок немає"
+msgstr "Поправок нет"
+
+#. module: workset_finance
+#: model_terms:ir.actions.act_window,help:workset_finance.action_adjusts
+msgid "Поправка потрібна, коли число драбини не береться з книг: дохід без аналітики (1г) і частки партнерів (3). Кожна — з підставою."
+msgstr "Поправка нужна, когда число лестницы не берётся из книг: доход без аналитики (1г) и доли партнёров (3). Каждая — с основанием."
+
+#. module: workset_finance
+#: model_terms:ir.ui.view,arch_db:workset_finance.view_check_list
+#: model:ir.actions.act_window,name:workset_finance.action_checks
+#: model:ir.ui.menu,name:workset_finance.menu_checks
+msgid "Звірка"
+msgstr "Сверка"
+
+#. module: workset_finance
+#: model:ir.ui.menu,name:workset_finance.menu_ladder
+msgid "Місяці"
+msgstr "Месяцы"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Власник — прибуток компанії"
+msgstr "Владелец — прибыль компании"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "неповний, по"
+msgstr "неполный, по"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Не вдалося оновити — на екрані попередні дані"
+msgstr "Не удалось обновить — на экране прежние данные"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Чистий прибуток"
+msgstr "Чистая прибыль"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Рекрутинг разом"
+msgstr "Рекрутинг итого"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Частки партнерів"
+msgstr "Доли партнёров"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "з початку року"
+msgstr "с начала года"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "з поправкою"
+msgstr "с поправкой"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "розрахунок штабу"
+msgstr "расчёт штаба"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Місяць не закрито"
+msgstr "Месяц не закрыт"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Звірка зійшлася"
+msgstr "Сверка сошлась"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Звірка не зійшлася"
+msgstr "Сверка не сошлась"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Як складається прибуток ·"
+msgstr "Из чего складывается прибыль ·"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "тис. €"
+msgstr "тыс. €"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Власники ·"
+msgstr "Владельцы ·"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "частка"
+msgstr "доля"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "€ · витрати компанії"
+msgstr "€ · расходы компании"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Перекази на особисті рахунки ·"
+msgstr "Переводы на личные счета ·"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "розібрано"
+msgstr "разобрано"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "з"
+msgstr "из"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Окремо від прибутку"
+msgstr "Отдельно от прибыли"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Не оплачено замовниками"
+msgstr "Не оплачено заказчиками"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "Прибутковість ліній"
+msgstr "Прибыльность линий"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "немає даних за"
+msgstr "нет данных за"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "розр."
+msgstr "расч."
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "без позначки — з Odoo · розр. — розрахунок штабу · попр. — поправка з підставою (у підказці числа) · клік по числу відкриває записи"
+msgstr "без пометки — из Odoo · расч. — расчёт штаба · попр. — поправка с основанием (в подсказке числа) · клик по числу открывает записи"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "(поріг"
+msgstr "(порог"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "не розібрано"
+msgstr "не разобрано"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "€ із"
+msgstr "€ из"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "€ обороту"
+msgstr "€ оборота"
