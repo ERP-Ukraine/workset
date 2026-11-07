@@ -9,7 +9,9 @@
  *  (line.color — той самий, що ряд лінії на графіку «По лініях»); усі числа — з роздільником тисяч (groupNumber).
  *  Круг вигляду 06.11 (слово власника «лише важливе, без порожнього й обрізаного»): нульові «пігулки» сховані; картка лінії коротка, решта —
  *  у підказці (lineTip), клік — фільтр сторінки за лінією; «Тривоги» трьома групами (alertGroups); графік місяців — три лінії зі значенням на
- *  останній точці, «Розподіл» — число над стовпцем; кольори графіків — з обчисленого стилю сторінки (Odoo 19 не задає CSS-змінні Bootstrap). */
+ *  останній точці, «Розподіл» — число над стовпцем; кольори графіків — з обчисленого стилю сторінки (Odoo 19 не задає CSS-змінні Bootstrap).
+ *  Блок Е (на показ): стрічка «Сьогодні вирішити» над усім — чипи живих чисел із сервера (data.decide; слово власника 07.11), клік — openChip;
+ *  «пігулку» «Договір ≠ база» прибрано — її число в стрічці. */
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { loadBundle } from "@web/core/assets";
@@ -192,10 +194,10 @@ export class RatesOverview extends Component {
         return Boolean(d && (d.check || this.alertGroups.length));
     }
 
-    /** Є хоч одна «пігулка» з числом > 0 (нульові сховані, ряду без них немає). */
+    /** Є хоч одна «пігулка» з числом > 0 (нульові сховані, ряду без них немає; «Договір ≠ база» — у стрічці «Сьогодні вирішити»). */
     get hasPills() {
         const t = (this.state.data && this.state.data.tiles) || {};
-        return ["contract_diff", "below_min", "to_check", "no_line", "raises"].some((k) => t[k]);
+        return ["below_min", "to_check", "no_line", "raises"].some((k) => t[k]);
     }
 
     /** «Тривоги» трьома групами: «Потрібна дія» — живі тривоги з числом > 0 (з рядками) і розділи звірки про гроші та людей без ставки;
@@ -371,6 +373,13 @@ export class RatesOverview extends Component {
         }
         const action = await this.action.loadAction(ALERT_ACTIONS[alert.model] || ALL);
         this.action.doAction({ ...action, domain: [["id", "in", alert.ids]], context: {} });
+    }
+
+    /** Чип «Сьогодні вирішити» — той самий список, що в живого числа (опис — із сервера, calc.decide_chips): плитка — список ставок за
+     *  описом ov_list (openList, як «пігулка» й смуга), жива тривога — її список (openAlert, і link === false так само не посилання). */
+    openChip(chip) {
+        const open = chip.open || {};
+        return open.action ? this.openList(open) : this.openAlert(open);
     }
 
     /** Рядок тривоги: запис; у «Працюють без ставки» — нова ставка цієї пари (форма з працівником і замовником); click === false — без кліку. */

@@ -6,8 +6,8 @@
   доступу користувача. Плитки — ті самі числа, що й полоса підсумків (rates_summary) по діючих ставках фільтра, коли «тільки працюють»;
   вимкнено — середні по всіх діючих (calc.overview_summary). Історія — активні ставки, що діяли на 1-ше число кожного місяця («Ставка з» /
   «Ставка до»; архівні не входять), середні — як у полосі (calc.month_series).
-- «Стрічка» — вид gantt: «Смуга до» (gantt_stop, нехранима, з пошуком), колір смуги (gantt_color), підпис «Діє · формула» (display_name
-  в контексті workset_rates_gantt). Перенос смуги (запис із «Смуга до») — лише в часі й у тому самому рядку; не адміністратору — лише
+- «Стрічка» — вид gantt: «Смуга до» (gantt_stop, нехранима, з пошуком), колір смуги — колір лінії (gantt_color), підпис «Замовник ·
+  зарплата → платять нам» (display_name в контексті workset_rates_gantt), вікно над смугою — рядки gantt_* (нехранимі). Перенос смуги (запис із «Смуга до») — лише в часі й у тому самому рядку; не адміністратору — лише
   майбутні ставки й лише на дату після сьогодні. Правка «Ставка з» у формі ставки — без змін (як до рівня B).
 Формули М2 тут не змінюються — лише читаються поля, які пише ланцюжок."""
 from odoo import api, fields, models
@@ -21,8 +21,8 @@ GANTT_CTX = 'workset_rates_gantt'                    # контекст дії �
 GANTT_ROW_FIELDS = frozenset(['line_id', 'person_id', 'customer_id'])  # рядок «Стрічки»: смугу в інший рядок не переносять
 GANTT_MOVE_FIELDS = GANTT_ROW_FIELDS | {'date_from'}                   # у контексті «Стрічки» — це перенос смуги
 LABELS = ('count', 'wage', 'price', 'share', 'net', 'people', 'found_us', 'found_line', 'found_none', 'found_empty', 'agent_from',
-          'fund', 'tip_check', 'tip_contract', 'tip_people', 'tip_price', 'tip_net', 'tip_below', 'tip_line', 'line_list', 'anchor_markup',
-          'anchor_tariff', 'agent_wait', 'share_short', 'g_action', 'g_contract', 'g_data')  # calc.TX: ov_<ключ>
+          'fund', 'tip_check', 'tip_people', 'tip_price', 'tip_net', 'tip_below', 'tip_line', 'line_list', 'anchor_markup',
+          'anchor_tariff', 'agent_wait', 'share_short', 'g_action', 'g_contract', 'g_data')  # calc.TX: ov_<ключ>; підказка «Договір ≠ база» — у чипі (decide)
 BUCKET_STEP = 2    # «Розподіл частки»: крок стовпця, €/год (круг вигляду 06.11: з кроком 1 половина стовпців порожні)
 ALERT_ROWS = 5     # рядків у тривозі «Огляду»; решта — списком за кліком на заголовок
 ALERT_IDS = 1000    # id для списку тривоги не більше
@@ -33,16 +33,60 @@ class WorksetRateOverview(models.Model):
 
     gantt_stop = fields.Date(string='Смуга до', compute='_compute_gantt', search='_search_gantt_stop', inverse='_inverse_gantt_stop',
                              help='Кінець смуги у «Стрічці»: «Ставка до»; без неї діюча — сьогодні + 30 днів, майбутня — «Ставка з» + 30 днів.')
-    gantt_color = fields.Integer(string='Колір смуги', compute='_compute_gantt')
+    gantt_color = fields.Integer(string='Колір смуги', compute='_compute_gantt_color',
+                                 help='Колір лінії (місце лінії в ряду карток «Огляду»); минула ставка й ставка без лінії — без кольору.')
+    # вікно над смугою «Стрічки» (gantt-popover): готові рядки мовою користувача (calc.gantt_popover), нехранимі
+    gantt_person = fields.Char(string='Працівник у стрічці', compute='_compute_gantt_texts')
+    gantt_period = fields.Char(string='Період ставки', compute='_compute_gantt_texts')
+    gantt_money = fields.Char(string='Зарплата і ціна', compute='_compute_gantt_texts')
+    gantt_shares = fields.Char(string='Частки', compute='_compute_gantt_texts')
+    gantt_found = fields.Char(string='Хто знайшов (стрічка)', compute='_compute_gantt_texts')
+    gantt_agent = fields.Char(string='Посередник (стрічка)', compute='_compute_gantt_texts')
+    gantt_alert = fields.Char(string='Тривога смуги', compute='_compute_gantt_texts')
 
     # ——— «Стрічка» ———
-    @api.depends('state', 'date_from', 'date_to', 'share_level', 'net_level')
+    @api.depends('state', 'date_from', 'date_to')
     @api.depends_context('rates_today')
     def _compute_gantt(self):
         today = calc.iso(self._today())
         for r in self:
             r.gantt_stop = calc.gantt_stop(r.state, calc.iso(r.date_from), calc.iso(r.date_to), today) or False
-            r.gantt_color = calc.gantt_color(r.state, 'low' if 'low' in (r.share_level, r.net_level) else (r.share_level or ''))
+
+    @api.depends('state', 'line_id')
+    def _compute_gantt_color(self):
+        # колір лінії — місце лінії в ряду карток «Огляду» (той самий порядок, що line_cards_order), рахується раз на пачку записів
+        places = self._gantt_line_places() if any(r.line_id for r in self) else {}
+        for r in self:
+            r.gantt_color = calc.gantt_color(r.state, places.get(r.line_id.id) if r.line_id else None)
+
+    def _gantt_line_places(self):
+        """{id лінії: місце} — як картки «Огляду» без фільтра з «Тільки працюють»: за числом діючих ставок, де працюють (правила доступу
+        користувача), потім лінії без них — за назвою."""
+        groups = self._read_group([('state', '=', 'current'), ('work_group', '=', 'g1_work')], ['line_id'], ['__count'])
+        count = {line.id: (line.name or '', n) for line, n in groups if line}
+        for line in self.env['workset.line'].search([]):
+            count.setdefault(line.id, (line.name or '', 0))
+        return calc.gantt_line_places([{'id': k, 'name': v[0], 'count': v[1]} for k, v in count.items()])
+
+    @api.depends('person_id', 'person_id.name', 'state', 'date_from', 'date_to', 'wage', 'price', 'price_mode', 'fixed_month', 'our_share',
+                 'net_share', 'found_by', 'agent_client_note', 'agent_client_share', 'share_level', 'net_level')
+    @api.depends_context('lang')
+    def _compute_gantt_texts(self):
+        lang = self._lang()
+        found = dict(self._fields['found_by']._description_selection(self.env))
+        for r in self:
+            p = calc.gantt_popover({'state': r.state, 'date_from': calc.iso(r.date_from), 'date_to': calc.iso(r.date_to), 'wage': r.wage,
+                                    'price': r.price, 'month_price': r.fixed_month if r.price_mode == 'fixed_month' else 0,
+                                    'share': r.our_share, 'net': r.net_share, 'found': found.get(r.found_by, ''),
+                                    'agent': r.agent_client_note or '', 'agent_share': r.agent_client_share,
+                                    'low': r.state != 'past' and 'low' in (r.share_level, r.net_level)}, lang)
+            r.gantt_person = r.person_id.name or ''
+            r.gantt_period = p['period']
+            r.gantt_money = p['money']
+            r.gantt_shares = p['share']
+            r.gantt_found = p['found']
+            r.gantt_agent = p['agent']
+            r.gantt_alert = p['alert']
 
     def _search_gantt_stop(self, operator, value):
         # gantt шукає «<» / «>»; = / != порожньо (фільтр «встановлено») — за «Ставка з»; інше — calc.gantt_search, без помилки
@@ -54,22 +98,27 @@ class WorksetRateOverview(models.Model):
 
     @api.model
     def get_gantt_data(self, *args, **kwargs):
-        # «Стрічка»: рядки ліній — як є, «без лінії» (група з порожнім line_id) — в кінець. Обгортка не змінює склад даних і мовчки
-        # лишає відповідь web_gantt як є, якщо її форма інша (групувань немає, поле не line_id)
+        # «Стрічка»: рядки ліній — як є, «без лінії» (група з порожнім line_id) — в кінець і з підписом «Без лінії» (не стандартне
+        # «Невизначений Лінія»). Групування «лінія, працівник» — групи на пару: у кінець ідуть усі без лінії. Обгортка не змінює склад
+        # даних і мовчки лишає відповідь web_gantt як є, якщо її форма інша (групувань немає, перше поле не line_id)
         res = super().get_gantt_data(*args, **kwargs)
         groupby = kwargs.get('groupby') or (args[1] if len(args) > 1 else None)
-        if isinstance(res, dict) and 'groups' in res and isinstance(groupby, (list, tuple)) and groupby and groupby[0] == 'line_id':
-            res['groups'] = calc.gantt_groups_last(res.get('groups'), 'line_id')
+        if isinstance(groupby, str):
+            groupby = [groupby]
+        if isinstance(res, dict) and 'groups' in res and isinstance(groupby, (list, tuple)) and groupby and str(groupby[0]).split(':')[0] == 'line_id':
+            res['groups'] = calc.gantt_groups_last(res.get('groups'), 'line_id', calc.t('gantt_no_line', self._lang()))
         return res
 
-    @api.depends('name', 'state', 'formula')
+    @api.depends('name', 'customer_id', 'customer_id.name', 'wage', 'price', 'price_mode', 'fixed_month', 'state', 'share_level', 'net_level')
     @api.depends_context(GANTT_CTX, 'lang')
     def _compute_display_name(self):
+        # підпис смуги «Стрічки»: «Замовник · зарплата → платять нам €» (фікс — «€/міс»), низька частка — «⚠ низька частка» (calc.gantt_label)
         if not self.env.context.get(GANTT_CTX):
             return super()._compute_display_name()
-        labels = dict(self._fields['state']._description_selection(self.env))
+        lang = self._lang()
         for r in self:
-            r.display_name = calc.gantt_label(labels.get(r.state, ''), r.formula)
+            r.display_name = calc.gantt_label(r.customer_id.name or '', r.wage, r.price, r.fixed_month if r.price_mode == 'fixed_month' else 0,
+                                              r.state != 'past' and 'low' in (r.share_level, r.net_level), lang)
 
     def write(self, vals):
         # перенос смуги «Стрічки»: запис із «Смуга до» (форма ставки цього поля не пише) або, в контексті дії «Стрічка», зміна дати чи рядка
@@ -104,8 +153,8 @@ class WorksetRateOverview(models.Model):
     @api.model
     def rates_overview(self, domain=None, months=calc.OVERVIEW_DEFAULT, only_working=True):
         """domain — фільтр сторінки (лінії, замовник) на workset.rate; months — 6 / 12 / 24 (інше — 12); only_working — «тільки працюють».
-        → {'today', 'months', 'tiles', 'lines', 'series', 'buckets', 'found', 'open', 'alerts', 'check', 'options', 'labels'}; без ставок — нулі
-        й порожні списки. Кожне число, по якому клікають, має поруч опис свого списку (calc.ov_list): плитки й сектори — 'open', картки ліній і
+        → {'today', 'months', 'tiles', 'lines', 'series', 'buckets', 'found', 'open', 'alerts', 'check', 'decide', 'options', 'labels'}; без
+        ставок — нулі й порожні списки ('decide' — чипи стрічки «Сьогодні вирішити» з живих чисел: плиток і тривог, calc.decide_chips). Кожне число, по якому клікають, має поруч опис свого списку (calc.ov_list): плитки й сектори — 'open', картки ліній і
         стовпці розподілу — 'open' у своєму записі; число картки лінії — 'count' (працюють або, коли «тільки працюють» вимкнено, усі діючі)."""
         self.check_access('read')
         lang = self._lang()
@@ -151,12 +200,17 @@ class WorksetRateOverview(models.Model):
         alerts = self._overview_alerts(base, scope, today, lang)
         # розділ звірки «Проєкти без ставки» — та сама біда, що жива тривога «Працюють без ставки»: коли вона є, розділ не дублюється
         live = {a['key'] for a in alerts if a['count']}
+        check = self._overview_check(lang, skip=('nomap',) if 'no_rate' in live else ())
+        tiles_open = calc.ov_tiles_open(base, only_working, lang)
         return {
             'today': today, 'months': months, 'tiles': tiles, 'lines': lines, 'series': series, 'buckets': buckets,
             'found': calc.found_split([r['found_by'] for r in rows]),
-            'open': {'tiles': calc.ov_tiles_open(base, only_working, lang), 'found': found_open},
+            'open': {'tiles': tiles_open, 'found': found_open},
             'alerts': alerts,
-            'check': self._overview_check(lang, skip=('nomap',) if 'no_rate' in live else ()),
+            'check': check,
+            # «Сьогодні вирішити» (слово власника 07.11 «только живые числа»): чипи з плиток і живих тривог — число й список ті самі, що в
+            # плитки чи тривоги; розділи звірки — лише в «Тривогах»
+            'decide': calc.decide_chips(tiles, tiles_open, alerts, lang),
             'options': self._overview_options(),
             'labels': {k: calc.t('ov_' + k, lang) for k in LABELS},
         }
