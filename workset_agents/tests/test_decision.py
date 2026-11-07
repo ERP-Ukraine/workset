@@ -16,6 +16,12 @@ D = '2026-11-10'
 @tagged('post_install', '-at_install')
 class TestAgentsDecision(AccountTestInvoicingCommon):
     @classmethod
+    def get_default_groups(cls):
+        # оточення AccountTestInvoicingCommon у 19.0 — користувач accountman, не суперкористувач: дані тестів (агент, домовленості, нарахування,
+        # рішення, виплати) він створює з групою модуля «Власник»; права кнопок — окремі користувачі with_user(власник / кадровик)
+        return super().get_default_groups() | cls.env.ref('workset_agents.group_owner')
+
+    @classmethod
     def setUpClass(cls):
         super().setUpClass()
         env = cls.env

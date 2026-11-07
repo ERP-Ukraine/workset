@@ -165,14 +165,17 @@ class WorksetAgent(models.Model):
 class ResPartner(models.Model):
     _inherit = 'res.partner'
 
-    agent_ids = fields.One2many('workset.agent', 'partner_id', string='Агент')
+    # не agent_ids: так зветься поле стандартного модуля Odoo 19 «ai» (res.partner.agent_ids → ai.agent) — воно перекрило б наше, is_agent
+    # рахувався б за чужими агентами (dev-збірка 07.11). Підпис — не «Агент»: інакше дві однакові підписи на контакті (і в workset.agent,
+    # res.users через _inherits)
+    workset_agent_ids = fields.One2many('workset.agent', 'partner_id', string='Агенти WorkSET')
     is_agent = fields.Boolean(string='Агент', compute='_compute_is_agent', store=True, index=True,
                               help='Позначка: цей контакт — агент (підбір людей або посередник замовників). Умови — у «Домовленостях»')
 
-    @api.depends('agent_ids')
+    @api.depends('workset_agent_ids')
     def _compute_is_agent(self):
         for rec in self:
-            rec.is_agent = bool(rec.agent_ids)
+            rec.is_agent = bool(rec.workset_agent_ids)
 
 
 class HrEmployee(models.Model):

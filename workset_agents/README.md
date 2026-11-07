@@ -95,6 +95,7 @@
 |---|---|---|---|
 | все модели модуля | `x_agent_id` (`res.partner`) | `agent_id` (`workset.agent`) | плановая смена смысла: агент — своя модель |
 | `res.partner` → `workset.agent` | `x_agent` (метка-булево) | `res.partner.is_agent` (вычисляемое хранимое: есть запись `workset.agent`) | признак остаётся на контакте для правила `res.partner.bank` и фильтров; имя `agent` на контакте читалось бы как ссылка |
+| `res.partner` | — (обратная связь контакт → агент) | `workset_agent_ids` («Агенти WorkSET»), не `agent_ids` | `res.partner.agent_ids` — поле стандартного модуля Odoo 19 `ai` (→ `ai.agent`, стоит на проде и копии 20): одноимённое поле перекрыло бы наше, `is_agent` считался бы по агентам ИИ (dev-сборка 07.11) |
 | `res.partner` → `workset.agent` | `x_agent_tg_id`, `x_agent_code`, `x_agent_form_state`, `x_agent_envelope_id` | `tg_id`, `code`, `form_state`, `envelope_id` | поля агента переезжают с контакта: префикс `x_agent_` снят целиком |
 | `res.partner` → `workset.agent` | `x_agent_pd_ids`, `x_agent_cd_ids`, `x_agent_member_ids` | `pd_ids`, `cd_ids`, `member_ids` | то же |
 | `res.partner` → `workset.agent` | `x_agent_kind` | `kind` | то же |
@@ -149,7 +150,7 @@
   `paid_year`, `is_test`, `accrual_ids`, `payout_ids`, `zvirka_ids`, `tax_ids`, `legacy_ref`; имя, телефон, почта, банки — поля контакта
   (`_inherits`).
 - `hr.employee`: `agent_id`, `agent_deal_id` (только показ).
-- `res.partner`: `agent_ids`, `is_agent`.
+- `res.partner`: `workset_agent_ids`, `is_agent`.
 
 Значения списков (ключи) — прежние: `pay_path` `personal_36` / `official_1` / `custom`, `mode` `pay` / `zvirka`, `state` договорённости
 `draft` / `zvirka` / `active` / `closed`, вид клиента `hour` / `fixed` / `worker_fund` и т. д.
@@ -172,5 +173,9 @@
 3. Ночь — `--night on` (на проде — только по слову владельца и параметру `night_prod_ok`).
 
 ## Тесты
-- Odoo: `tests/test_calc.py`, `tests/test_night.py` (`TransactionCase`, `post_install`, `-at_install`) — dev-сборка Odoo.sh.
+- Odoo: `tests/test_calc.py` (`TransactionCase`), `tests/test_night.py`, `tests/test_decision.py` (`AccountTestInvoicingCommon`), все
+  `post_install`, `-at_install` — dev-сборка Odoo.sh. В 19.0 окружение `AccountTestInvoicingCommon` — пользователь `accountman`, не
+  суперпользователь: тесты добавляют ему группу «Власник» (`get_default_groups`), права кнопок проверяют отдельные пользователи
+  `with_user(власник / кадровик)`. `assertRaises` Odoo принимает один класс исключения, не кортеж; нарушение `models.Constraint` в ORM —
+  `psycopg2.IntegrityError` (в `ValidationError` его превращает только слой RPC).
 - Без Odoo: `node --test tools/tests/odoo_workset_agents_module.test.js` (чистые функции через uv, проверка модуля `tools/odoo_addon_check.py`).

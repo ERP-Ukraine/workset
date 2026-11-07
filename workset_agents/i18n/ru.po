@@ -481,6 +481,11 @@ msgid "Записи «ТЕСТ-ШТАБ» для показу — прибрат
 msgstr "Записи «ТЕСТ-ШТАБ» для показа — убрать перед показом владельцу (инструмент штаба --demo-remove)"
 
 #. module: workset_agents
+#: model:ir.model.fields,field_description:workset_agents.field_res_partner__workset_agent_ids
+msgid "Агенти WorkSET"
+msgstr "Агенты WorkSET"
+
+#. module: workset_agents
 #: model:ir.model.fields,help:workset_agents.field_res_partner__is_agent
 msgid "Позначка: цей контакт — агент (підбір людей або посередник замовників). Умови — у «Домовленостях»"
 msgstr "Метка: этот контакт — агент (подбор людей или посредник заказчиков). Условия — в «Домовленостях»"

@@ -36,10 +36,10 @@
                                 <field name="diff_year" class="text-muted" invisible="diff_pct &gt; 5 or diff_pct &lt; -5"/> €
                             </div>
                             <footer class="pt-1">
-                                <a name="action_open_deals_people" type="object" class="btn btn-link btn-sm p-0 me-3" invisible="not pd_n">Домовленості</a>
-                                <a name="action_open_deals_client" type="object" class="btn btn-link btn-sm p-0 me-3" invisible="pd_n or not cd_n">Домовленості</a>
-                                <a name="action_open_zvirka" type="object" class="btn btn-link btn-sm p-0 me-3" invisible="not diff_year">Звірка</a>
-                                <a name="action_open_accruals" type="object" class="btn btn-link btn-sm p-0" invisible="not accrual_n">Нарахування</a>
+                                <a name="action_open_deals_people" type="object" role="button" class="btn btn-link btn-sm p-0 me-3" invisible="not pd_n">Домовленості</a>
+                                <a name="action_open_deals_client" type="object" role="button" class="btn btn-link btn-sm p-0 me-3" invisible="pd_n or not cd_n">Домовленості</a>
+                                <a name="action_open_zvirka" type="object" role="button" class="btn btn-link btn-sm p-0 me-3" invisible="not diff_year">Звірка</a>
+                                <a name="action_open_accruals" type="object" role="button" class="btn btn-link btn-sm p-0" invisible="not accrual_n">Нарахування</a>
                             </footer>
                         </main>
                     </t>

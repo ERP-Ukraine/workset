@@ -3,7 +3,6 @@
 odoo-bin -i workset_agents --test-enable --test-tags workset_agents). Усі дані — вигадані в самому тесті."""
 from psycopg2 import IntegrityError
 
-from odoo.exceptions import ValidationError
 from odoo.tests.common import TransactionCase, tagged
 from odoo.tools import mute_logger
 
@@ -31,17 +30,23 @@ class TestAgentsCalc(TransactionCase):
         self.assertEqual(payplan.prev_pay_day('2026-11-25'), '2026-11-10')
 
     def test_compute_minimal(self):
+        # 40 год рахунку без табеля: «Діє з» далі NODATE_MARGIN (31 день) від дати рахунку — «Очікується» («Лише звірка» — режим mode, стадія «Діє»);
+        # «Діє з» за 19 днів до рахунку — сторож no_timesheet «На перевірці» (так само еталон ручної збірки tools/odoo_agents_calc/calc.py)
         cfg = calc.make_cfg(1, 36)
-        D = {'deals_people': [], 'deals_client': [{'id': 7, 'agent_id': [71, 'a'], 'kind': 'hour', 'state': 'zvirka', 'date_from': '2026-10-01', 'date_to': False,
-                                                   'company_id': False, 'rate': 2, 'pay_path': 'personal_36', 'customer_ids': [900], 'line_id': False}],
-             'members': [], 'line_customers': [], 'accruals': [], 'has_line': False, 'emp_contact': [],
-             'moves': [{'id': 5, 'name': 'INV/5', 'invoice_date': '2026-10-20', 'partner_id': [900, 'c'], 'commercial_partner_id': [900, 'c'], 'company_id': [1, 'w'],
-                        'state': 'posted', 'payment_state': 'paid', 'pay_date': '2026-11-03'}],
-             'hours': [[5, {'rows': [[0, False, 40]], 'total': 40, 'free': 40}]]}
-        res = calc.compute(D, TODAY, cfg)
+
+        def data(date_from):
+            return {'deals_people': [], 'deals_client': [{'id': 7, 'agent_id': [71, 'a'], 'kind': 'hour', 'state': 'active', 'mode': 'zvirka', 'date_from': date_from,
+                                                          'date_to': False, 'company_id': False, 'rate': 2, 'pay_path': 'personal_36', 'customer_ids': [900], 'line_id': False}],
+                    'members': [], 'line_customers': [], 'accruals': [], 'has_line': False, 'emp_contact': [],
+                    'moves': [{'id': 5, 'name': 'INV/5', 'invoice_date': '2026-10-20', 'partner_id': [900, 'c'], 'commercial_partner_id': [900, 'c'], 'company_id': [1, 'w'],
+                               'state': 'posted', 'payment_state': 'paid', 'pay_date': '2026-11-03'}],
+                    'hours': [[5, {'rows': [[0, False, 40]], 'total': 40, 'free': 40}]]}
+        res = calc.compute(data('2026-06-01'), TODAY, cfg)
         self.assertEqual([c['key'] for c in res['creates']], ['hour:c7:m5'])
         v = res['creates'][0]['vals']
-        self.assertEqual((v['amount'], v['state'], v['company_id'], v['pay_date']), (80.0, 'expected', 36, '2026-11-10'))
+        self.assertEqual((v['amount'], v['state'], v['company_id'], v['pay_date'], v.get('guard') or False), (80.0, 'expected', 36, '2026-11-10', False))
+        near = calc.compute(data('2026-10-01'), TODAY, cfg)['creates'][0]['vals']
+        self.assertEqual((near['amount'], near['state'], near['guard']), (80.0, 'review', 'no_timesheet'), 'дата рахунку біля «Діє з» — години без табеля на перевірку')
 
     # ── вычисляемые поля ──
     def test_pay_path_by_kind(self):
@@ -55,7 +60,10 @@ class TestAgentsCalc(TransactionCase):
         self.assertEqual((v17.state, v17.mode, v17.currency_id), ('draft', 'pay', self.env.ref('base.EUR')))
 
     def test_agent_kind_state_and_partner_flag(self):
+        # позначка контакту — за своїм полем workset_agent_ids (не agent_ids модуля Odoo «ai»); контакт без агента — без позначки
+        self.assertEqual(self.agent.partner_id.workset_agent_ids, self.agent)
         self.assertTrue(self.agent.partner_id.is_agent)
+        self.assertFalse(self.worker.is_agent)
         self.assertEqual((self.agent.kind, self.agent.state), ('none', 'none'))
         pd = self.env['workset.agent.deal.people'].create({'agent_id': self.agent.id, 'kind': 'hour', 'state': 'active'})
         self.assertEqual((self.agent.kind, self.agent.state), ('people', 'pay'))
@@ -76,23 +84,25 @@ class TestAgentsCalc(TransactionCase):
         self.assertEqual((dec.zvirka_total, dec.zv_more_total, dec.zv_less_total), (30.0, 5.0, 0.0))
         self.assertEqual(dec.name, 'Рішення · Агенти-кандидати · 10.11.2026')
 
+    # обмеження неповторності — models.Constraint (у 19.0 _sql_constraints не діє): порушення в ORM — IntegrityError бази (UniqueViolation);
+    # у ValidationError його перетворює лише шар RPC (odoo/service/model.py). assertRaises Odoo приймає один клас (issubclass), не кортеж
     def test_accrual_key_unique(self):
         Acc = self.env['workset.agent.accrual']
         vals = {'section': 'people', 'agent_id': self.agent.id, 'kind': 'oneoff', 'amount': 5, 'key': 'oneoff:test'}
         Acc.create(vals)
-        with self.assertRaises((IntegrityError, ValidationError)), mute_logger('odoo.sql_db'):
-            with self.env.cr.savepoint():
-                Acc.create(dict(vals))
-                self.env.flush_all()
+        Acc.create(dict(vals, key='oneoff:test2'))
+        self.env.flush_all()
+        with self.assertRaises(IntegrityError), mute_logger('odoo.sql_db'):
+            Acc.create(dict(vals))
+            self.env.flush_all()
 
     def test_one_agent_per_contact(self):
-        with self.assertRaises((IntegrityError, ValidationError)), mute_logger('odoo.sql_db'):
-            with self.env.cr.savepoint():
-                self.env['workset.agent'].create({'partner_id': self.agent.partner_id.id})
-                self.env.flush_all()
+        with self.assertRaises(IntegrityError), mute_logger('odoo.sql_db'):
+            self.env['workset.agent'].create({'partner_id': self.agent.partner_id.id})
+            self.env.flush_all()
 
     def test_zvirka_label_and_pct(self):
         self.env['ir.config_parameter'].sudo().set_param('workset_agents.card_year', '2026')
-        z =self.env['workset.agent.zvirka'].create({'agent_id': self.agent.id, 'month': '2026-10-01', 'calc': 110, 'envelope': 100, 'diff': 10})
+        z = self.env['workset.agent.zvirka'].create({'agent_id': self.agent.id, 'month': '2026-10-01', 'calc': 110, 'envelope': 100, 'diff': 10})
         self.assertEqual((z.month_label, z.diff_pct), ('Жовтень 2026', 10.0))
         self.assertEqual(self.agent.calc_year, 110.0)

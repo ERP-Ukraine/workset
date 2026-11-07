@@ -17,6 +17,13 @@ INV_DAY = '2026-10-20'
 @tagged('post_install', '-at_install')
 class TestAgentsNight(AccountTestInvoicingCommon):
     @classmethod
+    def get_default_groups(cls):
+        # у 19.0 оточення AccountTestInvoicingCommon — не суперкористувач, а користувач accountman (бухгалтерія, адміністратор, групи
+        # get_default_groups): агентів, домовленості, рішення, виплати тестів він створює сам — додаємо групу модуля «Власник».
+        # Права кнопок перевіряють окремі користувачі with_user(власник / кадровик)
+        return super().get_default_groups() | cls.env.ref('workset_agents.group_owner')
+
+    @classmethod
     def setUpClass(cls):
         super().setUpClass()
         env = cls.env
@@ -162,13 +169,14 @@ class TestAgentsNight(AccountTestInvoicingCommon):
     def test_buttons_rights(self):
         dec = self.env['workset.agent.decision'].create({'pay_day': '2026-11-25', 'section': 'client'})
         line = self.env['workset.agent.decision.line'].create({'decision_id': dec.id, 'agent_id': self.agent.id, 'available': 50, 'pay_now': 50, 'proposal': 30})
-        with self.assertRaises((UserError, AccessError)):
+        # assertRaises Odoo — один клас (кортеж падає на issubclass): кнопки рішення — UserError «… може лише власник» (check_owner), run_now — AccessError
+        with self.assertRaises(UserError):
             dec.with_user(self.hr).action_approve()
-        with self.assertRaises((UserError, AccessError)):
+        with self.assertRaises(UserError):
             dec.with_user(self.hr).action_apply_advice()
-        with self.assertRaises((UserError, AccessError)):
+        with self.assertRaises(UserError):
             dec.with_user(self.hr).action_stop()
-        with self.assertRaises((UserError, AccessError)):
+        with self.assertRaises(AccessError):
             self.Run.with_user(self.hr).run_now(dry=True)
         dec.with_user(self.owner).action_apply_advice()
         self.assertEqual(line.pay_now, 30.0)
@@ -200,7 +208,7 @@ class TestAgentsNight(AccountTestInvoicingCommon):
         dl = self.env['workset.agent.decision.line'].create({'decision_id': dec.id, 'agent_id': self.agent.id, 'available': 40, 'pay_now': 40})
         po.write({'pay_line_id': dl.id, 'decision_id': dec.id})
         Wiz = self.env['workset.agent.paid.wizard']
-        with self.assertRaises((UserError, AccessError)):
+        with self.assertRaises(AccessError):  # кадровику вікна немає (права — бухгалтерія й «Власник»): відмова вже на створенні
             Wiz.with_user(self.hr).create({'payout_ids': [(6, 0, po.ids)], 'note': 'x', 'source': 'other'}).action_confirm()
         w = Wiz.with_user(self.owner).create({'payout_ids': [(6, 0, po.ids)], 'note': 'квитанція', 'source': 'other', 'date': '2026-11-10'})
         w.amount = 18
