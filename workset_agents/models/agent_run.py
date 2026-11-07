@@ -13,7 +13,7 @@ import json
 import logging
 import time
 
-from odoo import _, api, fields, models
+from odoo import api, fields, models
 from odoo.exceptions import AccessError, UserError
 
 from . import calc, common, office_bridge, payplan
@@ -174,7 +174,7 @@ class WorksetAgentRun(models.Model):
         if paid_ids:
             hour = self.env.ref('uom.product_uom_hour', raise_if_not_found=False)
             if not hour:
-                raise UserError(_('немає одиниці «Години» (uom.product_uom_hour) — годин у рахунках не порахувати'))
+                raise UserError(self.env._('немає одиниці «Години» (uom.product_uom_hour) — годин у рахунках не порахувати'))
             lines = self._rows('account.move.line', [('move_id', 'in', paid_ids), ('display_type', '=', 'product'), ('product_uom_id', '=', hour.id)],
                                ['move_id', 'quantity', 'sale_line_ids'])
             sls = []
@@ -331,7 +331,7 @@ class WorksetAgentRun(models.Model):
             codes = common.param_list(self.env, common.P_WS_CODES)
             journals = self.env['account.journal'].sudo().with_context(active_test=False).search([('code', 'in', codes), ('company_id', '=', ws_company)])
             if not journals:
-                raise UserError(_('Агенти: журналів WS з кодами %s у фірмі personal немає (параметр %s).') % (', '.join(codes), common.P_WS_CODES))
+                raise UserError(self.env._('Агенти: журналів WS з кодами %s у фірмі personal немає (параметр %s).') % (', '.join(codes), common.P_WS_CODES))
             out['wh_analytic'] = common.param_int(self.env, common.P_WH_ANALYTIC)
             partners = uniq([out['agent_partner'].get(a) for a in agents])
             X = payplan.paid_ctx(out)
@@ -685,5 +685,5 @@ class WorksetAgentRun(models.Model):
         """Ніч зараз (інструмент штабу через API): dry=True — вхолосту, нічого не пише; dry=False — із записом (прод — лише з night_prod_ok).
         Лише група «Власник» і системні адміністратори."""
         if not (self.env.su or common.is_owner(self.env) or self.env.user.has_group('base.group_system')):
-            raise AccessError(_('Розрахунок агентів запускає лише власник.'))
+            raise AccessError(self.env._('Розрахунок агентів запускає лише власник.'))
         return self._run(kind='dry' if dry else 'manual', dry=bool(dry), today=today, zvirka_deals=zvirka_deals or None)

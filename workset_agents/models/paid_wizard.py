@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from odoo import _, api, fields, models
+from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 from . import calc, common, payplan
@@ -28,20 +28,20 @@ class WorksetAgentPaidWizard(models.TransientModel):
 
     def action_confirm(self):
         if not (self.env.su or self.env.user.has_group(common.G_ACCOUNT) or common.is_owner(self.env)):
-            raise UserError(_('Позначати виплати вручну можуть лише власник і бухгалтерія.'))
+            raise UserError(self.env._('Позначати виплати вручну можуть лише власник і бухгалтерія.'))
         labels = dict(common.PAYOUT_STATES)
         via_labels = dict((k, v.lower()) for k, v in common.PAID_VIA)
         for rec in self:
             note = (rec.note or '').strip()
             if not rec.date or not note or not rec.source:
-                raise UserError(_('Вкажіть дату, що саме (виписка / журнал WS / інше) і коментар (як і де виплачено).'))
+                raise UserError(self.env._('Вкажіть дату, що саме (виписка / журнал WS / інше) і коментар (як і де виплачено).'))
             pays = rec.payout_ids.sudo().filtered(lambda p: p.state not in ('paid', 'paid_part', 'cancelled'))
             if not pays:
-                raise UserError(_('Серед вибраних немає виплат, які можна позначити (уже «Виплачено», «Виплачено частково» або «Скасовано»). Нічого не позначено.'))
+                raise UserError(self.env._('Серед вибраних немає виплат, які можна позначити (уже «Виплачено», «Виплачено частково» або «Скасовано»). Нічого не позначено.'))
             amount = round(rec.amount or 0.0, 2)
             total = round(sum(p.net or 0.0 for p in pays), 2)
             if len(pays) > 1 and abs(amount - total) > 0.005:
-                raise UserError(_('Часткову суму вказують для однієї виплати. Виберіть одну або залиште суму «До переказу» разом (%.2f €).') % total)
+                raise UserError(self.env._('Часткову суму вказують для однієї виплати. Виберіть одну або залиште суму «До переказу» разом (%.2f €).') % total)
             for payout in pays:
                 net = round(payout.net or 0.0, 2)
                 try:

@@ -178,4 +178,7 @@
   суперпользователь: тесты добавляют ему группу «Власник» (`get_default_groups`), права кнопок проверяют отдельные пользователи
   `with_user(власник / кадровик)`. `assertRaises` Odoo принимает один класс исключения, не кортеж; нарушение `models.Constraint` в ORM —
   `psycopg2.IntegrityError` (в `ValidationError` его превращает только слой RPC).
+- Журнал сборки — чистый: Odoo.sh ставит «Test: Failed» за любую строку ERROR, даже при 0 упавших тестов. Ожидаемые ERROR (нарочные сбои,
+  нет параметра, нет журнала WS, нарушение ограничения) — только под `assertLogs` с проверкой текста; сообщения моделей — `env._` /
+  `self.env._` (модульный `_` в функциях без `self` пишет WARNING «no translation language detected»).
 - Без Odoo: `node --test tools/tests/odoo_workset_agents_module.test.js` (чистые функции через uv, проверка модуля `tools/odoo_addon_check.py`).

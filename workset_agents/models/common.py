@@ -6,7 +6,6 @@
 import datetime
 from zoneinfo import ZoneInfo
 
-from odoo import _
 from odoo.exceptions import UserError
 
 from . import calc
@@ -85,11 +84,13 @@ TAX_FREE_COUNTRIES = ('PL',)
 ZV_ENV_DAYS = 150  # рядки конверта агента для «Звірки» рішення — за стільки днів назад
 
 
+# переклад повідомлень — env._ / self.env._ (Odoo 19): модульний «_» у функції без self мови не знаходить — WARNING «no translation language
+# detected» у журналі (dev-збірка 07.11)
 def param(env, key, required=True, default=''):
     """Системний параметр workset_agents.*: рядок; немає і required — UserError «параметр … не заданий» (модуль фактів не вгадує)."""
     v = (env['ir.config_parameter'].sudo().get_param(key) or '').strip()
     if not v and required:
-        raise UserError(_('Агенти: параметр %s не заданий — запустіть інструмент штабу --seed.') % key)
+        raise UserError(env._('Агенти: параметр %s не заданий — запустіть інструмент штабу --seed.') % key)
     return v or default
 
 
@@ -98,7 +99,7 @@ def param_int(env, key, required=True):
     if not v:
         return 0
     if not v.isdigit():
-        raise UserError(_('Агенти: параметр %s — не число: %s') % (key, v))
+        raise UserError(env._('Агенти: параметр %s — не число: %s') % (key, v))
     return int(v)
 
 
@@ -110,10 +111,10 @@ def param_ids(env, key, required=True):
         if not x:
             continue
         if not x.isdigit():
-            raise UserError(_('Агенти: параметр %s — не список чисел: %s') % (key, v))
+            raise UserError(env._('Агенти: параметр %s — не список чисел: %s') % (key, v))
         out.append(int(x))
     if required and not out:
-        raise UserError(_('Агенти: параметр %s не заданий — запустіть інструмент штабу --seed.') % key)
+        raise UserError(env._('Агенти: параметр %s не заданий — запустіть інструмент штабу --seed.') % key)
     return out
 
 
@@ -140,7 +141,7 @@ def is_owner(env):
 
 def check_owner(env, what):
     if not (env.su or is_owner(env)):
-        raise UserError(_('%s може лише власник.') % what)
+        raise UserError(env._('%s може лише власник.') % what)
 
 
 def kyiv_now():

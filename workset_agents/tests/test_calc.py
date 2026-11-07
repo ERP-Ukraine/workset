@@ -4,7 +4,6 @@ odoo-bin -i workset_agents --test-enable --test-tags workset_agents). Усі д�
 from psycopg2 import IntegrityError
 
 from odoo.tests.common import TransactionCase, tagged
-from odoo.tools import mute_logger
 
 from ..models import calc, payplan
 
@@ -85,21 +84,24 @@ class TestAgentsCalc(TransactionCase):
         self.assertEqual(dec.name, 'Рішення · Агенти-кандидати · 10.11.2026')
 
     # обмеження неповторності — models.Constraint (у 19.0 _sql_constraints не діє): порушення в ORM — IntegrityError бази (UniqueViolation);
-    # у ValidationError його перетворює лише шар RPC (odoo/service/model.py). assertRaises Odoo приймає один клас (issubclass), не кортеж
+    # у ValidationError його перетворює лише шар RPC (odoo/service/model.py). assertRaises Odoo приймає один клас (issubclass), не кортеж.
+    # Рядок ERROR «bad query» odoo.sql_db — очікуваний: ловимо assertLogs (у журнал збірки не йде) і за ним перевіряємо, ЯКЕ обмеження спрацювало
     def test_accrual_key_unique(self):
         Acc = self.env['workset.agent.accrual']
         vals = {'section': 'people', 'agent_id': self.agent.id, 'kind': 'oneoff', 'amount': 5, 'key': 'oneoff:test'}
         Acc.create(vals)
         Acc.create(dict(vals, key='oneoff:test2'))
         self.env.flush_all()
-        with self.assertRaises(IntegrityError), mute_logger('odoo.sql_db'):
+        with self.assertRaises(IntegrityError), self.assertLogs('odoo.sql_db', 'ERROR') as logs:
             Acc.create(dict(vals))
             self.env.flush_all()
+        self.assertIn('workset_agent_accrual_key_uniq', '\n'.join(logs.output))
 
     def test_one_agent_per_contact(self):
-        with self.assertRaises(IntegrityError), mute_logger('odoo.sql_db'):
+        with self.assertRaises(IntegrityError), self.assertLogs('odoo.sql_db', 'ERROR') as logs:
             self.env['workset.agent'].create({'partner_id': self.agent.partner_id.id})
             self.env.flush_all()
+        self.assertIn('workset_agent_partner_uniq', '\n'.join(logs.output))
 
     def test_zvirka_label_and_pct(self):
         self.env['ir.config_parameter'].sudo().set_param('workset_agents.card_year', '2026')

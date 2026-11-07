@@ -41,6 +41,9 @@ class TestAgentsDecision(AccountTestInvoicingCommon):
                      (common.P_OFFICE_TO, 'Офіс'), (common.P_CARD_YEAR, 2026), (common.P_PROBE_TODAY, '2026-11-08')]:
             # probe_today — «сьогодні» кнопок «Затвердити» / «Зупинити» на копії (інакше тест залежав би від дати прогону)
             ICP.set_param(k, str(v))
+        # журнал WS фірми personal з кодом параметра ws_journal_codes: без нього крок «Виплачено» (2б) ночі з підготовленою виплатою «особисто»
+        # відкочувався б з помилкою (dev-збірка 03c9252ef, test_buffer_to_next_decision), а тести йшли б без цього кроку
+        cls.ws_journal = env['account.journal'].create({'name': 'Тест WS рішень', 'code': 'TWS', 'type': 'general', 'company_id': co.id})
         cls.agent = env['workset.agent'].create({'name': 'Тест агент рішень'})
         cls.bank = env['res.partner.bank'].create({'partner_id': cls.agent.partner_id.id, 'acc_number': 'TESTAGENTIBAN0001', 'allow_out_payment': True})
         cls.pd_personal = env['workset.agent.deal.people'].create({'agent_id': cls.agent.id, 'kind': 'oneoff', 'state': 'active', 'date_from': '2026-10-01'})
@@ -54,7 +57,10 @@ class TestAgentsDecision(AccountTestInvoicingCommon):
         cls.Dec = env['workset.agent.decision']
 
     def _night(self, today):
-        return self.Run.run_now(dry=False, today=today)
+        # ніч без помилок кроків: збій кроку відкочується мовчки (лише рядок ERROR у журналі), і тест пройшов би без нього
+        res = self.Run.run_now(dry=False, today=today)
+        self.assertFalse(res.get('error') or res.get('errors'), 'ніч %s: %s' % (today, res.get('error') or res.get('errors')))
+        return res
 
     def _decision(self):
         return self.Dec.search([('pay_day', '=', D), ('section', '=', 'people')])
@@ -122,7 +128,10 @@ class TestAgentsDecision(AccountTestInvoicingCommon):
         self.assertEqual(dec.state, 'done')
         pers_line = dec.pay_line_ids.filtered(lambda l: l.pay_path == 'personal_36')
         self.assertEqual(pers_line.buffer_out, 30.0)
-        self._night('2026-11-22')
+        res = self._night('2026-11-22')
+        # крок «Виплачено» (2б) рахувався: підготовлена виплата «особисто» є, журнал WS є, переказу в ньому немає — виплата чекає
+        self.assertIsNotNone(res['paid'])
+        self.assertEqual(dec.payout_ids.filtered(lambda p: p.pay_path == 'personal_36').state, 'prep')
         nxt = self.Dec.search([('pay_day', '=', '2026-11-25'), ('section', '=', 'people')])
         line = nxt.pay_line_ids.filtered(lambda l: l.pay_path == 'personal_36')
         self.assertEqual((line.buffer_in, line.accrued, line.available, line.buffer_from_id), (30.0, 0.0, 30.0, pers_line))

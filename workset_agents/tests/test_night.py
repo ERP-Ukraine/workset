@@ -8,10 +8,12 @@ from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.exceptions import AccessError, UserError
 from odoo.tests.common import new_test_user, tagged
 
-from ..models import common
+from ..models import agent_run, common
 
 TODAY = '2026-11-05'
 INV_DAY = '2026-10-20'
+# логер ночі (getLogger(__name__)): очікувані рядки ERROR — лише під assertLogs з перевіркою тексту, інакше Odoo.sh ставить «Test: Failed»
+RUN_LOG = agent_run.__name__
 
 
 @tagged('post_install', '-at_install')
@@ -93,7 +95,9 @@ class TestAgentsNight(AccountTestInvoicingCommon):
     def test_missing_param_error_nothing_written(self):
         self._paid_invoice()
         self.env['ir.config_parameter'].sudo().set_param(common.P_PERIMETER, '')
-        res = self.Run.run_now(dry=False, today=TODAY)
+        with self.assertLogs(RUN_LOG, 'ERROR') as logs:
+            res = self.Run.run_now(dry=False, today=TODAY)
+        self.assertIn('розрахунок не вдався: Агенти: параметр %s не заданий' % common.P_PERIMETER, '\n'.join(logs.output))
         self.assertIn(common.P_PERIMETER, res['error'])
         self.assertFalse(self._mine())
         log = self.Run.search([], limit=1)
@@ -104,21 +108,29 @@ class TestAgentsNight(AccountTestInvoicingCommon):
         self._paid_invoice()
         ICP = self.env['ir.config_parameter'].sudo()
         ICP.set_param(common.P_IS_COPY, '')
-        self.Run._cron_night()
-        self.assertFalse(self._mine())
-        self.assertEqual(self.Run.search([], limit=1).result, 'Не дозволено')
-        # вхолосту — можна; probe_today на проді не діє (день — за Києвом), «сьогодні» аргументом — лише вхолосту
-        self.assertTrue(self.Run.run_now(dry=True, today=TODAY)['creates'])
-        ICP.set_param(common.P_NIGHT_PROD_OK, '1')
-        self.Run._cron_night()
+        # день проду — за Києвом: фіксуємо його, щоб ніч (крок рішень D−3, минулий день виплати) не залежала від дати прогону збірки
+        with patch('odoo.addons.workset_agents.models.common.kyiv_today', return_value=TODAY):
+            self.Run._cron_night()
+            self.assertFalse(self._mine())
+            self.assertEqual(self.Run.search([], limit=1).result, 'Не дозволено')
+            # вхолосту — можна; probe_today на проді не діє (день — за Києвом), «сьогодні» аргументом — лише вхолосту
+            self.assertTrue(self.Run.run_now(dry=True, today=TODAY)['creates'])
+            ICP.set_param(common.P_NIGHT_PROD_OK, '1')
+            self.Run._cron_night()
         self.assertEqual(len(self._mine()), 1)
+        self.assertEqual(self.Run.search([], limit=1).result, 'OK')
 
     def test_points_independent_and_ordered(self):
         self._paid_invoice()
         Dec = type(self.env['workset.agent.decision'])
         boom = {'ops': [{'op': 'create', 'model': 'workset.agent.decision', 'ref': 'd1', 'vals': {}}], 'notes': [], 'summary': {}}  # без дня виплати — збій запису
-        with patch.object(Dec, '_night_pay_step', lambda self, today, now, dry: boom):
+        # поломка НАВМИСНА (підмінений крок рішень, модуль так рішень не створює): NOT NULL pay_day у базі — ERROR odoo.sql_db «bad query»,
+        # точка відкочується — ERROR ночі «запис не вдався, відкочено»; обидва рядки очікувані — під assertLogs з текстом
+        with patch.object(Dec, '_night_pay_step', lambda self, today, now, dry: boom), \
+                self.assertLogs('odoo.sql_db', 'ERROR') as sql_logs, self.assertLogs(RUN_LOG, 'ERROR') as run_logs:
             res = self.Run.run_now(dry=False, today=TODAY)
+        self.assertIn('pay_day', '\n'.join(sql_logs.output))
+        self.assertIn('запис не вдався, відкочено: виплати:', '\n'.join(run_logs.output))
         self.assertEqual(res['order'][0], 'accruals')
         self.assertEqual(res['order'][-1], 'pay', 'рішення — після нарахувань')
         self.assertEqual(len(self._mine()), 1, 'збій кроку рішень не відкочує нарахування')
@@ -144,12 +156,25 @@ class TestAgentsNight(AccountTestInvoicingCommon):
         mv.action_post()
         line = mv.line_ids.filtered(lambda l: l.credit)
         res = self.Run.run_now(dry=False, today='2026-11-10')
+        self.assertEqual(res['errors'], [], 'журнал WS є — крок «Виплачено» без помилок')
         self.assertIn('paid', res['order'])
         self.assertEqual((po.state, po.paid_via, po.move_line_id, po.paid_amount), ('paid', 'ws', line, 36.0))
         self.assertEqual(acc.state, 'paid', 'виплата покрила рядок — нарахування «Виплачено»')
         # повтор — рядок уже прив'язаний, нічого не міняється
         self.Run.run_now(dry=False, today='2026-11-11')
         self.assertEqual(po.state, 'paid')
+
+    def test_paid_no_ws_journal(self):
+        # журналу WS з кодом параметра ws_journal_codes у фірмі personal немає: крок «Виплачено» (2б) не рахується — ясна помилка в журналі ночі
+        # (рядок ERROR очікуваний — під assertLogs), виплата «особисто» не змінюється
+        po = self._payout()
+        with self.assertLogs(RUN_LOG, 'ERROR') as logs:
+            res = self.Run.run_now(dry=False, today='2026-11-10')
+        self.assertTrue(any(e.startswith('виплачено (розрахунок)') and 'TWS' in e for e in res['errors']), res['errors'])
+        self.assertIn('журналів WS з кодами TWS у фірмі personal немає', '\n'.join(logs.output))
+        self.assertNotIn('paid', res['order'])
+        self.assertEqual(po.state, 'prep')
+        self.assertNotEqual(self.Run.search([], limit=1).result, 'OK')
 
     def test_paid_by_vendor_bill(self):
         bill = self.env['account.move'].create({'move_type': 'in_invoice', 'partner_id': self.agent.partner_id.id, 'invoice_date': '2026-11-07',

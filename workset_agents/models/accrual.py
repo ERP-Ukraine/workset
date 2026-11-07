@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from odoo import _, api, fields, models
+from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 from . import calc, common, payplan
@@ -58,7 +58,7 @@ class WorksetAgentAccrual(models.Model):
         """Кнопка «Сторно»: нове нарахування «Сторно» з мінусом і посиланням на вихідне (адміністратори кадрів і власник). Ще не в оплаті —
         обидва «Скасовано»; уже «У рахунку» / «Виплачено» — сторно «Очікується», день і статус поставить ніч. Причина — у «Нотатки» сторно."""
         if not (self.env.su or self.env.user.has_group(common.G_HR_MANAGER) or common.is_owner(self.env)):
-            raise UserError(_('Сторнувати нарахування можуть адміністратори кадрів і власник.'))
+            raise UserError(self.env._('Сторнувати нарахування можуть адміністратори кадрів і власник.'))
         today = common.kyiv_today()
         Acc = self.sudo()
         made = Acc.browse()
@@ -77,7 +77,7 @@ class WorksetAgentAccrual(models.Model):
             s = Acc.create(vals)
             if pre:
                 rec.write({'state': 'cancelled'})
-            rec.message_post(body=_('Сторно — %s, нарахування #%d. %s') % (self.env.user.name, s.id, 'Ще не виплачене: обидва «Скасовано».' if pre
+            rec.message_post(body=self.env._('Сторно — %s, нарахування #%d. %s') % (self.env.user.name, s.id, 'Ще не виплачене: обидва «Скасовано».' if pre
                                                                            else 'Уже у виплаті: сторно піде мінусом у найближчу виплату (дату поставить нічний розрахунок).'),
                              message_type='comment', subtype_xmlid='mail.mt_note')
             made |= s

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from odoo import _, api, fields, models
+from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 from . import calc, common, office_bridge, payplan
@@ -111,30 +111,30 @@ class WorksetAgentDecision(models.Model):
     def action_approve(self):
         """«Затвердити»: «Сплатити зараз» від 0 до max(0, «Разом до рішення»); рядки «На перевірці» — «Пропущено» (нарахування ніч перенесе на
         наступний день виплати); день виплати минув — відмова. Потім одразу ніч (kind approve): крок виплат готує виплати або «На перевірці»."""
-        common.check_owner(self.env, _('Затвердити рішення про виплату'))
+        common.check_owner(self.env, self.env._('Затвердити рішення про виплату'))
         Run = self.env['workset.agent.run']
         today = Run._today(dry=False)
         now = fields.Datetime.now()
         Line = self.env['workset.agent.decision.line'].sudo()
         for rec in self.sudo():
             if rec.state not in ('draft', 'review'):
-                raise UserError(_('Рішення %s уже не чернетка — затверджувати нічого.') % (rec.name or rec.id))
+                raise UserError(self.env._('Рішення %s уже не чернетка — затверджувати нічого.') % (rec.name or rec.id))
             day = fields.Date.to_string(rec.pay_day) if rec.pay_day else ''
             if day and day < today:
-                raise UserError(_('День виплати %s уже минув — затвердити заднім числом не можна. Уночі рішення стане «Пропущено», нарахування '
+                raise UserError(self.env._('День виплати %s уже минув — затвердити заднім числом не можна. Уночі рішення стане «Пропущено», нарахування '
                                   'перейдуть у рішення наступного дня виплати.') % calc.fmt_date(day))
             lines = Line.search([('decision_id', '=', rec.id), ('state', 'in', ['draft', 'review'])])
             bad, pay, keep, left = payplan.approve_check([{'state': l.state, 'pay_now': l.pay_now, 'available': l.available, 'agent': l.agent_id.name}
                                                           for l in lines])
             if bad:
-                raise UserError(_('Не затверджено — виправте «Сплатити зараз»:\n') + '\n'.join(bad))
+                raise UserError(self.env._('Не затверджено — виправте «Сплатити зараз»:\n') + '\n'.join(bad))
             for line in lines:
                 if line.state == 'review':
                     line.write({'state': 'skipped', 'guard_note': ('не в рішенні (на перевірці при затвердженні): %s' % (line.guard_note or line.guard or '—'))[0:250]})
                 else:
                     line.write({'state': 'approved'})
             rec.write({'state': 'approved', 'approved_by': self.env.user.id, 'approved_at': now, 'guard_note': False, 'auto': False})
-            rec.message_post(body=_('Затверджено: %s. Сплатити зараз %.2f € (рядків %d)%s.') % (
+            rec.message_post(body=self.env._('Затверджено: %s. Сплатити зараз %.2f € (рядків %d)%s.') % (
                 self.env.user.name, pay, keep, ', на перевірці — не в рішенні: %d (перенесено на наступний день виплати)' % left if left else ''),
                 message_type='comment', subtype_xmlid='mail.mt_note')
         Run._run(kind='approve', dry=False)
@@ -142,10 +142,10 @@ class WorksetAgentDecision(models.Model):
 
     def action_apply_advice(self):
         """«Як пропонує штаб»: «Сплатити зараз» = «Пропозиція штабу» в рядках-чернетках; далі власник править сам і тисне «Затвердити»."""
-        common.check_owner(self.env, _('Заповнювати «Сплатити зараз»'))
+        common.check_owner(self.env, self.env._('Заповнювати «Сплатити зараз»'))
         for rec in self.sudo():
             if rec.state not in ('draft', 'review'):
-                raise UserError(_('Рішення %s уже не чернетка — змінювати нічого.') % (rec.name or rec.id))
+                raise UserError(self.env._('Рішення %s уже не чернетка — змінювати нічого.') % (rec.name or rec.id))
             for line in rec.pay_line_ids.filtered(lambda l: l.state == 'draft'):
                 line.write({'pay_now': line.proposal or 0.0})
         return True
@@ -158,7 +158,7 @@ class WorksetAgentDecision(models.Model):
         """«Зупинити» автоматично затверджене рішення — до D − 1 включно: рішення й рядки — «Пропущено» («зупинено власником»), виплати —
         «Скасовано», чернетки рахунків — видалити, список офісу й підсумок власнику — прибрати, нарахування «Закрито рішенням» — знову «До виплати»;
         уже в оплаті — відмова. Потім ніч (kind stop) переносить нарахування на наступний день виплати."""
-        common.check_owner(self.env, _('Зупинити рішення'))
+        common.check_owner(self.env, self.env._('Зупинити рішення'))
         Run = self.env['workset.agent.run']
         today = Run._today(dry=False)
         Po = self.env['workset.agent.payout'].sudo()
@@ -167,25 +167,25 @@ class WorksetAgentDecision(models.Model):
         Move = self.env['account.move'].sudo()
         for rec in self.sudo():
             if rec.state != 'done' or not rec.auto:
-                raise UserError(_('Зупинити можна лише рішення, яке затвердила й підготувала автоматика (статус «Переказано», «Автоматично»).'))
+                raise UserError(self.env._('Зупинити можна лише рішення, яке затвердила й підготувала автоматика (статус «Переказано», «Автоматично»).'))
             day = fields.Date.to_string(rec.pay_day) if rec.pay_day else ''
             last = payplan.stop_last_day(day)
             if not day:
-                raise UserError(_('У рішення немає дня виплати.'))
+                raise UserError(self.env._('У рішення немає дня виплати.'))
             if today > last:
-                raise UserError(_('Зупинити можна до %s включно — далі список виплат уже в офісі.') % calc.fmt_date(last))
+                raise UserError(self.env._('Зупинити можна до %s включно — далі список виплат уже в офісі.') % calc.fmt_date(last))
             pays = Po.search([('decision_id', '=', rec.id)])
             busy = pays.filtered(lambda p: p.state not in ('prep', 'docs', 'bill', 'cancelled'))
             if busy:
-                raise UserError(_('Не зупинено: виплати вже в оплаті (%s) — далі лише вручну.') % ', '.join('#%d' % p.id for p in busy))
+                raise UserError(self.env._('Не зупинено: виплати вже в оплаті (%s) — далі лише вручну.') % ', '.join('#%d' % p.id for p in busy))
             bills = pays.mapped('move_id')
             posted = bills.filtered(lambda b: b.state != 'draft')
             if posted:
-                raise UserError(_('Не зупинено: рахунок постачальника вже проведено (%s) — далі лише вручну.') % ', '.join('#%d' % b.id for b in posted))
+                raise UserError(self.env._('Не зупинено: рахунок постачальника вже проведено (%s) — далі лише вручну.') % ', '.join('#%d' % b.id for b in posted))
             # список офісу (ключ agents-pay-<D>-d<id>): уже надіслано — відмова; підсумок власнику «затверджено автоматично» (…-auto) — теж прочь
             acts = self._office_acts('%s%s-d%d' % (payplan.KEY_PREFIX, day, rec.id))
             if office_bridge.sent(acts):
-                raise UserError(_('Не зупинено: список виплат офісу вже надіслано — далі лише вручну.'))
+                raise UserError(self.env._('Не зупинено: список виплат офісу вже надіслано — далі лише вручну.'))
             own = self._office_acts('%s%s-d%d-auto' % (payplan.OWNER_KEY_PREFIX, day, rec.id))
             had_acts = bool(acts)
             (acts | own).unlink()
@@ -204,7 +204,7 @@ class WorksetAgentDecision(models.Model):
                 if l.state != 'zvirka':
                     l.write({'state': 'skipped', 'guard_note': 'зупинено власником %s — наступне рішення лише за власником' % shown})
             rec.write({'state': 'skipped', 'guard_note': ('зупинено власником %s: нарахування — на наступний день виплати' % today)[0:250]})
-            rec.message_post(body=_('Зупинено власником, %s (%s). Виплат скасовано %d, чернеток рахунків видалено %d, список офісу прибрано: %s. '
+            rec.message_post(body=self.env._('Зупинено власником, %s (%s). Виплат скасовано %d, чернеток рахунків видалено %d, список офісу прибрано: %s. '
                                     'Нарахування перейдуть у рішення наступного дня виплати — його затверджуєте ви.') % (
                 shown, self.env.user.name, len(pays.filtered(lambda p: p.state == 'cancelled')), n_bills, 'так' if had_acts else 'його не було'),
                 message_type='comment', subtype_xmlid='mail.mt_note')
