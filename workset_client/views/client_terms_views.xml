@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- «Заповнити» блоку «Договір і оплата» (вікно з екрана «Умови клієнта», лише редактору): свої поля замовника й стандартний строк
+         оплати контакту; «Зберегти» пише лише змінене (models/client_terms.py) -->
+    <record id="view_client_terms_form" model="ir.ui.view">
+        <field name="name">workset.client.terms.form</field>
+        <field name="model">workset.client.terms</field>
+        <field name="arch" type="xml">
+            <form string="Договір і оплата">
+                <sheet>
+                    <field name="partner_id" invisible="1"/>
+                    <group>
+                        <group name="contract" string="Договір і оплата">
+                            <field name="contract_no"/>
+                            <field name="contract_date" options="{'numeric': True}"/>
+                            <field name="scan_ids" widget="many2many_binary"/>
+                            <field name="payment_term_id" options="{'no_create': True}"/>
+                            <field name="withdraw_pct"/>
+                        </group>
+                        <group name="site" string="Об'єкт">
+                            <field name="sign_id" options="{'no_create': True}"/>
+                            <field name="site_contact_id" options="{'no_create': True}"/>
+                            <field name="site_address"/>
+                        </group>
+                    </group>
+                    <group name="note" string="Особливі домовленості">
+                        <field name="note" nolabel="1" colspan="2" placeholder="Що ще домовлено з клієнтом — словами, як є"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_save" type="object" string="Зберегти" class="btn-primary"/>
+                    <button string="Скасувати" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

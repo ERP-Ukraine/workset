@@ -296,7 +296,7 @@ TX = {
     'hk_hour_deduction': ['години житла', 'часы жилья'], 'hk_payment_buffer': ['буфер з оплати', 'буфер с оплаты'],
     'hk_invoice_buffer': ['буфер з пари рахунків', 'буфер с пары счетов'], 'hk_customer_deducts': ['вираховує замовник', 'вычитает заказчик'],
     'hk_none': ['житло не наше', 'жильё не наше'],
-    'hu_hour': ['%s €/год', '%s €/час'], 'hu_month': ['%s €/міс', '%s €/мес'], 'hu_day_person': ['%s € за добу за особу', '%s € в сутки за человека'],
+    'hu_hour': ['%s €/год', '%s €/час'], 'hu_month': ['%s €/міс', '%s €/мес'], 'hu_month_person': ['%s €/міс за особу', '%s €/мес за человека'], 'hu_day_person': ['%s € за добу за особу', '%s € в сутки за человека'],
     'hu_pct': ['%s %%', '%s %%'],
     'h_clash': ['На ці дати в лінії «%s» уже є правило житла для того самого замовника (№ %d, %s – %s): одне правило на дату.',
                 'На эти даты в линии «%s» уже есть правило жилья для того же заказчика (№ %d, %s – %s): одно правило на дату.'],
@@ -366,6 +366,15 @@ def money(x):
 
 def num(x):
     return ('%g' % round(float(x or 0), 2)).replace('.', ',')
+
+
+def num_group(x):
+    """Число для підписів «Огляду» (тривоги): як num — до 2 знаків без зайвих нулів, кома, — але з роздільником тисяч (нерозривний пробіл):
+    1234 → «1 234», 1234.5 → «1 234,5», 14 → «14». num лишається для підписів ставок, де роздільник не потрібен."""
+    v = round(float(x or 0), 2)
+    whole, _dot, frac = ('%.2f' % abs(v)).partition('.')
+    frac = frac.rstrip('0')
+    return ('-' if v < 0 else '') + '{:,}'.format(int(whole)).replace(',', ' ') + (',' + frac if frac else '')
 
 
 def same_money(a, b):
@@ -1438,9 +1447,13 @@ GANTT_OPEN_DAYS = 30           # «Стрічка»: смуга без «Ста�
 BUCKETS_MAX = 40               # стовпців у «Розподілі частки» не більше: вищі частки — в останньому
 GANTT_OPS = ('<', '<=', '>', '>=')
 
-# кольори смуги «Стрічки» — номери штатної палітри Odoo (поле color виду gantt): 0 без кольору, 2 помаранчевий, 4 блакитний,
-# 9 малиновий, 10 зелений
-GANTT_COLORS = {('past', ''): 0, ('current', ''): 10, ('current', 'low'): 2, ('future', ''): 4, ('future', 'low'): 9}
+# колір смуги «Стрічки» — колір лінії (правка 06.11 «стрічка: дорабатывать»): місце лінії в ряду карток «Огляду» (line_cards_order) →
+# номер палітри смуг gantt (поле color: 0 без кольору, 1 червоний, 2 помаранчевий, 3 жовтий, 4 блакитний, 5 сливовий, 6 лососевий,
+# 7 бірюзовий, 8 темно-синій, 9 малиновий, 10 зелений, 11 фіолетовий). Палітра карток «Огляду» (getColor «odoo») інша — тут найближчий
+# відтінок за місцем: синій, рожево-червоний, бірюзово-зелений, помаранчевий, фіолетовий, жовтий, далі — решта. Червоний (1) не беремо:
+# він — низька частка (decoration-danger); 0 — минула ставка й ставка без лінії
+GANTT_LINE_COLORS = (4, 6, 10, 2, 11, 3, 7, 8, 5, 9)
+GANTT_NAME_MAX = 24  # підпис смуги: замовник довший — обрізаємо з «…»
 
 TX.update({
     # ряди й підписи графіків «Огляду» (рядки для JS приходять з сервера мовою користувача)
@@ -1468,6 +1481,33 @@ TX.update({
                          '«Посредник — своё»: укажите причину (почему для этого человека другая сумма, чем в договорённости).'],
     'ov_fund': ['Фонд', 'Фонд'],
     'ov_norate_sub': ['%s · %s год за %d днів', '%s · %s ч за %d дней'],
+    # «Огляд», круг вигляду 06.11 (слово власника «вид: А–В до прода»: лише важливе, без порожнього й обрізаного): «Тривоги» трьома групами,
+    # заголовок звірки — «пункти», а не «проблеми»; підказки, чим число звірки відрізняється від плитки й списку
+    'ov_g_action': ['Потрібна дія', 'Нужно действие'],
+    'ov_g_contract': ['Договір ≠ база — подробиці', 'Договор ≠ база — подробности'],
+    'ov_g_data': ['Неповні дані', 'Неполные данные'],
+    # «Сьогодні вирішити» (блок Е): підписи чипів — коротко, число стоїть перед підписом (calc.decide_chips; з 07.11 — лише живі числа)
+    'ov_d_contract': ['договір ≠ база', 'договор ≠ база'], 'ov_d_low': ['нижче мінімуму', 'ниже минимума'],
+    'ov_d_no_rate': ['без ставки', 'без ставки'],
+    'ov_check_head': ['Звірка від %s · %s', 'Сверка от %s · %s'],
+    'ov_check_done': ['розібрано', 'разобрано'],
+    'ov_tip_check': ['Пункти звірки: рядок на кожну розбіжність — одна ставка може дати кілька пунктів (напр., по картці в кожній фірмі). '
+                     'Список «Ставки з розбіжностями» рахує ставки, тому там число менше. Клік — запис звірки.',
+                     'Пункты сверки: строка на каждое расхождение — одна ставка может дать несколько пунктов (напр., по карточке в каждой фирме). '
+                     'Список «Ставки с расхождениями» считает ставки, поэтому там число меньше. Клик — запись сверки.'],
+    'ov_tip_contract': ['Ставки (за фільтром сторінки), де зарплата ≠ погодинна ставка договору — зараз. «Тривоги» показують пункти звірки '
+                        '(по картці в кожній фірмі, на дату звірки), тому там число інше.',
+                        'Ставки (по фильтру страницы), где зарплата ≠ почасовая ставка договора — сейчас. «Тревоги» показывают пункты сверки '
+                        '(по карточке в каждой фирме, на дату сверки), поэтому там число другое.'],
+    'ov_tip_people': ['%s: людей у ставках, що діють зараз', '%s: людей в действующих ставках'],
+    'ov_tip_price': ['платять нам %s €/год', 'платят нам %s €/час'],
+    'ov_tip_net': ['після бонусів офісу %s €/год', 'после бонусов офиса %s €/час'],
+    'ov_tip_below': ['нижче мінімуму: %s', 'ниже минимума: %s'],
+    'ov_tip_line': ['Клік — показати на сторінці лише цю лінію (ще раз — усі лінії)', 'Клик — показать на странице только эту линию (ещё раз — все линии)'],
+    'ov_line_list': ['Ставки лінії', 'Ставки линии'],
+    'ov_anchor_markup': ['надбавка', 'надбавка'], 'ov_anchor_tariff': ['тариф', 'тариф'],
+    'ov_agent_wait': ['посередника очікується', 'посредник ожидается'],
+    'ov_share_short': ['частка', 'доля'],
     # майстер правки з рядка списку («Нова ставка з дати» / «Виправити помилку») і «Переговорити»
     'e_wage': ['Зарплата працівника', 'Зарплата работника'], 'e_price': ['Платять нам', 'Платят нам'], 'e_agent': ['Посередник', 'Посредник'],
     'e_title': ['%s: нове значення', '%s: новое значение'],
@@ -1481,8 +1521,8 @@ TX.update({
                  'ставку пары — изменились бы прошлые месяцы. Ошибку в числе исправляет «Исправить ошибку».'],
     'e_past': ['Ставка минула — це історія пари, її не правлять. Нове число — у діючій ставці цієї пари.',
                'Ставка прошла — это история пары, её не правят. Новое число — в действующей ставке этой пары.'],
-    'talk_user': ['«Кому»: %s не бачить ставок — задачу на ставці не відкриє. Оберіть того, хто читає ставки (редактор, кадри, бухгалтерія).',
-                  '«Кому»: %s не видит ставок — задачу на ставке не откроет. Выберите того, кто читает ставки (редактор, кадры, бухгалтерия).'],
+    'talk_user': ['«Кому доручити»: %s не бачить ставок — задачу на ставці не відкриє. Оберіть того, хто читає ставки (редактор, кадри, бухгалтерія).',
+                  '«Кому поручить»: %s не видит ставок — задачу на ставке не откроет. Выберите того, кто читает ставки (редактор, кадры, бухгалтерия).'],
     'e_zero': ['«Зарплата працівника» має бути більше 0 €/год.', '«Зарплата работника» должна быть больше 0 €/час.'],
     'e_negative': ['Сума не може бути менша за 0.', 'Сумма не может быть меньше 0.'],
     'e_new_note': ['Нова ставка з %s (майстер правки): %s %s → %s. %s', 'Новая ставка с %s (мастер правки): %s %s → %s. %s'],
@@ -1493,6 +1533,21 @@ TX.update({
     'talk_summary': ['Переговорити: %s', 'Переговорить: %s'],
     'talk_wage': ['зарплата %s', 'зарплата %s'], 'talk_price': ['платять %s', 'платят %s'], 'talk_agent': ['посередник %s', 'посредник %s'],
     'talk_fund': ['фонд %s', 'фонд %s'], 'talk_car': ['авто %s', 'авто %s'], 'talk_share': ['частка %s', 'доля %s'],
+    # «Переговорити»: з ким говорити (роль, ім'я, телефон, Telegram) — у майстрі й першим абзацом нотатки задачі (слово власника 06.11)
+    'talk_who_worker': ['Працівник', 'Работник'], 'talk_who_agent': ['Посередник', 'Посредник'], 'talk_who_customer': ['Замовник', 'Заказчик'],
+    'talk_who_partner': ['Партнер лінії', 'Партнёр линии'],
+    'talk_no_phone': ['телефон: —', 'телефон: —'], 'talk_tg': ['Telegram %s', 'Telegram %s'],
+    'talk_with': ['З ким говорити — %s: %s', 'С кем говорить — %s: %s'],
+    'talk_who_none': ['«З ким говорити»: у цієї ставки такої людини немає — оберіть іншу.',
+                      '«С кем говорить»: у этой ставки такого человека нет — выберите другого.'],
+    # вікно правки «Посередник»: чий посередник і звідки сума (слово власника 06.11: «какой посредник… за кем прикреплено, непонятно»)
+    'e_agent_src_deal': ['за домовленістю', 'по договорённости'],
+    'e_agent_src_own_deal': ['своє для цієї людини (домовленість є)', 'своё для этого человека (договорённость есть)'],
+    'e_agent_src_own': ['своє — домовленості немає', 'своё — договорённости нет'],
+    'e_agent_src_none': ['домовленості немає', 'договорённости нет'],
+    'e_agent_noname': ['не вказано', 'не указан'],
+    'e_agent_reason': ['Посередник лише цій людині — своє значення: вкажіть причину (чому не за домовленістю).',
+                       'Посредник только этому человеку — своё значение: укажите причину (почему не по договорённости).'],
     # «Стрічка»: перенос смуги
     'gantt_move': ['У «Стрічці» минулі та чинні ставки не пересуваються: нова ціна з дати — «Нова ставка з дати», помилкову дату виправте в картці '
                    'ставки через «Ставки → Усі ставки».',
@@ -1502,6 +1557,19 @@ TX.update({
                    'В «Ленте» будущую ставку можно передвинуть только на дату после сегодня (%s) — историю не переписываем.'],
     'gantt_row': ['У «Стрічці» смугу можна лише пересунути в часі: працівника, замовника й лінію змінюють у картці ставки.',
                   'В «Ленте» полосу можно только передвинуть во времени: работника, заказчика и линию меняют в карточке ставки.'],
+    # «Стрічка»: підпис смуги, група без лінії, вікно над смугою (popover)
+    'gantt_month': ['%s €/міс', '%s €/мес'],
+    'gantt_low': ['⚠ низька частка', '⚠ низкая доля'],
+    'gantt_no_line': ['Без лінії', 'Без линии'],
+    'gp_period': ['Ставка з %s → %s', 'Ставка с %s → %s'],
+    'gp_open_current': ['діє', 'действует'],
+    'gp_open_future': ['майбутня', 'будущая'],
+    'gp_money': ['Зарплата %s → платять нам %s %s', 'Зарплата %s → платят нам %s %s'],
+    'gp_money_month': ['Зарплата %s %s → платять нам %s €/міс', 'Зарплата %s %s → платят нам %s €/мес'],
+    'gp_share': ['Частка WorkSET %s · після бонусів %s %s', 'Доля WorkSET %s · после бонусов %s %s'],
+    'gp_found': ['Хто знайшов: %s', 'Кто нашёл: %s'],
+    'gp_found_none': ['не вказано', 'не указано'],
+    'gp_agent': ['Посередник: %s', 'Посредник: %s'],
 })
 
 
@@ -1514,6 +1582,92 @@ def talk_text(nums, lang):
             parts.append(t('talk_' + key, lang) % money(nums[key]))
     parts.append(t('talk_share', lang) % money(nums.get('share')))
     return ', '.join(parts)
+
+
+TALK_WHO = ('worker', 'agent', 'customer', 'partner')  # «З ким говорити»: порядок варіантів у майстрі «Переговорити»
+
+
+def talk_options(have):
+    """«З ким говорити» майстра «Переговорити»: have — {роль: чи є в ставки така людина} → (ролі з людиною в порядку TALK_WHO, роль за
+    замовчуванням: посередник, якщо є, інакше працівник; нікого — False)."""
+    opts = [k for k in TALK_WHO if have.get(k)]
+    for k in ('agent', 'worker'):
+        if k in opts:
+            return opts, k
+    return opts, (opts[0] if opts else False)
+
+
+def first_filled(values):
+    """Перше непорожнє значення рядком (телефон: мобільний картки, робочий, контакту, особистий) або ''."""
+    for v in values or []:
+        s = str(v or '').strip()
+        if s:
+            return s
+    return ''
+
+
+def talk_reach(name, phone, tg, lang):
+    """Як зв'язатися: «Ім'я · телефон · Telegram 123»; телефону немає — «телефон: —», Telegram — лише коли є."""
+    parts = [str(name or '').strip() or '—', str(phone or '').strip() or t('talk_no_phone', lang)]
+    if str(tg or '').strip():
+        parts.append(t('talk_tg', lang) % str(tg).strip())
+    return ' · '.join(parts)
+
+
+def talk_note(role, reach, note, lang):
+    """Нотатка задачі «Переговорити» (Html): перший абзац — з ким говорити (роль, ім'я, телефон, Telegram), далі — нотатка з майстра
+    (рядки — <br>). Текст екранується (ім'я й нотатка — від людей)."""
+    out = '<p>%s</p>' % esc(t('talk_with', lang) % (t('talk_who_' + role, lang), reach)) if role and reach else ''
+    text = str(note or '').strip()
+    if text:
+        out += '<p>%s</p>' % '<br>'.join(esc(x) for x in text.splitlines())
+    return out
+
+
+def agent_who(deals, cust_id, line_id, day, own, line_agent=None):
+    """Чий посередник у ставки — для людей (вікно правки «Посередник», «Переговорити»). deals — як у agent_share_for (ще 'agent' — ім'я
+    й 'agent_id' — контакт посередника, якщо модуль посередників їх дає; None — модуля немає); line_agent — [id, ім'я] агента лінії або None.
+    Ім'я й контакт — з домовленостей, що стосуються ставки (те саме правило, що сума: agent_share_for), без них — агент лінії. source — звідки
+    сума: 'deal' — за домовленістю; 'own_deal' — своє для цієї людини, хоча домовленість є; 'own' — своє, домовленості немає; 'none' —
+    домовленості немає (посередник 0). → {'names': [ім'я], 'agent_id': контакт або 0, 'source', 'ids': [id домовленостей ставки] — на них
+    веде ім'я-посилання вікна «Посередник»}."""
+    _sum, used = agent_share_for(deals or [], cust_id, line_id, day)
+    by_id = {d['id']: d for d in deals or []}
+    names, agent_id = [], 0
+    for i in used:
+        d = by_id.get(i) or {}
+        name = str(d.get('agent') or '').strip()
+        if name and name not in names:
+            names.append(name)
+        if not agent_id and d.get('agent_id'):
+            agent_id = d['agent_id']
+    if not names and not agent_id and line_agent and line_agent[0]:
+        agent_id = line_agent[0]
+        names = [str(line_agent[1] or '').strip()] if str(line_agent[1] or '').strip() else []
+    if own:
+        source = 'own_deal' if used else 'own'
+    else:
+        source = 'deal' if used else 'none'
+    return {'names': names, 'agent_id': agent_id, 'source': source, 'ids': list(used)}
+
+
+def agent_source(sources, present, keys):
+    """Вибір джерела моделей посередників (agent_deals.SOURCES; імена моделей — лише там): індекс першого джерела, у якого всі моделі keys
+    ('deal' — домовленості з замовниками; 'member' і 'people_deal' — люди агентів) є серед present (імена моделей, що є в базі). Модуль
+    «Агенти» стоїть першим, ручні x_-моделі — запасні. Жодного — None (посередники не підключені)."""
+    have = set(present or [])
+    keys = [keys] if isinstance(keys, str) else list(keys or [])
+    for i, src in enumerate(sources or []):
+        if keys and all(src.get(k) and src[k] in have for k in keys):
+            return i
+    return None
+
+
+def agent_missing(fmap, need, have):
+    """Смисли need, яких у моделі джерела немає: карта fmap «смисл → ім'я поля» (рядок 'f' джерела), have — імена полів моделі. Смислу
+    немає в карті — теж бракує. → [смисл] у порядку need; порожньо — модель читається."""
+    names = set(have or [])
+    return [k for k in need or [] if not (fmap or {}).get(k) or fmap[k] not in names]
 
 
 def contract_raise_price(kind, old_price, old_wage, new_wage):
@@ -1592,19 +1746,21 @@ def month_series(rates, days):
     return out
 
 
-def share_buckets(shares, cap=BUCKETS_MAX):
-    """«Розподіл частки WorkSET»: стовпці по €/год з кроком 1 (частка 5,40 → стовпець 5–6) без пропусків між найменшою й найбільшою;
-    стовпців не більше cap — вищі частки йдуть в останній («N+»). → [{'from', 'label', 'count'}]; часток немає — []."""
-    vals = [int(float(s or 0) // 1) for s in shares]
+def share_buckets(shares, cap=BUCKETS_MAX, step=1):
+    """«Розподіл частки WorkSET»: стовпці по €/год з кроком step (крок 1: частка 5,40 → стовпець 5–6; крок 2: 4–6, межі — парні) без
+    пропусків між найменшою й найбільшою — отже від першого непорожнього до останнього непорожнього; стовпців не більше cap — вищі частки
+    йдуть в останній («N+»). → [{'from', 'to', 'label', 'count'}]; часток немає — []."""
+    step = max(1, int(step or 1))
+    vals = [int(float(s or 0) // step) * step for s in shares]
     if not vals:
         return []
     lo, hi = min(vals), max(vals)
-    top = min(hi, lo + cap - 1)
-    counts = {k: 0 for k in range(lo, top + 1)}
+    top = min(hi, lo + (cap - 1) * step)
+    counts = {k: 0 for k in range(lo, top + 1, step)}
     for v in vals:
         counts[min(v, top)] += 1
-    return [{'from': k, 'label': ('%d+' % k) if (k == top and hi > top) else '%d–%d' % (k, k + 1), 'count': counts[k]}
-            for k in range(lo, top + 1)]
+    return [{'from': k, 'to': k + step, 'label': ('%d+' % k) if (k == top and hi > top) else '%d–%d' % (k, k + step), 'count': counts[k]}
+            for k in range(lo, top + 1, step)]
 
 
 def overview_summary(rows, only_working):
@@ -1717,12 +1873,28 @@ def fund_badge(values):
     return {'min': min(vals), 'max': max(vals)} if vals else False
 
 
-def gantt_groups_last(groups, field):
+def line_cards_order(cards):
+    """Картки ліній «Огляду» (слово власника 06.11: «в одну полосу… от большего к меньшему»): від більшого числа картки ('count' — людей,
+    коли «Тільки працюють», інакше діючих ставок) до меншого; рівні — за діючими ставками ('total'), далі за назвою. 'color' — номер кольору
+    штатної палітри Odoo за місцем у ряду: один для смуги картки й ряду лінії на графіку «По лініях». Картки змінюються на місці; → той самий
+    список, відсортований."""
+    cards.sort(key=lambda c: (-(c.get('count') or 0), -(c.get('total') or 0), str(c.get('name') or '')))
+    for i, c in enumerate(cards):
+        c['color'] = i
+    return cards
+
+
+def gantt_groups_last(groups, field, label=''):
     """«Стрічка»: рядки лінії «без лінії» (field порожнє) — в кінець, решта — у своєму порядку (стійко). groups — список груп gantt
-    ({поле: значення або False, …}); не список і групи без поля лишаємо як є."""
+    ({поле: значення або False, …}; при default_group_by «лінія, працівник» — група на кожну пару значень, тож у кінець ідуть усі групи
+    без лінії). label — назва групи без лінії: порожнє значення стає [False, label] (так many2one приходить у gantt), і рядок підписано
+    label, а не «Невизначений Лінія». Не список і групи без поля лишаємо як є."""
     if not isinstance(groups, list):
         return groups
-    return sorted(groups, key=lambda g: isinstance(g, dict) and field in g and not g[field])
+    out = sorted(groups, key=lambda g: isinstance(g, dict) and field in g and not g[field])
+    if label:
+        out = [dict(g, **{field: [False, label]}) if isinstance(g, dict) and field in g and not g[field] else g for g in out]
+    return out
 
 
 # «Огляд»: клік по числу відкриває список ставок. Опис списку складає сервер разом із числом (rates_overview), JS лише виконує його —
@@ -1767,10 +1939,11 @@ def ov_tiles_open(base, only_working, lang):
 
 
 def bucket_domain(bucket):
-    """Стовпець «Розподілу частки» (share_buckets) → домен тих самих ставок: частка від N до N+1; останній «N+» — без верхньої межі."""
+    """Стовпець «Розподілу частки» (share_buckets) → домен тих самих ставок: частка від 'from' до 'to' (стовпця без 'to' — до from + 1);
+    останній «N+» — без верхньої межі."""
     dom = [['our_share', '>=', bucket['from']]]
     if not str(bucket['label']).endswith('+'):
-        dom.append(['our_share', '<', bucket['from'] + 1])
+        dom.append(['our_share', '<', bucket.get('to', bucket['from'] + 1)])
     return dom
 
 
@@ -1809,6 +1982,94 @@ def check_sections(body):
     import re
     return [{'title': html_lib.unescape(m.group(1)).strip(), 'count': int(m.group(2))}
             for m in re.finditer(r'<h3>(.*?) — (\d+)</h3>', str(body or ''))]
+
+
+# «Тривоги» «Огляду» (круг вигляду 06.11): розділи звірки трьома групами. Ключ розділу → ключ заголовка в TX (заголовки звірки пишуться мовою
+# того, хто її запустив, — плановий запуск пише російською, тому «Огляд» розпізнає обидві мови й показує заголовок мовою користувача)
+CHECK_TITLES = {'contract': 's_contract', 'wagebad': 's_wagebad', 'tempver': 's_tempver', 'updown': 's_updown', 'low': 's_low', 'raise': 's_raise',
+                'mismatch': 's_mism', 'nomap': 's_nomap', 'nocust': 's_nocust', 'currency': 's_cur', 'order': 's_order', 'rule': 's_rule',
+                'norule': 's_norule', 'found': 's_found', 'check': 's_check', 'agent': 's_agent', 'housing': 's_housing'}
+# «Потрібна дія» — гроші й люди без ставки; «Договір ≠ база — подробиці»; «Неповні дані» — довідкове, згорнуто. Невідомий розділ — у «Неповні дані»
+CHECK_GROUPS = (('action', ('nomap', 'low', 'rule', 'contract', 'mismatch')),
+                ('contract', ('wagebad', 'updown', 'order', 'tempver')),
+                ('data', ('norule', 'found', 'check', 'nocust', 'currency', 'agent', 'housing', 'raise')))
+OV_POINTS = {'uk': ('пункт', 'пункти', 'пунктів'), 'ru': ('пункт', 'пункта', 'пунктов')}
+
+
+def check_section_key(title, lang):
+    """Заголовок розділу звірки (будь-якою з двох мов, з числом у дужках чи сумою) → (ключ розділу, заголовок мовою lang); невідомий —
+    (None, заголовок як є)."""
+    import re
+    text = str(title or '').strip()
+    for key, tx in CHECK_TITLES.items():
+        for pattern in TX[tx]:
+            rx = '^' + re.sub(r'%[ds]', lambda m: r'(\d+)' if m.group(0) == '%d' else r'([\d\s.,]+)', re.escape(pattern)) + '$'
+            m = re.match(rx, text)
+            if m:
+                args = tuple(int(g) if p == '%d' else g for g, p in zip(m.groups(), re.findall(r'%[ds]', pattern)))
+                return key, (t(tx, lang) % args) if args else t(tx, lang)
+    return None, text
+
+
+def points_text(n, lang):
+    """«444 пункти» / «1 пункт» / «5 пунктів» — число пунктів звірки з роздільником тисяч."""
+    one, few, many = OV_POINTS['ru' if lang == 'ru' else 'uk']
+    return '%s %s' % (num_group(n), plural(n, one, few, many))
+
+
+def check_groups(sections, lang, skip=()):
+    """Розділи останньої звірки (check_sections) → групи «Тривог»: [{'key': 'action' | 'contract' | 'data', 'title', 'total', 'total_text',
+    'items': [{'key', 'title', 'count', 'text'}]}] у порядку CHECK_GROUPS; text — «88 пунктів» (пункти звірки, не ставки); розділи з нулем
+    і групи без розділів не повертаються. skip — ключі розділів, які «Огляд» уже показує живою тривогою (напр. 'nomap' при «Працюють без
+    ставки»), щоб одне не стояло двічі."""
+    by_group = {g: [] for g, _keys in CHECK_GROUPS}
+    order = {k: (g, i) for g, keys in CHECK_GROUPS for i, k in enumerate(keys)}
+    for n, s in enumerate(sections or []):
+        key, title = check_section_key(s.get('title'), lang)
+        if key in skip or not s.get('count'):
+            continue
+        group, pos = order.get(key, ('data', 100 + n))
+        count = int(s['count'])
+        by_group[group].append((pos, {'key': key or '', 'title': title, 'count': count, 'text': points_text(count, lang)}))
+    out = []
+    for g, _keys in CHECK_GROUPS:
+        items = [x for _p, x in sorted(by_group[g], key=lambda p: p[0])]
+        if items:
+            total = sum(x['count'] for x in items)
+            out.append({'key': g, 'title': t('ov_g_' + g, lang), 'total': total, 'total_text': points_text(total, lang), 'items': items})
+    return out
+
+
+# «Сьогодні вирішити» (блок Е, на показ; свод UX-разборів 06.11, «Смелые идеи»): один рядок над смугою — спершу гроші, далі люди без ставки.
+# Слово власника 07.11 «лента: да, только живые числа»: лише те, що «Огляд» рахує по ставках зараз, — плитки (tiles, той самий підрахунок, що
+# полоса підсумків) і жива тривога; розділи звірки (пункти на дату звірки) сюди не йдуть — вони лишаються в «Тривогах». Ключ → (звідки:
+# 'tile' — плитка «Огляду», список — open.tiles того самого ключа; 'live' — жива тривога «Огляду»; підпис і підказка в TX; гроші). Порядок
+# рядків = порядок чипів. «Частка не за правилом» і «вартість години ≠ ставка» живого числа в «Огляді» не мають — є лише в звірці
+DECIDE = (('contract_diff', 'tile', 'ov_d_contract', 'ov_tip_contract', True), ('below_min', 'tile', 'ov_d_low', '', True),
+          ('no_rate', 'live', 'ov_d_no_rate', '', False))
+DECIDE_MAX = 5
+
+
+def decide_chips(tiles, opens, alerts, lang, limit=DECIDE_MAX):
+    """Стрічка «Сьогодні вирішити»: плитки «Огляду» (rates_overview → tiles), їхні списки (ov_tiles_open) і живі тривоги (alerts) →
+    [{'key', 'n', 'label', 'tip', 'money', 'open'}] у порядку DECIDE (гроші першими), без нулів, не більше limit. n — те саме число, що в
+    плитки чи тривоги; open — той самий список: плитка — опис ov_list (openList), жива тривога — {'model', 'ids', 'link'} (openAlert);
+    tip — підказка чипа ('' — немає). Нічого вирішувати — []."""
+    tiles = tiles or {}
+    opens = opens or {}
+    live = {a['key']: a for a in alerts or []}
+    out = []
+    for key, src, label, tip, money in DECIDE:
+        if src == 'live':
+            a = live.get(key) or {}
+            n = int(a.get('count') or 0)
+            spec = {'model': a.get('model'), 'ids': list(a.get('ids') or []), 'link': a.get('link', True)}
+        else:
+            n = int(tiles.get(key) or 0)
+            spec = dict(opens.get(key) or {})
+        if n > 0:
+            out.append({'key': key, 'n': n, 'label': t(label, lang), 'tip': t(tip, lang) if tip else '', 'money': money, 'open': spec})
+    return out[:limit]
 
 
 def gantt_stop(state, date_from, date_to, today, days=GANTT_OPEN_DAYS):
@@ -1858,14 +2119,52 @@ def gantt_search(op, value, today, days=GANTT_OPEN_DAYS):
     return [('date_from', op, value)]
 
 
-def gantt_color(state, level):
-    """Колір смуги: статус (минула — без кольору, чинна — зелена, майбутня — блакитна) з відтінком низької частки (W або Ч нижче мінімуму)."""
-    if state not in ('past', 'current', 'future'):
+def gantt_line_places(lines):
+    """Місце лінії в ряду карток «Огляду» без фільтра з «Тільки працюють»: lines — [{'id', 'name', 'count'}] (count — діючих ставок, де
+    працюють). Порядок — line_cards_order (від більшого до меншого, рівні — за назвою); лінії без тих, хто працює, — після них за назвою.
+    → {id лінії: місце з 0}."""
+    cards = [{'id': x['id'], 'name': x.get('name') or '', 'count': x.get('count') or 0, 'total': x.get('count') or 0} for x in lines or []]
+    return {c['id']: c['color'] for c in line_cards_order(cards)}
+
+
+def gantt_color(state, place):
+    """Колір смуги — колір лінії: place — місце лінії (gantt_line_places), None — ставка без лінії. Минула, без лінії чи невідомий статус —
+    без кольору (0); низьку частку показує decoration-danger виду й «⚠» у підписі, не колір."""
+    if state not in ('current', 'future') or place is None or place is False:
         return 0
-    key = (state, 'low' if level == 'low' and state != 'past' else '')
-    return GANTT_COLORS[key]
+    return GANTT_LINE_COLORS[int(place) % len(GANTT_LINE_COLORS)]
 
 
-def gantt_label(state_label, formula_text):
-    """Підпис смуги: «Діє · на руки + частка = ціна €/год» (formula ставки)."""
-    return ' · '.join([p for p in [state_label, formula_text] if p])
+def short_name(name, limit=GANTT_NAME_MAX):
+    """Назва для підпису смуги: зайві пробіли прибрано; довша за limit — обрізано до limit знаків разом із «…»."""
+    s = ' '.join(str(name or '').split())
+    return s if len(s) <= limit else s[:limit - 1].rstrip() + '…'
+
+
+def gantt_label(customer, wage, price, month_price, low, lang):
+    """Підпис смуги «Стрічки»: «Замовник · зарплата → платять нам €»; фікс за місяць (month_price не 0) — «зарплата → фікс €/міс»;
+    низька частка — ще « · ⚠ низька частка». Замовник — до GANTT_NAME_MAX знаків."""
+    paid = t('gantt_month', lang) % money(month_price) if month_price else '%s €' % num(price)
+    parts = [short_name(customer), '%s → %s' % (num(wage), paid)] + ([t('gantt_low', lang)] if low else [])
+    return ' · '.join([p for p in parts if p])
+
+
+def gantt_popover(r, lang):
+    """Рядки вікна над смугою «Стрічки». r — {'state', 'date_from', 'date_to', 'wage', 'price', 'month_price', 'share', 'net', 'found'
+    (підпис «хто знайшов» або ''), 'agent' (нотатка посередника або ''), 'agent_share', 'low'} → {'period', 'money', 'share', 'found',
+    'agent', 'alert'}; чого немає — ''."""
+    unit = t('unit', lang)
+    end = fmt_date(r.get('date_to')) or t('gp_open_future' if r.get('state') == 'future' else 'gp_open_current', lang)
+    if r.get('month_price'):
+        paid = t('gp_money_month', lang) % (num(r.get('wage')), unit, money(r.get('month_price')))
+    else:
+        paid = t('gp_money', lang) % (num(r.get('wage')), num(r.get('price')), unit)
+    agent = r.get('agent') or (('%s %s' % (num(r.get('agent_share')), unit)) if (r.get('agent_share') or 0) > 0 else '')
+    return {
+        'period': t('gp_period', lang) % (fmt_date(r.get('date_from')), end),
+        'money': paid,
+        'share': t('gp_share', lang) % (num(r.get('share')), num(r.get('net')), unit),
+        'found': t('gp_found', lang) % (r.get('found') or t('gp_found_none', lang)),
+        'agent': t('gp_agent', lang) % agent if agent else '',
+        'alert': t('gantt_low', lang) if r.get('low') else '',
+    }

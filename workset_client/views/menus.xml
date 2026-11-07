@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Додаток «Умови клієнтів»: бачить лише група «Умови клієнтів: Перегляд» (на час збирання — кожен внутрішній користувач,
+         security/workset_client_security.xml). Іконки додатка немає (картинка — навиком visual) -->
+    <menuitem id="menu_root" name="Умови клієнтів" sequence="188" groups="workset_client.group_viewer"/>
+    <menuitem id="menu_clients" name="Клієнти" parent="menu_root" action="action_clients" sequence="1"/>
+</odoo>

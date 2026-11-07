@@ -4,17 +4,19 @@
         <field name="name">workset.rate.check.list</field>
         <field name="model">workset.rate.check</field>
         <field name="arch" type="xml">
+            <!-- розбір вигляду 06.11: заголовки цілком і однією мовою — «Пунктів» (а не обрізане «Розбіжностей»), «Задачі» (а не стандартне
+                 англійське «Activities»), «Розібрано» з шириною -->
             <list string="Звірки ставок" create="0" decoration-muted="done">
-                <field name="date" options="{'numeric': True}"/>
+                <field name="date" options="{'numeric': True}" width="90px"/>
                 <field name="name"/>
-                <field name="issue_count"/>
-                <field name="activity_ids" widget="list_activity" optional="show"/>
-                <field name="done"/>
+                <field name="issue_count" string="Пунктів" width="90px"/>
+                <field name="activity_ids" string="Задачі" widget="list_activity" optional="show"/>
+                <field name="done" width="100px"/>
             </list>
         </field>
     </record>
 
-    <!-- Звірка: назва, цифра «Розбіжностей» крупно, «Розібрано» — звичайна галочка, список — на всю ширину -->
+    <!-- Звірка: назва, цифра «Пунктів» крупно (те саме число, що в списку), «Розібрано» — звичайна галочка, список — на всю ширину -->
     <record id="view_check_form" model="ir.ui.view">
         <field name="name">workset.rate.check.form</field>
         <field name="model">workset.rate.check</field>
@@ -27,7 +29,7 @@
                     </div>
                     <div class="row g-3 my-2" name="figures">
                         <div class="col-6 col-lg-3">
-                            <div class="text-muted text-uppercase small">Розбіжностей</div>
+                            <div class="text-muted text-uppercase small">Пунктів</div>
                             <div class="fs-1 fw-semibold lh-1"><field name="issue_count" nolabel="1" readonly="1" class="fs-1 fw-semibold o_input_5ch"/></div>
                         </div>
                     </div>

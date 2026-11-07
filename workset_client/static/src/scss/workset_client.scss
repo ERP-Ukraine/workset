@@ -1,0 +1,146 @@
+// Екран «Умови клієнта» (М3, К1; макет D — стиль екранів «Прибутковості»): кольори — лише класи й SCSS-змінні Bootstrap ($primary,
+// $gray-*, $border-color, $body-color…; світлий і темний бандли Odoo компілюють їх кожен зі своїми значеннями), своїх кольорів немає;
+// CSS-змінних var(--bs-…) Odoo 19 не задає. Лише змінні й міксини Bootstrap (є в web.assets_backend): невідома змінна зламала б увесь
+// бандл бекенду. Класи — .o_workset_client_*
+.o_workset_client {
+    // клік — список або форма джерела: рука й легке підкреслення при наведенні, вигляд числа не змінюється
+    .o_workset_client_click {
+        cursor: pointer;
+
+        &:hover,
+        &:focus-visible {
+            text-decoration: underline;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 0.2em;
+        }
+    }
+    .o_workset_client_min0 {
+        min-width: 0;
+    }
+    // ліворуч — умови, праворуч — «Що з цього виходить» і «Останні зміни»; вузько — один стовпець
+    .o_workset_client_grid,
+    .o_workset_client_pair {
+        display: grid;
+        gap: map-get($spacers, 3);
+        grid-template-columns: minmax(0, 1fr);
+        align-items: start;
+    }
+    // «країна · ПДВ · лінія · проєкт»: роздільник «·» між наявними частинами (порожніх немає — і зайвих крапок немає)
+    .o_workset_client_dots {
+        display: flex;
+        flex-wrap: wrap;
+        column-gap: 0.4em;
+
+        > * + *::before {
+            content: "·";
+            margin-right: 0.4em;
+        }
+    }
+    .o_workset_client_chip {
+        font-size: 0.95rem;
+        padding: 0.4em 0.8em;
+    }
+    // «Гроші за годину»: вузько — по два в ряд, широко — п'ять колонок із роздільниками
+    .o_workset_client_band {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        row-gap: map-get($spacers, 3);
+        padding: map-get($spacers, 3) 0;
+    }
+    .o_workset_client_band_cell {
+        min-width: 0;
+        padding: 0 map-get($spacers, 2);
+
+        &:nth-child(even) {
+            border-left: 1px solid $border-color;
+        }
+    }
+    .o_workset_client_num {
+        font-variant-numeric: tabular-nums;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    // «€ год» — дрібно поруч із числом
+    .o_workset_client_unit {
+        font-size: 0.5em;
+        margin-left: 0.3em;
+    }
+    // другорядне й «правила немає» — сірим без прозорості (text-muted Odoo напівпрозорий — на темній темі читається слабо)
+    .o_workset_client_muted {
+        color: $gray-500;
+    }
+    // слова людей (особливі домовленості, «було → стало») — цілком, з переносами рядків, як написано
+    .o_workset_client_words {
+        white-space: pre-line;
+        overflow-wrap: anywhere;
+    }
+    // «Хто платить»: вузько — «Що» і «Хто платить» першим рядком, «з якого числа» і «звідки» — другим; широко — чотири колонки
+    .o_workset_client_pay {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) 1rem;
+        grid-template-areas:
+            "what who go"
+            "since src go";
+        column-gap: map-get($spacers, 3);
+        row-gap: map-get($spacers, 1);
+        align-items: baseline;
+        padding: map-get($spacers, 2) map-get($spacers, 3);
+        border-top: 1px solid $border-color;
+    }
+    .o_workset_client_pay_head {
+        display: none;
+        border-top: 0;
+    }
+    .o_workset_client_pay_what,
+    .o_workset_client_pay_head > :nth-child(1) {
+        grid-area: what;
+    }
+    .o_workset_client_pay_who,
+    .o_workset_client_pay_head > :nth-child(2) {
+        grid-area: who;
+        min-width: 0;
+    }
+    .o_workset_client_pay_since,
+    .o_workset_client_pay_head > :nth-child(3) {
+        grid-area: since;
+    }
+    .o_workset_client_pay_src,
+    .o_workset_client_pay_head > :nth-child(4) {
+        grid-area: src;
+        min-width: 0;
+    }
+    .o_workset_client_pay_go,
+    .o_workset_client_pay_head > :nth-child(5) {
+        grid-area: go;
+        align-self: center;
+    }
+    @include media-breakpoint-up(md) {
+        .o_workset_client_pair {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .o_workset_client_pay {
+            grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) 7rem minmax(0, 1.5fr) 1rem;
+            grid-template-areas: "what who since src go";
+        }
+        .o_workset_client_pay_head {
+            display: grid;
+        }
+    }
+    @include media-breakpoint-up(lg) {
+        .o_workset_client_grid {
+            grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+        }
+        .o_workset_client_band {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+        }
+        // п'ять в ряд: роздільник перед кожною колонкою, крім першої
+        .o_workset_client_band_cell {
+            &:nth-child(even) {
+                border-left: 0;
+            }
+            &:not(:first-child) {
+                border-left: 1px solid $border-color;
+            }
+        }
+    }
+}

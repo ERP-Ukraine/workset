@@ -75,6 +75,8 @@ class WorksetRate(models.Model):
     customer_id = fields.Many2one('res.partner', string='Замовник', required=True, index=True, tracking=2, ondelete='restrict')
     line_id = fields.Many2one('workset.line', string='Лінія', index=True, tracking=3, compute='_compute_line_id', store=True, readonly=False,
                               help='Підставляється сама за замовником (список «Замовники» лінії); можна змінити')
+    # стовпець «Лінія» списків — коротко кодом, коду немає — назвою (розбір вигляду 06.11); хранимий — щоб сортувати за стовпцем
+    line_code = fields.Char(string='Код лінії', compute='_compute_line_code', store=True, help='Код лінії; коду немає — назва')
     found_by = fields.Selection(FOUND_BY, string='Хто знайшов', tracking=4,
                                 help='Лінія — людину знайшла лінія; Ми — знайшли ми. Від цього залежить частка WorkSET за правилом лінії.')
     currency_id = fields.Many2one('res.currency', string='Валюта', default=lambda self: self.env.ref('base.EUR', raise_if_not_found=False))
@@ -287,6 +289,11 @@ class WorksetRate(models.Model):
         for r in self:
             cust = r.customer_id.commercial_partner_id
             r.line_id = Line.search([('customer_ids', 'in', cust.ids)], limit=1) if cust else Line
+
+    @api.depends('line_id.code', 'line_id.name')
+    def _compute_line_code(self):
+        for r in self:
+            r.line_code = r.line_id.code or r.line_id.name or ''
 
     def _deals(self):
         """Домовленості з посередниками (адаптер agent_deals.py); None — моделі посередників немає."""
@@ -562,7 +569,7 @@ class WorksetRate(models.Model):
                                     'to_check': r.to_check, 'check_reason': r.check_reason, 'is_own': r.is_own, 'own_reason': r.own_reason,
                                     'found_missing': r.found_missing}, lang)
 
-    @api.depends('customer_id', 'line_id', 'wage', 'our_share', 'agent_client_share', 'agent_people_share', 'people_agent_payer', 'price', 'price_mode',
+    @api.depends('customer_id', 'customer_id.name', 'line_id', 'line_id.name', 'wage', 'our_share', 'agent_client_share', 'agent_people_share', 'people_agent_payer', 'price', 'price_mode',
                  'fixed_month', 'month_hours', 'net_share', 'worker_fund_share', 'car_rent_share')
     @api.depends_context('lang')
     def _compute_texts(self):
@@ -1141,7 +1148,8 @@ class WorksetRate(models.Model):
 
     # ——— кнопки ———
     def action_new_from_date(self):
-        # «Нова ставка з дати»: нова форма з числами поточної й «Ставка з» = сьогодні; «Джерело» порожнє. Нічого не зберігає
+        # «Нова ставка з дати»: нова форма з числами поточної й «Ставка з» = сьогодні; «Джерело» — «Розмова», як у вікні правки зі списку
+        # (порожнє обов'язкове поле світилося червоним — розбір вигляду 06.11; змінити можна). Нічого не зберігає
         self.ensure_one()
         self.check_access('write')
         r = self
@@ -1153,7 +1161,7 @@ class WorksetRate(models.Model):
                                                  'default_people_agent_payer': (r.people_agent_payer if r.people_agent_payer_manual else False) or False,
                                                  'default_agent_own': r.agent_own, 'default_agent_own_value': r.agent_own_value,
                                                  'default_agent_own_reason': r.agent_own_reason or False,
-                                                 'default_date_from': calc.iso(self._today())}}
+                                                 'default_date_from': calc.iso(self._today()), 'default_source': 'call'}}
 
     def action_apply_now(self):
         # «Застосувати зараз»: те саме, що А1, для пари цієї ставки — і повідомлення завжди
@@ -1943,13 +1951,16 @@ class WorksetRate(models.Model):
             opened = Act.search([('res_model', '=', CHECK), ('activity_type_id', '=', todo.id)])
             day = Check.search([('date', '=', today)], limit=1)
             title = t('check_title') % calc.fmt_date(today)
+            # назва запису — українською, як інші назви записів модуля (у списку «Звіти звірки» стояло «Сверка ставок» серед українських
+            # підписів — розбір вигляду 06.11); текст звірки й задача — мовою виконавця, як і раніше
+            name = calc.t('check_title', 'uk') % calc.fmt_date(today)
             if n:
                 body = calc.sections_html(sections, calc.HTML_LIMIT, lang)
                 if day:
-                    day.write({'name': title, 'issue_count': n, 'body': body, 'done': False})
+                    day.write({'name': name, 'issue_count': n, 'body': body, 'done': False})
                     reused = day.id
                 else:
-                    day = Check.create({'name': title, 'date': today, 'issue_count': n, 'body': body})
+                    day = Check.create({'name': name, 'date': today, 'issue_count': n, 'body': body})
                     created = day.id
                 summary = t('act_summary') % (title, n, calc.issues_word(n, lang))
                 deadline = calc.workdays_after(calc.iso(today), calc.DUE_WORKDAYS)
