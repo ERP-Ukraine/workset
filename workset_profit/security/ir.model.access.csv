@@ -1,0 +1,21 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_workset_profit_month_viewer,workset.profit.month viewer,model_workset_profit_month,workset_profit.group_viewer,1,0,0,0
+access_workset_profit_month_system,workset.profit.month system,model_workset_profit_month,base.group_system,1,1,1,1
+access_workset_profit_analytic_map_viewer,workset.profit.analytic.map viewer,model_workset_profit_analytic_map,workset_profit.group_viewer,1,0,0,0
+access_workset_profit_analytic_map_editor,workset.profit.analytic.map editor,model_workset_profit_analytic_map,workset_profit.group_editor,1,1,1,0
+access_workset_profit_analytic_map_system,workset.profit.analytic.map system,model_workset_profit_analytic_map,base.group_system,1,1,1,1
+access_workset_line_cost_rule_viewer,workset.line.cost.rule viewer,model_workset_line_cost_rule,workset_profit.group_viewer,1,0,0,0
+access_workset_line_cost_rule_editor,workset.line.cost.rule editor,model_workset_line_cost_rule,workset_profit.group_editor,1,1,1,0
+access_workset_line_cost_rule_system,workset.line.cost.rule system,model_workset_line_cost_rule,base.group_system,1,1,1,1
+access_workset_dkv_card_viewer,workset.dkv.card viewer,model_workset_dkv_card,workset_profit.group_viewer,1,0,0,0
+access_workset_dkv_card_editor,workset.dkv.card editor,model_workset_dkv_card,workset_profit.group_editor,1,1,1,0
+access_workset_dkv_card_system,workset.dkv.card system,model_workset_dkv_card,base.group_system,1,1,1,1
+access_workset_dkv_card_period_viewer,workset.dkv.card.period viewer,model_workset_dkv_card_period,workset_profit.group_viewer,1,0,0,0
+access_workset_dkv_card_period_editor,workset.dkv.card.period editor,model_workset_dkv_card_period,workset_profit.group_editor,1,1,1,1
+access_workset_dkv_card_period_system,workset.dkv.card.period system,model_workset_dkv_card_period,base.group_system,1,1,1,1
+access_workset_dkv_txn_viewer,workset.dkv.txn viewer,model_workset_dkv_txn,workset_profit.group_viewer,1,0,0,0
+access_workset_dkv_txn_editor,workset.dkv.txn editor,model_workset_dkv_txn,workset_profit.group_editor,1,1,1,0
+access_workset_dkv_txn_system,workset.dkv.txn system,model_workset_dkv_txn,base.group_system,1,1,1,1
+access_workset_profit_check_viewer,workset.profit.check viewer,model_workset_profit_check,workset_profit.group_viewer,1,0,0,0
+access_workset_profit_check_system,workset.profit.check system,model_workset_profit_check,base.group_system,1,1,1,1
+access_workset_line_profit_viewer,workset.line profit viewer,workset_rates.model_workset_line,workset_profit.group_viewer,1,0,0,0

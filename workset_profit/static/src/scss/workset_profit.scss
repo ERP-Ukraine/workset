@@ -1,0 +1,335 @@
+// Екрани «Прибутковості» (М3, круг 2; макети A, B, C — стиль «Огляду ставок»): сітки на всю ширину без порожніх полів, кольори — лише класи
+// й SCSS-змінні Bootstrap ($primary, $gray-*, $border-color, $body-bg…; світлий і темний бандли Odoo компілюють їх кожен зі своїми
+// значеннями), своїх кольорів немає; колір — лише в тривог. CSS-змінних var(--bs-…) Odoo 19 не задає — вони дають прозоре (06.11, копія 20).
+// Лише змінні й міксини Bootstrap (є в web.assets_backend): невідома змінна зламала б увесь бандл бекенду. Класи — .o_workset_profit_*
+.o_workset_profit {
+    // клік — список або картка: вказівник і видимий відгук при наведенні (рамка в колір теми)
+    .o_workset_profit_chip,
+    .o_workset_profit_tile,
+    .o_workset_profit_split_row,
+    .o_workset_profit_cell {
+        cursor: pointer;
+    }
+    .o_workset_profit_chip,
+    .o_workset_profit_tile {
+        transition: box-shadow 0.15s ease, border-color 0.15s ease;
+
+        &:hover,
+        &:focus-visible {
+            border-color: $primary;
+            box-shadow: 0 0 0 1px $primary;
+        }
+    }
+    // круг 3в: усе, що відкриває записи (підсумки, кроки водоспаду, «Хто платить», клітинки компанії й «N місяців»), — один клас: рука
+    // й легке підкреслення при наведенні, вигляд числа не змінюється; сегмент смуги (без тексту) — тонка рамка кольору тексту (на смузі
+    // «чисто» кольору $primary рамка $primary не видна)
+    .o_workset_profit_click {
+        cursor: pointer;
+
+        &:hover,
+        &:focus-visible {
+            text-decoration: underline;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 0.2em;
+        }
+        &.o_workset_profit_part:hover {
+            box-shadow: inset 0 0 0 1px $body-color;
+        }
+    }
+    // смуга п'яти підсумків: вузько — перший рядком зверху, решта 2 × 2; широко — п'ять колонок із роздільниками
+    .o_workset_profit_band {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        row-gap: map-get($spacers, 3);
+        padding: map-get($spacers, 3) 0;
+    }
+    .o_workset_profit_band_cell {
+        min-width: 0;
+        padding: 0 map-get($spacers, 2);
+
+        &:first-child {
+            grid-column: 1 / -1;
+        }
+        &:nth-child(odd):not(:first-child) {
+            border-left: 1px solid $border-color;
+        }
+    }
+    .o_workset_profit_num {
+        font-variant-numeric: tabular-nums;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    // «€ год» — дрібно поруч із числом
+    .o_workset_profit_unit {
+        font-size: 0.5em;
+        margin-left: 0.3em;
+    }
+    // чипи тривог: стільки в ряд, скільки влазить; лічильник — сіра капсула, крапка — клас bg-danger / bg-warning
+    .o_workset_profit_chips {
+        display: grid;
+        gap: map-get($spacers, 2);
+        grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    }
+    .o_workset_profit_chip {
+        min-width: 0;
+    }
+    .o_workset_profit_min0 {
+        min-width: 0;
+    }
+    .o_workset_profit_count {
+        background-color: $gray-200;
+        color: $body-color;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+    }
+    .o_workset_profit_dot {
+        display: inline-block;
+        width: 0.6rem;
+        height: 0.6rem;
+    }
+    // плитки ліній: стільки в ряд, скільки влазить; рядки мають фіксоване місце — плитки в ряду однакові
+    .o_workset_profit_tiles {
+        display: grid;
+        gap: map-get($spacers, 2);
+        grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    }
+    .o_workset_profit_tile {
+        display: flex;
+        flex-direction: column;
+        gap: map-get($spacers, 1);
+        min-width: 0;
+    }
+    // ряд бейджів — фіксованої висоти (два рядки бейджів), щоб крупне число стояло на одній лінії в усіх плитках, і в різних рядах сітки
+    .o_workset_profit_tile_badges {
+        height: 3.4rem;
+        align-content: flex-start;
+        overflow: hidden;
+    }
+    .o_workset_profit_share_badge {
+        font-size: 0.85rem;
+    }
+    .o_workset_profit_big {
+        font-size: 2.25rem;
+        font-weight: 600;
+        line-height: 1.2;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        margin-top: auto;
+    }
+    // панелі: графік і «Куди йде частка» (картка лінії — графік і рядки) — широко поруч, вузько — одна під одною
+    .o_workset_profit_panels,
+    .o_workset_profit_card_top {
+        display: grid;
+        gap: map-get($spacers, 3);
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .o_workset_profit_chart {
+        position: relative;
+        height: 16rem;
+    }
+    // «Чисто по місяцях» «Огляду» (круг 3б): ~340 px і тягнеться на всю висоту картки — поруч «Куди йде частка», картки однакові
+    .o_workset_profit_chart_a {
+        height: auto;
+        min-height: 21.25rem;
+        flex: 1 1 auto;
+    }
+    // другорядний текст без прозорості (text-muted Odoo напівпрозорий — на темній темі читався слабо): розклад чипа «Власники»,
+    // рядок «Компанія» і підпис-легенда таблиці C (круг 3б)
+    .o_workset_profit_muted {
+        color: $gray-500;
+    }
+    // «Куди йде частка»: назва лінії й смуга з частин (ширина — % від сервера); чисто — колір бренду, витрати — відтінки сірого теми
+    // назва · смуга · «чисто N %»
+    .o_workset_profit_split_row {
+        display: grid;
+        grid-template-columns: minmax(0, 9rem) minmax(0, 1fr) 5rem;
+        align-items: center;
+        gap: map-get($spacers, 2);
+        width: 100%;
+        padding: map-get($spacers, 1) 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+    }
+    .o_workset_profit_split_bar {
+        display: flex;
+        height: 1rem;
+        border-radius: $border-radius;
+        overflow: hidden;
+        background-color: $gray-200;
+    }
+    .o_workset_profit_part {
+        display: block;
+        height: 100%;
+    }
+    .o_workset_profit_key {
+        display: inline-block;
+        width: 0.75rem;
+        height: 0.75rem;
+        margin-right: map-get($spacers, 1);
+        border-radius: 2px;
+        vertical-align: middle;
+    }
+    .o_workset_profit_part_net {
+        background-color: $primary;
+    }
+    // сусідні частини — через дві ступені сірого й більше (круг 3б: авто й паливо зливалися): 700 · 500 · 300 · 600 · 400
+    .o_workset_profit_part_housing {
+        background-color: $gray-700;
+    }
+    .o_workset_profit_part_auto {
+        background-color: $gray-500;
+    }
+    .o_workset_profit_part_fuel {
+        background-color: $gray-300;
+    }
+    .o_workset_profit_part_tool {
+        background-color: $gray-600;
+    }
+    .o_workset_profit_part_transport {
+        background-color: $gray-400;
+    }
+    // водоспад картки лінії: колонки однакової ширини впритул (лінія нуля й пунктир — суцільні через усі колонки), стовпець — у полі
+    // фіксованої висоти за геометрією сервера (bottom / height / end у %); на телефоні — гортається вбік
+    .o_workset_profit_fall {
+        display: grid;
+        grid-auto-columns: minmax(4.5rem, 1fr);
+        grid-auto-flow: column;
+        overflow-x: auto;
+    }
+    .o_workset_profit_fall_col {
+        min-width: 0;
+    }
+    .o_workset_profit_fall_area {
+        position: relative;
+        height: 13rem;
+        margin: 2.5rem 0;
+    }
+    // лінія нуля — виразніша за сітку
+    .o_workset_profit_fall_zero {
+        position: absolute;
+        left: 0;
+        right: 0;
+        border-top: 1px solid $gray-600;
+    }
+    // пунктир від підсумку після кроку (правий край стовпця) до лівого краю наступного стовпця
+    .o_workset_profit_fall_link {
+        position: absolute;
+        left: 90%;
+        width: 20%;
+        border-top: 1px dashed $gray-500;
+    }
+    .o_workset_profit_fall_bar {
+        position: absolute;
+        left: 10%;
+        right: 10%;
+        border-radius: 2px;
+    }
+    .o_workset_profit_fall_value {
+        position: absolute;
+        left: 0;
+        right: 0;
+        text-align: center;
+        line-height: 1.3;
+        padding: 2px 0;
+    }
+    // частка й повернення — один колір, витрата — темніше, «чисто» — бренд (нижче нуля — bg-danger)
+    .o_workset_profit_fall_total {
+        background-color: $gray-500;
+    }
+    .o_workset_profit_fall_down {
+        background-color: $gray-700;
+    }
+    .o_workset_profit_fall_net {
+        background-color: $primary;
+    }
+    // «Лінії × місяці»: таблиця гортається вбік, колонка «Лінія» закріплена (телефон)
+    .o_workset_profit_matrix_wrap {
+        overflow-x: auto;
+    }
+    .o_workset_profit_matrix {
+        font-variant-numeric: tabular-nums;
+
+        th,
+        td {
+            vertical-align: middle;
+        }
+    }
+    .o_workset_profit_sticky {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background-color: $body-bg;
+    }
+    // цифри ліній — крупніше (одиниця — одна, у шапці)
+    .o_workset_profit_lines td {
+        font-size: 1.0625rem;
+    }
+    // рядки компанії: світліше за лінії, але не text-muted (на темному фоні не читався) — колір тексту теми з прозорістю лише в клітинках
+    // (закріплена назва лишається непрозорою, щоб під нею не просвічувала таблиця при гортанні)
+    .o_workset_profit_company {
+        border-top: 2px solid $border-color;
+
+        th,
+        td {
+            color: $body-color;
+        }
+        td {
+            opacity: 0.85;
+        }
+        // підпис групи «Компанія, € за місяць» — сірим без прозорості (круг 3б)
+        td.o_workset_profit_muted {
+            color: $gray-500;
+            opacity: 1;
+        }
+    }
+    .o_workset_profit_sticky_text {
+        position: sticky;
+        left: map-get($spacers, 1);
+    }
+    @include media-breakpoint-up(lg) {
+        .o_workset_profit_band {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+        }
+        // п'ять в ряд: роздільник перед кожною колонкою, крім першої
+        .o_workset_profit_band_cell {
+            &:first-child {
+                grid-column: auto;
+            }
+            &:not(:first-child) {
+                border-left: 1px solid $border-color;
+            }
+        }
+        .o_workset_profit_panels {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .o_workset_profit_card_top {
+            grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+        }
+    }
+    // чип «Власники» (сума й кожна стаття) — на дві колонки, від планшета
+    @include media-breakpoint-up(md) {
+        .o_workset_profit_chip_wide {
+            grid-column: span 2;
+        }
+    }
+    // телефон: плитки й чипи — в один стовпець; підсумки — 2 × 2 (вище); «Куди йде частка» — вужча назва
+    @include media-breakpoint-down(sm) {
+        .o_workset_profit_tiles,
+        .o_workset_profit_chips {
+            grid-template-columns: minmax(0, 1fr);
+        }
+        .o_workset_profit_big {
+            font-size: 1.75rem;
+        }
+        .o_workset_profit_split_row {
+            grid-template-columns: minmax(0, 6rem) minmax(0, 1fr) 4.5rem;
+        }
+    }
+}
+
+// спливаюче вікно клітинки «Лінії × місяці» (рендериться поза .o_workset_profit — у шарі спливаючих вікон)
+.o_workset_profit_pop {
+    min-width: 14rem;
+    font-variant-numeric: tabular-nums;
+}
