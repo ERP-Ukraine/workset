@@ -1,0 +1,49 @@
+// Плитки грошей «Агентів» (картка агента, рішення, рядок рішення, звірка): у ряд на широкому екрані, 2×2 на телефоні; штатні кольори теми
+// (світла й темна), без власних заливок. Лише змінні й міксини Bootstrap (є в web.assets_backend): невідома змінна зламала б увесь бандл бекенду
+.o_workset_agents_tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: map-get($spacers, 2);
+    margin-bottom: map-get($spacers, 3);
+
+    .o_wa_tile {
+        border: $border-width solid $border-color;
+        border-radius: $border-radius;
+        padding: map-get($spacers, 2) map-get($spacers, 3);
+        min-width: 0;
+    }
+
+    .o_wa_tile_label {
+        color: $text-muted;
+        font-size: $font-size-sm;
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .o_wa_tile_value {
+        font-size: $h3-font-size;
+        font-weight: $font-weight-semibold;
+        white-space: nowrap;
+    }
+}
+
+// одна фраза-підсумок у шапці рішення
+.o_wa_phrase {
+    font-size: $font-size-lg;
+}
+
+@include media-breakpoint-down(md) {
+    .o_workset_agents_tiles {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+
+        .o_wa_tile_value {
+            font-size: $h5-font-size;
+        }
+    }
+
+    .o_wa_phrase {
+        font-size: $font-size-base;
+    }
+}

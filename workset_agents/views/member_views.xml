@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_member_list" model="ir.ui.view">
+        <field name="name">workset.agent.member.list</field>
+        <field name="model">workset.agent.member</field>
+        <field name="arch" type="xml">
+            <list string="Люди агентів" editable="bottom" expand="1">
+                <field name="partner_id" string="Людина" widget="many2one_avatar"/>
+                <field name="agent_id" string="Агент" optional="hide"/>
+                <field name="deal_id" string="Домовленість" optional="show"/>
+                <field name="date_from" string="З"/>
+                <field name="date_to" string="Пішов" placeholder="працює"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_member_form" model="ir.ui.view">
+        <field name="name">workset.agent.member.form</field>
+        <field name="model">workset.agent.member</field>
+        <field name="arch" type="xml">
+            <form string="Людина агента">
+                <sheet>
+                    <group>
+                        <field name="deal_id"/>
+                        <field name="agent_id"/>
+                        <field name="partner_id"/>
+                        <field name="date_from"/>
+                        <field name="date_to"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_member_search" model="ir.ui.view">
+        <field name="name">workset.agent.member.search</field>
+        <field name="model">workset.agent.member</field>
+        <field name="arch" type="xml">
+            <search string="Люди агентів">
+                <field name="partner_id"/>
+                <field name="agent_id"/>
+                <filter name="working" string="Працюють" domain="[('date_to', '=', False)]"/>
+                <filter name="left" string="Пішли" domain="[('date_to', '!=', False)]"/>
+                <group>
+                    <filter name="by_agent" string="Агент" context="{'group_by': 'agent_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_members" model="ir.actions.act_window">
+        <field name="name">Люди агентів</field>
+        <field name="res_model">workset.agent.member</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_member_search"/>
+        <field name="context">{'search_default_by_agent': 1}</field>
+    </record>
+</odoo>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- noupdate: оновлення модуля не повертає розклад і «увімкнена» (вмикає інструмент штабу, режим night on; на проді — лише за словом власника) -->
+    <data noupdate="1">
+        <!-- «Агенти: нічний розрахунок нарахувань»: ~00:30 UTC — після «Приведи друга» (00:00 UTC); створюється ВИМКНЕНОЮ -->
+        <record id="cron_night" model="ir.cron">
+            <field name="name">Агенти: нічний розрахунок нарахувань</field>
+            <field name="model_id" ref="model_workset_agent_run"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_night()</field>
+            <field name="user_id" ref="base.user_root"/>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="priority">6</field>
+            <field name="nextcall" eval="(DateTime.now() + relativedelta(days=1, hour=0, minute=30, second=0)).strftime('%Y-%m-%d %H:%M:%S')"/>
+            <field name="active" eval="False"/>
+        </record>
+    </data>
+</odoo>

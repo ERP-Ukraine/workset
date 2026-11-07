@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_accrual_list" model="ir.ui.view">
+        <field name="name">workset.agent.accrual.list</field>
+        <field name="model">workset.agent.accrual</field>
+        <field name="arch" type="xml">
+            <list string="Нарахування агентам">
+                <field name="earned_date"/>
+                <field name="agent_id"/>
+                <field name="section" optional="hide"/>
+                <field name="kind"/>
+                <field name="person_id" optional="show"/>
+                <field name="customer_id" optional="hide"/>
+                <field name="move_id" optional="hide"/>
+                <field name="hours" optional="show"/>
+                <field name="rate" optional="hide"/>
+                <field name="amount" sum="Разом"/>
+                <field name="state" widget="badge" decoration-warning="state == 'review'" decoration-success="state == 'paid'"/>
+                <field name="pay_date"/>
+                <field name="guard" optional="hide"/>
+                <field name="key" optional="hide"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_accrual_form" model="ir.ui.view">
+        <field name="name">workset.agent.accrual.form</field>
+        <field name="model">workset.agent.accrual</field>
+        <field name="arch" type="xml">
+            <form string="Нарахування агенту">
+                <header>
+                    <button name="action_storno" type="object" string="Сторно" invisible="kind == 'storno' or state == 'cancelled'"
+                            confirm="Сторнувати нарахування? Ще не виплачене — обидва стануть «Скасовано»; уже у виплаті — сторно піде мінусом у найближчу виплату."
+                            groups="hr.group_hr_manager,workset_agents.group_owner"/>
+                    <field name="state" widget="statusbar" statusbar_visible="expected,due,decided,paid"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
+                    <group>
+                        <group string="Хто і за що">
+                            <field name="agent_id"/>
+                            <field name="section"/>
+                            <field name="people_deal_id" string="Домовленість" invisible="section != 'people'"/>
+                            <field name="client_deal_id" string="Домовленість" invisible="section != 'client'"/>
+                            <field name="kind"/>
+                            <field name="person_id"/>
+                            <field name="customer_id"/>
+                            <field name="move_id"/>
+                            <field name="line_id"/>
+                        </group>
+                        <group string="Гроші">
+                            <field name="hours"/>
+                            <field name="rate"/>
+                            <field name="amount"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="earned_date"/>
+                            <field name="work_from"/>
+                            <field name="work_to"/>
+                            <field name="pay_date"/>
+                            <field name="company_id"/>
+                            <field name="fund"/>
+                        </group>
+                    </group>
+                    <group string="Сторож" invisible="not guard">
+                        <field name="guard"/>
+                        <field name="guard_note"/>
+                    </group>
+                    <group string="Службове">
+                        <field name="key"/>
+                        <field name="storno_id"/>
+                        <field name="payout_id"/>
+                        <field name="pay_line_id"/>
+                        <field name="note"/>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_accrual_pivot" model="ir.ui.view">
+        <field name="name">workset.agent.accrual.pivot</field>
+        <field name="model">workset.agent.accrual</field>
+        <field name="arch" type="xml">
+            <pivot string="Нарахування: агент × місяць">
+                <field name="agent_id" type="row"/>
+                <field name="earned_date" interval="month" type="col"/>
+                <field name="amount" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_accrual_graph" model="ir.ui.view">
+        <field name="name">workset.agent.accrual.graph</field>
+        <field name="model">workset.agent.accrual</field>
+        <field name="arch" type="xml">
+            <graph string="Нараховано по місяцях" type="bar" stacked="1">
+                <field name="earned_date" interval="month"/>
+                <field name="section"/>
+                <field name="amount" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_accrual_search" model="ir.ui.view">
+        <field name="name">workset.agent.accrual.search</field>
+        <field name="model">workset.agent.accrual</field>
+        <field name="arch" type="xml">
+            <search string="Нарахування агентам">
+                <field name="agent_id"/>
+                <field name="person_id"/>
+                <field name="key"/>
+                <filter name="live" string="Без сторно і скасованих" domain="[('kind', '!=', 'storno'), ('state', '!=', 'cancelled')]"/>
+                <filter name="year" string="2026" domain="[('earned_date', '&gt;=', '2026-01-01'), ('earned_date', '&lt;', '2027-01-01')]"/>
+                <filter name="not_test" string="Без тестових" domain="[('agent_id.is_test', '=', False)]"/>
+                <filter name="review" string="На перевірці" domain="[('state', '=', 'review')]"/>
+                <filter name="due" string="До виплати" domain="[('state', '=', 'due')]"/>
+                <separator/>
+                <filter name="people" string="Агенти-кандидати" domain="[('section', '=', 'people')]"/>
+                <filter name="client" string="Агенти-замовники" domain="[('section', '=', 'client')]"/>
+                <group>
+                    <filter name="by_agent" string="Агент" context="{'group_by': 'agent_id'}"/>
+                    <filter name="by_month" string="Зароблено: місяць" context="{'group_by': 'earned_date:month'}"/>
+                    <filter name="by_state" string="Статус" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_accruals" model="ir.actions.act_window">
+        <field name="name">Нарахування агентам</field>
+        <field name="res_model">workset.agent.accrual</field>
+        <field name="view_mode">list,form,pivot,graph</field>
+        <field name="search_view_id" ref="view_accrual_search"/>
+        <field name="context">{'search_default_live': 1}</field>
+    </record>
+
+    <!-- «Огляд»: нараховано по місяцях (графік, розділи стовпчиками) і агент × місяць (зведена) за 2026 без тестових; друга вкладка меню —
+         звірка агент × місяць (action_overview_zvirka у zvirka_views.xml) -->
+    <record id="action_overview" model="ir.actions.act_window">
+        <field name="name">Нараховано</field>
+        <field name="res_model">workset.agent.accrual</field>
+        <field name="view_mode">graph,pivot,list</field>
+        <field name="search_view_id" ref="view_accrual_search"/>
+        <field name="context">{'search_default_live': 1, 'search_default_year': 1, 'search_default_not_test': 1}</field>
+    </record>
+</odoo>

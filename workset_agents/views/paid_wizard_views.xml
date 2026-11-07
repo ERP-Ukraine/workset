@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_paid_wizard_form" model="ir.ui.view">
+        <field name="name">workset.agent.paid.wizard.form</field>
+        <field name="model">workset.agent.paid.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Позначити виплаченим вручну">
+                <group>
+                    <field name="payout_ids" widget="many2many_tags" readonly="1"/>
+                    <field name="date"/>
+                    <field name="amount"/>
+                    <field name="source"/>
+                    <field name="note" placeholder="Напр.: переказ з особистого рахунку, квитанція в чаті офісу"/>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Позначити виплаченим" class="btn-primary"/>
+                    <button string="Скасувати" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

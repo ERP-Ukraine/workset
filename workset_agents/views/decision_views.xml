@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Рішення про виплату: список (найближче відкрите — першим), картки для телефону, зведення активностей; «Затвердити» по виділених -->
+    <record id="view_decision_list" model="ir.ui.view">
+        <field name="name">workset.agent.decision.list</field>
+        <field name="model">workset.agent.decision</field>
+        <field name="arch" type="xml">
+            <list string="Рішення про виплату" create="0" default_order="pay_day asc, id asc">
+                <field name="pay_day" string="День виплати"/>
+                <field name="section" string="Розділ"/>
+                <field name="state" string="Статус" widget="badge" decoration-info="state == 'draft'" decoration-warning="state in ('approved', 'review')"
+                       decoration-success="state == 'done'" decoration-muted="state == 'skipped'"/>
+                <field name="line_count" string="Агентів"/>
+                <field name="available_total" string="Разом до рішення" sum="Разом"/>
+                <field name="pay_total" string="Сплатити зараз" sum="Разом"/>
+                <field name="buffer_total" string="У буфер" optional="show"/>
+                <field name="net_total" string="До переказу" optional="hide"/>
+                <field name="zvirka_total" string="Звірка, €" optional="hide"/>
+                <field name="auto" string="Автоматично" optional="hide"/>
+                <field name="activity_ids" widget="list_activity" optional="show"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_decision_kanban" model="ir.ui.view">
+        <field name="name">workset.agent.decision.kanban</field>
+        <field name="model">workset.agent.decision</field>
+        <field name="arch" type="xml">
+            <kanban create="0" records_draggable="0" quick_create="0" default_order="pay_day asc, id asc">
+                <field name="currency_id"/>
+                <field name="buffer_total"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between">
+                            <span class="fw-bold"><field name="pay_day"/></span>
+                            <field name="state" widget="badge" decoration-info="state == 'draft'" decoration-warning="state in ('approved', 'review')"
+                                   decoration-success="state == 'done'" decoration-muted="state == 'skipped'"/>
+                        </div>
+                        <field name="section" class="text-muted small"/>
+                        <div><span class="text-muted small me-1">сплатити зараз</span><field name="pay_total" widget="monetary" class="fs-3 fw-bold"/></div>
+                        <div class="d-flex justify-content-between small text-muted">
+                            <span invisible="not buffer_total">у буфер <field name="buffer_total" widget="monetary"/></span>
+                            <field name="activity_ids" widget="kanban_activity"/>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_decision_activity" model="ir.ui.view">
+        <field name="name">workset.agent.decision.activity</field>
+        <field name="model">workset.agent.decision</field>
+        <field name="arch" type="xml">
+            <activity string="Рішення про виплату">
+                <templates>
+                    <div t-name="activity-box">
+                        <div class="d-flex flex-column">
+                            <field name="name" class="fw-bold"/>
+                            <field name="pay_total" widget="monetary"/>
+                            <field name="currency_id" invisible="1"/>
+                        </div>
+                    </div>
+                </templates>
+            </activity>
+        </field>
+    </record>
+
+    <!-- Картка рішення: шапка — кнопки і статус; одна фраза-підсумок; великі суми плитками (нулі не показуються); рядки агентів —
+         «Сплатити зараз» правиться прямо в рядку (лише «Власник»), порада штабу — бейджем, порожнє «Чому так» не видно;
+         у замовників — плитки «€» і «штуки» окремо -->
+    <record id="view_decision_form" model="ir.ui.view">
+        <field name="name">workset.agent.decision.form</field>
+        <field name="model">workset.agent.decision</field>
+        <field name="arch" type="xml">
+            <form string="Рішення про виплату" create="0">
+                <header>
+                    <button name="action_approve" type="object" string="Затвердити" class="btn-primary" invisible="state not in ('draft', 'review')"
+                            confirm="Затвердити рішення? Далі штаб підготує виплати: «Сплатити зараз» — до виплати, решта — у буфер наступного рішення."
+                            groups="workset_agents.group_owner"/>
+                    <button name="action_apply_advice" type="object" string="Як пропонує штаб" invisible="state not in ('draft', 'review')"
+                            groups="workset_agents.group_owner"/>
+                    <button name="action_stop" type="object" string="Зупинити" invisible="state != 'done' or not auto"
+                            confirm="Зупинити автоматичне рішення? Виплати буде скасовано, чернетки рахунків прибрано, нарахування перейдуть у рішення наступного дня виплати."
+                            groups="workset_agents.group_owner"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,approved,done"/>
+                </header>
+                <sheet>
+                    <field name="currency_id" invisible="1"/>
+                    <field name="line_count" invisible="1"/>
+                    <div class="oe_title">
+                        <h1><field name="pay_day" readonly="1" class="d-inline"/></h1>
+                        <field name="section" readonly="1" class="text-muted"/>
+                    </div>
+                    <div class="o_wa_phrase mb-2" invisible="not line_count">
+                        Сплатити зараз <field name="pay_total" widget="monetary" class="d-inline fw-bold"/>
+                        з <field name="available_total" widget="monetary" class="d-inline"/>
+                        <span invisible="not buffer_total">, у буфер <field name="buffer_total" widget="monetary" class="d-inline"/></span>
+                    </div>
+                    <div class="o_workset_agents_tiles">
+                        <div class="o_wa_tile" invisible="not available_total">
+                            <div class="o_wa_tile_label">Разом до рішення</div>
+                            <div class="o_wa_tile_value"><field name="available_total" widget="monetary" class="d-inline"/></div>
+                        </div>
+                        <div class="o_wa_tile" invisible="not pay_total">
+                            <div class="o_wa_tile_label">Сплатити зараз</div>
+                            <div class="o_wa_tile_value"><field name="pay_total" widget="monetary" class="d-inline"/></div>
+                        </div>
+                        <div class="o_wa_tile" invisible="not net_total">
+                            <div class="o_wa_tile_label">До переказу</div>
+                            <div class="o_wa_tile_value"><field name="net_total" widget="monetary" class="d-inline"/></div>
+                        </div>
+                        <div class="o_wa_tile" invisible="not buffer_total">
+                            <div class="o_wa_tile_label">У буфер</div>
+                            <div class="o_wa_tile_value"><field name="buffer_total" widget="monetary" class="d-inline"/></div>
+                        </div>
+                        <div class="o_wa_tile" invisible="not zv_diff_total">
+                            <div class="o_wa_tile_label">Звірка: різниця, €</div>
+                            <div class="o_wa_tile_value"><field name="zv_diff_total" widget="monetary" class="d-inline"/></div>
+                        </div>
+                        <div class="o_wa_tile" invisible="not zv_missing_total">
+                            <div class="o_wa_tile_label">Рахунків без конверта, шт.</div>
+                            <div class="o_wa_tile_value"><field name="zv_missing_total" class="d-inline"/></div>
+                        </div>
+                        <div class="o_wa_tile" invisible="not overdue_total">
+                            <div class="o_wa_tile_label">Прострочено замовниками</div>
+                            <div class="o_wa_tile_value"><field name="overdue_total" widget="monetary" class="d-inline text-danger"/></div>
+                        </div>
+                    </div>
+                    <div class="alert alert-info mb-2" role="status" invisible="not hq_advice">
+                        <div class="fw-bold">Що пропонує штаб</div>
+                        <field name="hq_advice" readonly="1"/>
+                    </div>
+                    <div class="alert alert-warning mb-2" role="alert" invisible="not guard_note">
+                        <field name="guard_note" readonly="1"/>
+                    </div>
+                    <notebook>
+                        <page string="Агенти" name="lines" invisible="not payable_line_ids">
+                            <field name="payable_line_ids" mode="list,kanban">
+                                <list editable="bottom" create="0" delete="0">
+                                    <field name="agent_id" string="Агент" readonly="1"/>
+                                    <field name="pay_path" string="Шлях" readonly="1" optional="show"/>
+                                    <field name="available" string="Разом" readonly="1"/>
+                                    <field name="proposal" string="Пропозиція" readonly="1"/>
+                                    <field name="pay_now" string="Сплатити зараз" groups="workset_agents.group_owner" readonly="parent.state not in ('draft', 'review')"/>
+                                    <field name="pay_now" string="Сплатити зараз" groups="!workset_agents.group_owner" readonly="1"/>
+                                    <field name="pay_net" string="До переказу" readonly="1" optional="hide"/>
+                                    <field name="buffer_out" string="У буфер" readonly="1"/>
+                                    <field name="advice" string="Порада" widget="badge" readonly="1" decoration-success="advice == 'pay'"
+                                           decoration-warning="advice == 'check'" decoration-muted="advice == 'hold'"/>
+                                    <field name="advice_text" string="Чому так" readonly="1" optional="show"/>
+                                    <field name="cust_overdue" column_invisible="1"/>
+                                    <button name="action_open_overdue" type="object" string="Прострочено" icon="fa-exclamation-triangle" class="btn-link text-danger"
+                                            invisible="not cust_overdue" groups="account.group_account_invoice"/>
+                                    <field name="state" string="Статус" widget="badge" readonly="1" optional="show" decoration-danger="state == 'review'" decoration-success="state == 'done'"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                    <button name="action_open_line" type="object" title="Деталі рядка" icon="fa-external-link"/>
+                                </list>
+                                <kanban>
+                                    <field name="currency_id"/>
+                                    <field name="advice_text"/>
+                                    <templates>
+                                        <t t-name="card">
+                                            <div class="d-flex justify-content-between">
+                                                <field name="agent_id" class="fw-bold text-truncate"/>
+                                                <field name="advice" widget="badge" decoration-success="advice == 'pay'" decoration-warning="advice == 'check'" decoration-muted="advice == 'hold'"/>
+                                            </div>
+                                            <div><span class="text-muted small me-1">сплатити зараз</span><field name="pay_now" widget="monetary" class="fs-4 fw-bold"/></div>
+                                            <div class="small text-muted" invisible="not buffer_out">у буфер <field name="buffer_out" widget="monetary"/></div>
+                                            <field name="advice_text" class="small" invisible="not advice_text"/>
+                                        </t>
+                                    </templates>
+                                </kanban>
+                            </field>
+                        </page>
+                        <page string="Звірка (не платимо)" name="zvirka" invisible="not zvirka_line_ids">
+                            <field name="zvirka_line_ids" readonly="1" mode="list,kanban">
+                                <list>
+                                    <field name="agent_id" string="Агент"/>
+                                    <field name="zv_period" string="Період"/>
+                                    <field name="accrued" string="Odoo"/>
+                                    <field name="zv_env" string="Конверт"/>
+                                    <field name="zv_diff" string="Різниця" decoration-danger="zv_diff &gt; 0.01 or zv_diff &lt; -0.01"/>
+                                    <field name="zv_missing" string="Без конверта, шт." optional="show"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                                <kanban>
+                                    <field name="currency_id"/>
+                                    <templates>
+                                        <t t-name="card">
+                                            <field name="agent_id" class="fw-bold"/>
+                                            <div><span class="text-muted small me-1">різниця</span><field name="zv_diff" widget="monetary" class="fs-5 fw-bold"/></div>
+                                            <field name="zv_period" class="small text-muted"/>
+                                        </t>
+                                    </templates>
+                                </kanban>
+                            </field>
+                        </page>
+                        <page string="Виплати" name="payouts" invisible="not payout_ids">
+                            <field name="payout_ids" readonly="1">
+                                <list>
+                                    <field name="agent_id" string="Агент"/>
+                                    <field name="pay_path" string="Шлях"/>
+                                    <field name="net" string="До переказу" sum="Разом"/>
+                                    <field name="state" string="Статус" widget="badge" decoration-success="state == 'paid'" decoration-warning="state in ('review', 'paid_part')"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Хто і коли" name="who">
+                            <group>
+                                <group>
+                                    <field name="approved_by" invisible="not approved_by"/>
+                                    <field name="approved_at" invisible="not approved_at"/>
+                                    <field name="prepared_at" invisible="not prepared_at"/>
+                                </group>
+                                <group>
+                                    <field name="auto" widget="boolean_toggle" readonly="1"/>
+                                    <field name="auto_note" invisible="not auto_note"/>
+                                </group>
+                            </group>
+                            <field name="note" placeholder="Нотатки до рішення"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_decision_search" model="ir.ui.view">
+        <field name="name">workset.agent.decision.search</field>
+        <field name="model">workset.agent.decision</field>
+        <field name="arch" type="xml">
+            <search string="Рішення про виплату">
+                <field name="pay_day"/>
+                <filter name="open" string="До рішення" domain="[('state', 'in', ['draft', 'review', 'approved'])]"/>
+                <filter name="done" string="Переказано" domain="[('state', '=', 'done')]"/>
+                <separator/>
+                <filter name="people" string="Агенти-кандидати" domain="[('section', '=', 'people')]"/>
+                <filter name="client" string="Агенти-замовники" domain="[('section', '=', 'client')]"/>
+                <group>
+                    <filter name="by_state" string="Статус" context="{'group_by': 'state'}"/>
+                    <filter name="by_section" string="Розділ" context="{'group_by': 'section'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_decisions" model="ir.actions.act_window">
+        <field name="name">Рішення</field>
+        <field name="res_model">workset.agent.decision</field>
+        <field name="view_mode">list,kanban,form,activity</field>
+        <field name="search_view_id" ref="view_decision_search"/>
+        <field name="context">{'search_default_open': 1}</field>
+        <field name="help" type="html"><p class="o_view_nocontent_smiling_face">Відкритих рішень немає</p><p>Чернетку до дня виплати збирає нічний розрахунок.</p></field>
+    </record>
+
+    <!-- «Затвердити» по виділених рішеннях — у меню дій списку (сама дія перевіряє групу «Власник») -->
+    <record id="action_server_decision_approve" model="ir.actions.server">
+        <field name="name">Затвердити</field>
+        <field name="model_id" ref="model_workset_agent_decision"/>
+        <field name="binding_model_id" ref="model_workset_agent_decision"/>
+        <field name="binding_view_types">list,kanban</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_approve()</field>
+    </record>
+</odoo>

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_run_list" model="ir.ui.view">
+        <field name="name">workset.agent.run.list</field>
+        <field name="model">workset.agent.run</field>
+        <field name="arch" type="xml">
+            <list string="Розрахунок агентів — журнал" create="0" edit="0">
+                <field name="at"/>
+                <field name="kind"/>
+                <field name="result" widget="badge" decoration-success="result == 'OK'" decoration-danger="result == 'Помилка'" decoration-warning="result == 'Частково'"/>
+                <field name="created"/>
+                <field name="changed"/>
+                <field name="review"/>
+                <field name="seconds" optional="hide"/>
+                <field name="summary" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_run_form" model="ir.ui.view">
+        <field name="name">workset.agent.run.form</field>
+        <field name="model">workset.agent.run</field>
+        <field name="arch" type="xml">
+            <form string="Розрахунок агентів" create="0" edit="0">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="at"/>
+                            <field name="kind"/>
+                            <field name="result"/>
+                        </group>
+                        <group>
+                            <field name="created"/>
+                            <field name="changed"/>
+                            <field name="review"/>
+                            <field name="seconds"/>
+                        </group>
+                    </group>
+                    <field name="summary"/>
+                    <field name="before" groups="hr.group_hr_manager"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_runs" model="ir.actions.act_window">
+        <field name="name">Журнал</field>
+        <field name="res_model">workset.agent.run</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

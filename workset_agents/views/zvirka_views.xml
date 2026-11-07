@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Звірка з конвертом: колір — лише в «Різниця» і «Стан» (рядок цілком не фарбується), колонка «%», за замовчуванням «2026 · є розбіжність»
+         з групами по агенту; другий вид — зведена агент × місяць; бічна панель — агент і стан -->
+    <record id="view_zvirka_list" model="ir.ui.view">
+        <field name="name">workset.agent.zvirka.list</field>
+        <field name="model">workset.agent.zvirka</field>
+        <field name="arch" type="xml">
+            <list string="Звірка з конвертами" create="0" default_order="month desc">
+                <field name="agent_id" string="Агент"/>
+                <field name="month_label" string="Місяць"/>
+                <field name="section" string="Розділ" optional="hide"/>
+                <field name="calc" string="Odoo" sum="Разом"/>
+                <field name="envelope" string="Конверт" sum="Разом"/>
+                <field name="diff" string="Різниця" sum="Разом" decoration-danger="diff_pct &gt; 5 or diff_pct &lt; -5" decoration-warning="(diff_pct &lt;= 5 and diff_pct &gt;= -5) and (diff &gt; 0.01 or diff &lt; -0.01)"/>
+                <field name="diff_pct" string="%"/>
+                <field name="state_badge" string="Стан" widget="badge" decoration-success="state_badge == 'ok'" decoration-warning="state_badge == 'small'"
+                       decoration-danger="state_badge == 'big'" decoration-muted="state_badge in ('no_envelope', 'archive')"/>
+                <field name="lines" string="Рядків" optional="hide"/>
+                <field name="matched" string="Збіглось" optional="hide"/>
+                <field name="month" column_invisible="1"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- телефон: картка ≤ 4 рядків — агент і місяць, різниця (колір лише в ній), стан -->
+    <record id="view_zvirka_kanban" model="ir.ui.view">
+        <field name="name">workset.agent.zvirka.kanban</field>
+        <field name="model">workset.agent.zvirka</field>
+        <field name="arch" type="xml">
+            <kanban create="0" records_draggable="0" quick_create="0">
+                <field name="diff_pct"/>
+                <field name="currency_id"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between">
+                            <field name="agent_id" class="fw-bold text-truncate"/>
+                            <field name="month_label" class="text-muted"/>
+                        </div>
+                        <div>
+                            <field name="diff" widget="monetary" class="fs-4 fw-bold text-danger" invisible="diff_pct &lt;= 5 and diff_pct &gt;= -5"/>
+                            <field name="diff" widget="monetary" class="fs-4 fw-bold" invisible="diff_pct &gt; 5 or diff_pct &lt; -5"/>
+                            <span class="text-muted ms-1"><field name="diff_pct"/> %</span>
+                        </div>
+                        <field name="state_badge" widget="badge" decoration-success="state_badge == 'ok'" decoration-warning="state_badge == 'small'"
+                               decoration-danger="state_badge == 'big'" decoration-muted="state_badge in ('no_envelope', 'archive')"/>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_zvirka_form" model="ir.ui.view">
+        <field name="name">workset.agent.zvirka.form</field>
+        <field name="model">workset.agent.zvirka</field>
+        <field name="arch" type="xml">
+            <form string="Звірка з конвертом" create="0">
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="agent_id" readonly="1"/></h1>
+                        <div class="d-flex gap-2 align-items-center">
+                            <field name="month_label" class="fs-5"/>
+                            <field name="state_badge" widget="badge" decoration-success="state_badge == 'ok'" decoration-warning="state_badge == 'small'"
+                                   decoration-danger="state_badge == 'big'" decoration-muted="state_badge in ('no_envelope', 'archive')"/>
+                        </div>
+                    </div>
+                    <div class="o_workset_agents_tiles">
+                        <div class="o_wa_tile">
+                            <div class="o_wa_tile_label">Розрахунок Odoo</div>
+                            <div class="o_wa_tile_value"><field name="calc" widget="monetary" class="d-inline"/></div>
+                        </div>
+                        <div class="o_wa_tile">
+                            <div class="o_wa_tile_label">Конверт</div>
+                            <div class="o_wa_tile_value"><field name="envelope" widget="monetary" class="d-inline"/></div>
+                        </div>
+                        <div class="o_wa_tile">
+                            <div class="o_wa_tile_label">Різниця</div>
+                            <div class="o_wa_tile_value">
+                                <field name="diff" widget="monetary" class="d-inline text-danger" invisible="diff_pct &lt;= 5 and diff_pct &gt;= -5"/>
+                                <field name="diff" widget="monetary" class="d-inline" invisible="diff_pct &gt; 5 or diff_pct &lt; -5"/>
+                                <span class="fs-6 text-muted ms-1"><field name="diff_pct" class="d-inline"/> %</span>
+                            </div>
+                        </div>
+                    </div>
+                    <group>
+                        <group string="Що звіряли">
+                            <field name="section"/>
+                            <field name="envelope_id"/>
+                            <field name="month"/>
+                            <field name="lines"/>
+                            <field name="matched"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="Звідки розрахунок">
+                            <field name="source"/>
+                            <field name="checked_at"/>
+                        </group>
+                    </group>
+                    <group invisible="not calc_note and not note">
+                        <field name="calc_note" string="Як рахували" invisible="not calc_note"/>
+                        <field name="note" string="Розбіжності" invisible="not note"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_zvirka_pivot" model="ir.ui.view">
+        <field name="name">workset.agent.zvirka.pivot</field>
+        <field name="model">workset.agent.zvirka</field>
+        <field name="arch" type="xml">
+            <pivot string="Звірка: агент × місяць" disable_linking="0">
+                <field name="agent_id" type="row"/>
+                <field name="month" interval="month" type="col"/>
+                <field name="diff" type="measure"/>
+                <field name="calc" type="measure"/>
+                <field name="envelope" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_zvirka_search" model="ir.ui.view">
+        <field name="name">workset.agent.zvirka.search</field>
+        <field name="model">workset.agent.zvirka</field>
+        <field name="arch" type="xml">
+            <search string="Звірка з конвертами">
+                <field name="agent_id"/>
+                <field name="envelope_id"/>
+                <filter name="year" string="2026" domain="[('month', '&gt;=', '2026-01-01'), ('month', '&lt;', '2027-01-01')]"/>
+                <separator/>
+                <filter name="diff" string="Є розбіжність" domain="[('state_badge', 'in', ['small', 'big', 'no_envelope'])]"/>
+                <filter name="big" string="Понад 5 %" domain="[('state_badge', '=', 'big')]"/>
+                <separator/>
+                <filter name="people" string="Агенти-кандидати" domain="[('section', '=', 'people')]"/>
+                <filter name="client" string="Агенти-замовники" domain="[('section', '=', 'client')]"/>
+                <group>
+                    <filter name="by_agent" string="Агент" context="{'group_by': 'agent_id'}"/>
+                    <filter name="by_month" string="Місяць" context="{'group_by': 'month:month'}"/>
+                    <filter name="by_state" string="Стан" context="{'group_by': 'state_badge'}"/>
+                </group>
+                <searchpanel>
+                    <field name="agent_id" icon="fa-user"/>
+                    <field name="state_badge" icon="fa-flag" select="multi"/>
+                </searchpanel>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_zvirka" model="ir.actions.act_window">
+        <field name="name">Звірка</field>
+        <field name="res_model">workset.agent.zvirka</field>
+        <field name="view_mode">list,pivot,kanban,form</field>
+        <field name="search_view_id" ref="view_zvirka_search"/>
+        <field name="context">{'search_default_year': 1, 'search_default_diff': 1, 'search_default_by_agent': 1}</field>
+        <field name="help" type="html"><p class="o_view_nocontent_smiling_face">Розбіжностей за 2026 немає</p><p>Звірку пише нічний розрахунок.</p></field>
+    </record>
+
+    <!-- «Огляд → Звірка»: зведена агент × місяць за 2026 (усі стани) -->
+    <record id="action_overview_zvirka" model="ir.actions.act_window">
+        <field name="name">Звірка: агент × місяць</field>
+        <field name="res_model">workset.agent.zvirka</field>
+        <field name="view_mode">pivot,list</field>
+        <field name="search_view_id" ref="view_zvirka_search"/>
+        <field name="context">{'search_default_year': 1}</field>
+    </record>
+</odoo>
