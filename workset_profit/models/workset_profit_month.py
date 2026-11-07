@@ -104,6 +104,11 @@ class WorksetProfitMonth(models.Model):
     amount = fields.Monetary(string='Сума', currency_field='currency_id', readonly=True, help='Сума рядка компанії')
     aal_amount = fields.Monetary(string='З аналітики', currency_field='currency_id', readonly=True, help='Службове для звірки')
     dkv_amount = fields.Monetary(string='З транзакцій DKV', currency_field='currency_id', readonly=True, help='Службове для звірки')
+    # круг 5б (19.0.5): склад «Рядків» картки лінії за місяць (calc.card_groups — ті самі записи розкладу, що в числах рядка): картка за
+    # період лише складає місяці, а не розкладає кожен наново; рядок, перерахований до 19.0.5 (поля немає), картка розкладає сама — повільніше
+    card_groups = fields.Json(string='Склад «Рядків» картки', readonly=True,
+                              help='Службове для картки лінії за період: групи «Рядків» місяця (стаття й рахунок аналітики, картка DKV, '
+                                   'перевезення за прибуттями) — сума й записи. Пише перерахунок')
 
     # ——— службове ———
     def _lang(self):
@@ -382,12 +387,18 @@ class WorksetProfitMonth(models.Model):
         dup = self._contrib_in_rows(entries, refs)
         office = calc.eur(sum(calc.cents(r['net']) for r in rows if r['row_kind'] == 'office') - calc.cents(dup['office']))
         rows, oh = calc.overhead(rows, contrib['zus'], office)
+        # 4в (круг 5б). склад «Рядків» картки кожної лінії — з тих самих записів розкладу (картка за період лише складає місяці)
+        groups = calc.card_groups(entries, refs)
         # 5. запис: місяць заново (рядки пише лише код)
         self.search([('month', '=', first)]).unlink()
         Overhead = self.env['workset.profit.overhead'].sudo()
         Overhead.search([('month', '=', first)]).unlink()
         names = self._names(rows)
-        self.create([self._row_vals(r, first, names) for r in rows])
+        vals = [self._row_vals(r, first, names) for r in rows]
+        for v in vals:
+            if v['row_kind'] == 'line':
+                v['card_groups'] = groups.get(v['line_id']) or {'groups': []}
+        self.create(vals)
         Overhead.create({'month': first, 'zus': oh['zus'], 'pit4': contrib['pit4'], 'office': oh['office'], 'office_dup': dup['office'],
                          'zus_elsewhere': dup['elsewhere'], 'total': oh['total'], 'hours': oh['hours'], 'per_hour': oh['per_hour'],
                          'zus_rest': oh['zus_rest'], 'office_rest': oh['office_rest'], 'move_ids': [(6, 0, contrib['move_ids'])],

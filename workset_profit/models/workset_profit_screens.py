@@ -12,8 +12,9 @@ _line_open, _kind_open, _ts_domain), екран лише виконує його
 Круг 5 (слово власника 07.11 «период который я хочу выбрать и год, не только информация за месяц»; «хочу видеть что туда входит»): A і
 B — за місяць, квартал, рік або «з–по» (calc.screen_span; підсумки — суми, € год — середньозважене, calc.rows_sum); клік по «ZUS і
 загальні» — вікно «Що входить» (опис {'dialog', 'ref'} — _dialog; вміст — oh_details тієї самої відповіді, _oh_detail), нового виклику
-немає. Період з кількох місяців на A місяць не розкладає (кліки — рядки й табелі за датами періоду), B розкладає кожен місяць періоду
-(«Рядки» за статтями).
+немає. Період з кількох місяців на A місяць не розкладає (кліки — рядки й табелі за датами періоду); B («Рядки» за статтями) — круг 5б:
+складає склад місяців, який записав перерахунок у рядок лінії (card_groups), розкладає лише місяць без складу й місяць, обраний сам.
+Квартал і рік — до останнього закритого місяця (calc.screen_span, круг 5б).
 
 Хто бачить (п. 8 завдання круга 2): лише група «Прибутковість: перегляд» (редактор її містить) — методи перевіряють групу самі
 (_check_screen), не лише видимість меню; адміністратор поза групою — відмова. Місяці — лише з calc.MIN_MONTH (січень 2026) до поточного.
@@ -392,7 +393,9 @@ class WorksetProfitScreens(models.Model):
         if any(m in ohs for m in months):
             recs = self._oh_records(months, ohs, [r for r in mine if r['row_kind'] == 'office'], {months[0]: parts} if parts else None)
             ps = calc.rows_sum([r for r in now if r['month'] in ohs])
-            part = {'hours': ps['hours_total'], 'zus': ps['zus_amount'], 'office': ps['office_amount'], 'label': calc.t('oh_part_lines', lang)}
+            # круг 5б: і на годину зі ставкою — рівно число «ZUS і загальні € год», по якому клікнули (є, коли всі місяці перераховано)
+            part = {'hours': ps['hours_total'], 'zus': ps['zus_amount'], 'office': ps['office_amount'], 'hours_rate': ps['hours_rate'],
+                    'screen': full, 'label': calc.t('oh_part_lines', lang)}
             details['span'] = self._oh_detail(months, recs, ohs, part if now else None, label, lang, missing=bool(now) and not full)
         choices = calc.span_choices({r['month'] for r in line_rows}, span, today, lang)
         return {
@@ -508,8 +511,9 @@ class WorksetProfitScreens(models.Model):
         """Екран B — один виклик: лінія (немає або не знайдено — перша лінія періоду) і період (як в «Огляді», круг 5), сусідні періоди для
         стрілок (prev / next — calc.span_step), п'ять підсумків лінії за період, водоспад «частка → … → чисто» (calc.chain_steps / waterfall
         рядка періоду calc.rows_sum: нульових кроків немає), «Хто платить» на останній день періоду, «Не в нашому чисто», ряди «Чисто по
-        місяцях» (смуга — обраний період) і «Рядки за період» (розклад кожного місяця періоду — ті самі записи, що в перерахунку, — за
-        статтею з сумою й числом записів), кожен відкриває свої записи; вікно «Що входить у ZUS і загальні» (oh_details). Рядків лінії за
+        місяцях» (смуга — обраний період) і «Рядки за період» (ті самі записи, що в перерахунку, — за статтею з сумою й числом записів:
+        місяць — розклад наново, кілька — склад місяців card_groups, круг 5б), кожен відкриває свої записи; вікно «Що входить у ZUS і
+        загальні» (oh_details). Рядків лінії за
         період немає — лише лінія, період, стрілки й ряди ('has': False). Лише читання."""
         self._check_screen()
         lang = self._lang()
@@ -558,15 +562,28 @@ class WorksetProfitScreens(models.Model):
         # «Залишається» і кроки ZUS / загальні — лише коли всі місяці лінії періоду перераховано після круга 4 (круг 4б)
         full = all(r['month'] in ohs for r in mine)
         hr = self._housing_rules()
-        # розклад кожного місяця періоду з рядком лінії (той самий, що в перерахунку: _month_entries); табелі — лише за потреби
-        parts = {r['month']: self._month_parts(r['month'], hr, with_ts=False) for r in mine}
-        kinds = calc.kind_refs([e for m in sorted(parts) for e in parts[m]['entries']], [x for m in sorted(parts) for x in parts[m]['refs']])
+        # «Рядки» й записи кроків водоспаду — групи місяців (calc.card_groups): один місяць розкладається наново, як і раніше (той самий
+        # розклад, що в перерахунку: _month_entries; мітка «рядки змінилися після перерахунку»); круг 5б — за кілька місяців склад, який
+        # записав перерахунок у рядок лінії (card_groups), лише складається (рік — не 12 розкладів); місяць без складу (перераховано до
+        # 19.0.5) — розклад наново. Табелі — лише за потреби
+        stored = {}
+        if len(mine) > 1:
+            for x in self.search_read([('id', 'in', [r['id'] for r in mine])], ['month', 'card_groups']):
+                if isinstance(x['card_groups'], dict) and 'groups' in x['card_groups']:
+                    stored[calc.iso(x['month'])] = x['card_groups']['groups']
+        parts = {r['month']: self._month_parts(r['month'], hr, with_ts=False) for r in mine if r['month'] not in stored}
+        groups = calc.groups_merge([stored[m] if m in stored else
+                                    (calc.card_groups(parts[m]['entries'], parts[m]['refs']).get(line.id) or {}).get('groups') or []
+                                    for m in sorted(r['month'] for r in mine)])
+        kinds = {line.id: calc.groups_kinds(groups)}
         line_open = self._line_open(line.id, name, months, label, lang)
         # круг 5: «ZUS, PIT-4» і «Загальні фірм» (кроки водоспаду, група «Рядків») — вікно «Що входить» з часткою лінії
         if any(m in ohs for m in months):
             recs = self._oh_records(months, ohs, self._screen_rows(months, ['office']), parts)
             ps = calc.rows_sum([r for r in mine if r['month'] in ohs])
-            part = {'hours': ps['hours_total'], 'zus': ps['zus_amount'], 'office': ps['office_amount'], 'label': calc.t('oh_part_line', lang)}
+            # круг 5б: і на годину зі ставкою (B: кроки водоспаду € год — окремо ZUS і загальні, тож «як на екрані» немає)
+            part = {'hours': ps['hours_total'], 'zus': ps['zus_amount'], 'office': ps['office_amount'], 'hours_rate': ps['hours_rate'],
+                    'label': calc.t('oh_part_line', lang)}
             out['oh_details'] = {'span': self._oh_detail(months, recs, ohs, part, label, lang, missing=not full)}
         dialog = bool(out['oh_details']) and self._dialog('span', lang)
         # круг 4: після «чисто» — − ZUS, PIT-4 → − Загальні фірм → = Залишається (calc.remain_steps; часток немає — кроків немає); круг 4б:
@@ -600,9 +617,9 @@ class WorksetProfitScreens(models.Model):
                     'aside': [{'key': f, 'label': calc.aside_label(f, lang), 'amount': row[f]} for f in calc.ASIDE if calc.cents(row[f])],
                     # за період — найдавніший перерахунок його місяців
                     'recomputed': self._stamp(min(stamps)) if stamps else ''})
-        cust_lines = parts[mine[0]['month']]['cust_lines']
+        cust_lines = next(iter(parts.values()))['cust_lines'] if parts else self.sudo()._lines_index()[0]
         overhead = {'hours': sum(float(ohs[m].get('hours') or 0) for m in months if m in ohs), 'open': dialog} if full else None
-        out.update(self._card_rows(line, months, row, lang, parts, cust_lines, info, overhead))
+        out.update(self._card_rows(line, months, row, lang, groups, cust_lines, info, overhead))
         # підсумки (круг 3в): «Години» — табелі лінії (той самий список, що рядок табелів), решта — рядки лінії за період; круг 4 — шостий,
         # «Залишається», теж рядки лінії
         ts = out['rows'][-1]['open']
@@ -675,39 +692,29 @@ class WorksetProfitScreens(models.Model):
             out.append(item)
         return out
 
-    def _card_rows(self, line, months, row, lang, parts, cust_lines, info, overhead=None):
-        """«Рядки за період» картки лінії: записи розкладу кожного місяця (parts — {місяць: _month_parts}, той самий розклад, що в
-        перерахунку), що лягли на лінію, за статтею й рахунком (аналітика), карткою (DKV) або «перевезення за прибуттями» — з сумою й (круг
-        5) числом записів: рік — групи, а не сотні рядків; ще оренда авто й житло, яке вирахував замовник (зі ставок і правил), і табелі
-        лінії одним рядком (_ts_people). Рядок — {'title', 'sub', 'amount', 'chain' (у «чисто»), 'open' (опис списку або False — без
-        кліку)}. Порядок: ланцюжок (найбільші витрати першими), «не в нашому чисто», круг 4 — група «ZUS і загальні (за годинами)» (рядки
-        'overhead': частки лінії ZUS, PIT-4 і загальних фірм; overhead — {'hours' (усі години місяців), 'open' (вікно «Що входить»)}, None —
-        не всі місяці перераховано після круга 4: групи немає), табелі останніми; показано CARD_ROWS — {'rows', 'rows_total', 'stale'
-        (частка + рядки ланцюжка ≠ збереженому «Чисто»: аналітику, DKV або прибуття змінили після перерахунку)}."""
+    def _card_rows(self, line, months, row, lang, groups, cust_lines, info, overhead=None):
+        """«Рядки за період» картки лінії: групи записів, що лягли на лінію (groups — calc.groups_merge місяців періоду: розклад місяця або,
+        круг 5б, склад card_groups, який записав перерахунок, — ті самі записи), за статтею й рахунком (аналітика), карткою (DKV) або
+        «перевезення за прибуттями» — з сумою й (круг 5) числом записів: рік — групи, а не сотні рядків; ще оренда авто й житло, яке
+        вирахував замовник (зі ставок і правил), і табелі лінії одним рядком (_ts_people). Рядок — {'title', 'sub', 'amount', 'chain' (у
+        «чисто»), 'open' (опис списку або False — без кліку)}. Порядок: ланцюжок (найбільші витрати першими), «не в нашому чисто», круг 4 —
+        група «ZUS і загальні (за годинами)» (рядки 'overhead': частки лінії ZUS, PIT-4 і загальних фірм; overhead — {'hours' (усі години
+        місяців), 'open' (вікно «Що входить»)}, None — не всі місяці перераховано після круга 4: групи немає), табелі останніми; показано
+        CARD_ROWS — {'rows', 'rows_total', 'stale' (частка + рядки ланцюжка ≠ збереженому «Чисто»: аналітику, DKV або прибуття змінили після
+        перерахунку; склад місяця записано разом із рядком — для нього мітки немає)}."""
         first, last = months[0], calc.month_last(months[-1])
-        groups = {}
-        for m in sorted(parts):
-            for e, ref in zip(parts[m]['entries'], parts[m]['refs']):
-                if e['key'][0] != 'line' or e['key'][1] != line.id:
-                    continue
-                if ref.get('pool'):
-                    k = ('pool', e['field'])
-                elif ref.get('txn'):
-                    k = ('card', ref.get('card') or 0, e['field'])
-                else:
-                    k = ('aal', ref.get('analytic') or 0, ref.get('account') or 0, e['field'])
-                g = groups.setdefault(k, {'amount': 0, 'aal': [], 'txn': []})
-                g['amount'] += calc.cents(e['amount'])
-                g['aal'] += ref.get('aal') or []
-                g['txn'] += ref.get('txn') or []
         can_aal = self.env['account.analytic.line'].has_access('read')
         can_txn = self.env['workset.dkv.txn'].has_access('read')
         Analytic = self.env['account.analytic.account'].sudo().with_context(active_test=False)
         Account = self.env['account.account'].sudo().with_context(active_test=False)
         Card = self.env['workset.dkv.card'].sudo().with_context(active_test=False)
+        # круг 5б: назви статей, рахунків і карток — одним читанням на модель (за рік груп — десятки), далі — з кешу
+        for model, pos, kind in ((Analytic, 1, 'aal'), (Account, 2, 'aal'), (Card, 1, 'card')):
+            model.browse(sorted({g['k'][pos] for g in groups if g['k'][0] == kind and g['k'][pos]})).mapped('display_name')
         label = info['title']
         out = []
-        for k, g in groups.items():
+        for g in groups:
+            k = tuple(g['k'])
             field = k[-1]
             sub = calc.t(('s_' if field in calc.CHAIN else 'a_') + field, lang)
             if k[0] == 'aal':

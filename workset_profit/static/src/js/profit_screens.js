@@ -234,7 +234,8 @@ class ProfitScreen extends Component {
     }
 
     /** Перемикач «Місяць | Квартал | Рік | Період»: від останнього місяця обраного періоду; «Період» без «з» — сервер бере січень його
-     *  року (приклад власника «січень — вересень»). */
+     *  року (приклад власника «січень — вересень»). Круг 5б: квартал і рік сервер обрізає по останньому закритому місяцю, тож «Рік →
+     *  Місяць» відкриває останній закритий, а не поточний неповний. */
     setKind(kind) {
         const to = this.data ? this.data.span.to : false;
         this.setSpan({ kind, from: kind === "range" ? false : to, to });
@@ -948,6 +949,9 @@ export class OverheadDialog extends Component {
         this.money = money;
         this.rate = rate;
         this.whole = whole;
+        // круг 5б: «На годину зі ставкою» — як число екрана («—» без годин зі ставкою)
+        this.perHour = perHour;
+        this.hasPh = hasPh;
     }
 
     get d() {
