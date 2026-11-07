@@ -66,6 +66,22 @@ AXIS_HIGH = 25
 AXIS_PCT = 5
 AXIS_STEP = 5
 
+# Круг 4: «− ZUS − загальні = Залишається WorkSET» (рішення власника 05.11 «загальні: А» — версія 1, за годинами табеля). Рахунки ZUS і
+# PIT-4 польських фірм — як tools/lib/odoo_contrib_redate.js штабу: партнер ZUS («Zakład Ubezpieczeń Społecznych») або податкова
+# («Urząd Skarbowy») з «PIT-4» у ref / назвах рядків; місяць роботи — єдина мітка «ММ/РРРР» (ММ.РРРР, ММ/РР) у тих самих текстах; мітки
+# немає, їх дві чи діапазон «ММ-ММ/РРРР» — місяць дати проводки (і рядок «ZUS без мітки місяця» у звірці)
+ZUS_RE = re.compile(r'Ubezpiecze[nń]\s+Spo[łl]eczn', re.I)
+TAX_RE = re.compile(r'Skarbow', re.I)
+PIT4_RE = re.compile(r'PIT[-\s]?4', re.I)
+LABEL_RE = re.compile(r'(?<![\d./])(0[1-9]|1[0-2])\s?[/.]\s?(20\d{2}|\d{2})(?!\d)(?![/.]\d)', re.A)
+RANGE_RE = re.compile(r'(?<![\d./])(0[1-9]|1[0-2])\s?[-–—]\s?(0[1-9]|1[0-2])\s?[/.]\s?(20\d{2}|\d{2})(?!\d)', re.A)
+CONTRIB_TYPES = ('in_invoice', 'in_refund')   # рахунки постачальника (і повернення) — як MOVE_TYPES інструмента штабу
+CONTRIB_AHEAD = 1     # проводка — не раніше за стільки місяців до місяця роботи (мітка «на місяць вперед»)
+CONTRIB_BACK = 12     # і не пізніше за стільки місяців після нього: вікно пошуку рахунків місяця роботи
+OVERHEAD_KINDS = ('line', 'noline')   # хто несе загальні: години ліній і години без лінії
+OVERHEAD_FIELDS = ('zus_amount', 'office_amount', 'remain', 'remain_per_hour')
+REMAIN = ('zus', 'office', 'remain')  # водоспад після «чисто»: − ZUS, PIT-4 → − Загальні фірм → = Залишається
+
 # Підказка виду за назвою статті: (будь-що з, усе з, вид). Лише підказка: рахує розмітка (правило workset.profit.analytic.map)
 HINTS = (
     (('жил', 'житл'), ('буфер',), 'housing_buffer'),
@@ -158,6 +174,27 @@ TX = {
     'o_kind': ['%s: %s, %s', '%s: %s, %s'], 'o_rule': ['Хто платить · %s: %s', 'Кто платит · %s: %s'],
     'o_rules': ['Правила «Хто платить»: %s', 'Правила «Кто платит»: %s'], 'o_check': ['Звірка: %s', 'Сверка: %s'],
     't_owner': ['Власник %s · %s', 'Собственник %s · %s'],
+    # круг 4: «− ZUS − загальні = Залишається WorkSET»
+    's_zus': ['ZUS, PIT-4', 'ZUS, PIT-4'], 's_office': ['Загальні фірм', 'Общие фирм'], 's_remain': ['Залишається', 'Остаётся'],
+    'l_remain': ['Залишається, € год', 'Остаётся, € ч'],
+    'r_zus': ['ZUS, PIT-4 · частка лінії', 'ZUS, PIT-4 · доля линии'], 'r_office': ['Загальні фірм · частка лінії', 'Общие фирм · доля линии'],
+    'r_hours': ['за годинами табеля: %s з %s год', 'по часам табеля: %s из %s ч'],
+    'o_zus': ['Рахунки ZUS і PIT-4: %s', 'Счета ZUS и PIT-4: %s'], 'o_office': ['Загальні фірм («Офіс»): %s', 'Общие фирм («Офис»): %s'],
+    'o_unlabeled': ['ZUS без мітки місяця: %s', 'ZUS без метки месяца: %s'],
+    'o_costs_aal': ['Витрати ліній — аналітика: %s', 'Расходы линий — аналитика: %s'],
+    'o_costs_txn': ['Витрати ліній — транзакції DKV: %s', 'Расходы линий — транзакции DKV: %s'],
+    'v_overhead_ok': ['ZUS і PIT-4 %s, загальні фірм %s — розподілено за годинами до цента.',
+                      'ZUS и PIT-4 %s, общие фирм %s — распределено по часам до цента.'],
+    'v_zus': ['ZUS і PIT-4: у рядках %s, за рахунками %s, різниця %s.', 'ZUS и PIT-4: в строках %s, по счетам %s, разница %s.'],
+    'v_office': ['Загальні фірм: у рядках %s, в «Офісі» %s, різниця %s.', 'Общие фирм: в строках %s, в «Офисе» %s, разница %s.'],
+    'v_unlabeled': ['ZUS без мітки місяця: %d, сума %s — місяць за датою проводки.',
+                    'ZUS без метки месяца: %d, сумма %s — месяц по дате проводки.'],
+    'v_outside': ['ZUS/PIT-4 з міткою поза вікном: %d, сума %s — жоден місяць їх не рахує (перевірити мітку).',
+                  'ZUS/PIT-4 с меткой вне окна: %d, сумма %s — ни один месяц их не считает (проверить метку).'],
+    'oh_missing': ['Місяць не перераховано після оновлення — натисніть «Перерахувати»',
+                   'Месяц не пересчитан после обновления — нажмите «Пересчитать»'],
+    'v_zus_elsewhere': ['Аналітика рахунків ZUS / PIT-4 поза «Офісом»: %s — можливий подвійний рахунок (розмітити «ігнор»).',
+                        'Аналитика счетов ZUS / PIT-4 вне «Офиса»: %s — возможен двойной счёт (разметить «игнор»).'],
     'months': [('січень', 'лютий', 'березень', 'квітень', 'травень', 'червень', 'липень', 'серпень', 'вересень', 'жовтень', 'листопад',
                 'грудень'),
                ('январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь')],
@@ -849,6 +886,156 @@ def assemble(hours, entries):
     return out
 
 
+# ——— ZUS, PIT-4 і загальні (круг 4) ———
+def labels_of(texts):
+    """Мітки місяця роботи «ММ/РРРР», «ММ.РРРР», «ММ/РР» у текстах (ref і назви рядків рахунку) → ['РРРР-ММ'] без повторів за зростанням;
+    дати «12.10.2026», «26/09/2026» — не мітки (як labelsOf у tools/lib/odoo_contrib_redate.js)."""
+    out = set()
+    for text in texts or []:
+        for m in LABEL_RE.finditer(str(text or '')):
+            out.add('%s-%s' % ('20' + m.group(2) if len(m.group(2)) == 2 else m.group(2), m.group(1)))
+    return sorted(out)
+
+
+def has_range(texts):
+    """Діапазон місяців «ММ-ММ/РРРР» («ZUS 07-08/2030») — який місяць роботи, неясно (як hasRange інструмента штабу)."""
+    return any(RANGE_RE.search(str(t or '')) for t in texts or [])
+
+
+def contrib_kind(partner_name, texts):
+    """Вид внеску рахунку: 'ZUS' — партнер ZUS; 'PIT-4' — податкова з «PIT-4» у текстах; CIT, VAT та інше — '' (як kindOf)."""
+    name = str(partner_name or '')
+    if ZUS_RE.search(name):
+        return 'ZUS'
+    if TAX_RE.search(name) and any(PIT4_RE.search(str(t or '')) for t in texts or []):
+        return 'PIT-4'
+    return ''
+
+
+def contrib_month(texts, day):
+    """Місяць роботи рахунку ZUS / PIT-4 → {'month' (перше число), 'labeled'}: єдина мітка без діапазону — її місяць; немає, дві або
+    діапазон — місяць дати проводки day (labeled False — рядок «ZUS без мітки місяця» у звірці)."""
+    labels = labels_of(texts)
+    if len(labels) == 1 and not has_range(texts):
+        return {'month': labels[0] + '-01', 'labeled': True}
+    return {'month': month_first(day), 'labeled': False}
+
+
+def contrib_window(first):
+    """Дати проводок, серед яких шукати рахунки місяця роботи first: від CONTRIB_AHEAD місяців до до кінця місяця через CONTRIB_BACK."""
+    return add_months(first, -CONTRIB_AHEAD), month_last(add_months(first, CONTRIB_BACK))
+
+
+def contrib_outside(texts, day):
+    """Рахунок з єдиною міткою, проведений поза вікном її місяця (calc.contrib_window: раніше за місяць до місяця роботи або пізніше за рік
+    після) — його не знайде перерахунок жодного місяця (круг 4б: показати в звірці місяця проводки). → місяць мітки «РРРР-ММ-01» або ''."""
+    work = contrib_month(texts, day)
+    if not work['labeled']:
+        return ''
+    lo, hi = contrib_window(work['month'])
+    return '' if lo <= iso(day) <= hi else work['month']
+
+
+def contrib_sum(items):
+    """Рахунки ZUS / PIT-4 місяця роботи → {'zus' (усі, EUR; витрата — мінус), 'pit4' (з них PIT-4), 'move_ids', 'unlabeled_ids',
+    'unlabeled' (сума без мітки)}. items — [{'move_id', 'kind', 'amount', 'labeled'}]."""
+    items = items or []
+    return {'zus': eur(sum(cents(i['amount']) for i in items)), 'pit4': eur(sum(cents(i['amount']) for i in items if i['kind'] == 'PIT-4')),
+            'move_ids': sorted({i['move_id'] for i in items}), 'unlabeled_ids': sorted({i['move_id'] for i in items if not i['labeled']}),
+            'unlabeled': eur(sum(cents(i['amount']) for i in items if not i['labeled']))}
+
+
+def overhead_split(total, weights):
+    """total — центи (будь-який знак); weights — [[ключ, години]] (≤ 0 — пропуск) → [[ключ, центи]]: кожному — total × години ÷ усі
+    години, округлено до цента (половина — від нуля, як cents); залишок округлення — ключу з найбільшими годинами (рівні — перший у
+    списку): сума частин = total до цента. Округлення дало більше за total (кілька половин угору) — зайві центи знімаються з найбільших
+    частин по одному, знак частини не перевертається. Годин немає — []."""
+    ws = [(k, Fraction(str(w))) for k, w in weights or [] if w and float(w) > 0]
+    if not ws:
+        return []
+    whole = sum(w for _k, w in ws)
+    sign = -1 if total < 0 else 1
+    left = abs(int(total))
+    parts = [[k, int(Fraction(left) * w / whole + Fraction(1, 2))] for k, w in ws]
+    order = sorted(range(len(ws)), key=lambda i: (-ws[i][1], i))
+    rest = left - sum(p[1] for p in parts)
+    if rest >= 0:
+        parts[order[0]][1] += rest
+    while rest < 0:
+        for i in order:
+            if rest < 0 and parts[i][1] > 0:
+                parts[i][1] -= 1
+                rest += 1
+    return [[k, sign * c] for k, c in parts]
+
+
+def overhead(rows, zus, office):
+    """Загальні місяця за годинами табеля (версія 1): zus — ZUS і PIT-4 місяця роботи, office — загальні фірм (рядки «Офіс» без рахунків
+    ZUS / PIT-4), EUR, витрата — мінус. Ділиться на години (hours_total) рядків ліній і «без лінії» (overhead_split — окремо ZUS і
+    окремо загальні). rows — рядки assemble → (рядки з полями OVERHEAD_FIELDS: zus_amount, office_amount — частки (мінус), remain =
+    net + обидві частки (лише лінія й «без лінії»), remain_per_hour — на години зі ставкою (годин немає — None, круг 4б); підсумок {'zus', 'office',
+    'total', 'hours', 'per_hour', 'zus_rest', 'office_rest'}: rest — що не розподілено, бо годин місяця немає). Чисто й інші поля не
+    змінюються."""
+    rows = [dict(r) for r in rows or []]
+    weights = [[i, float(r.get('hours_total') or 0)] for i, r in enumerate(rows)
+               if r.get('row_kind') in OVERHEAD_KINDS and float(r.get('hours_total') or 0) > 0]
+    zc, oc = cents(zus), cents(office)
+    zs, ofs = dict(overhead_split(zc, weights)), dict(overhead_split(oc, weights))
+    for i, r in enumerate(rows):
+        z, o = zs.get(i, 0), ofs.get(i, 0)
+        mine = r.get('row_kind') in OVERHEAD_KINDS
+        remain = cents(r.get('net')) + z + o if mine else 0
+        hr = round(float(r.get('hours_rate') or 0), 2)
+        r.update({'zus_amount': eur(z), 'office_amount': eur(o), 'remain': eur(remain),
+                  'remain_per_hour': round(eur(remain) / hr, 2) if (mine and hr) else None})
+    hours = round(sum(w for _k, w in weights), 2)
+    return rows, {'zus': eur(zc), 'office': eur(oc), 'total': eur(zc + oc), 'hours': hours,
+                  'per_hour': round(eur(zc + oc) / hours, 4) if hours else 0.0,
+                  'zus_rest': eur(zc - sum(zs.values())), 'office_rest': eur(oc - sum(ofs.values()))}
+
+
+def office_rows_in(rows, dup):
+    """Рядки «Офіс», з яких складено «Загальні фірм» (круг 4б: клік = число): rows — [{'id', 'analytic_id', 'amount'}] рядків «Офіс»
+    місяця, dup — {стаття: центи аналітики рахунків ZUS / PIT-4 у її рядку «Офіс»} (або [[стаття, центи]]). Рядок цілком із рахунків
+    ZUS / PIT-4 — не входить (він уже в ZUS); решта — входить. → {'ids', 'partial' (рядки, де ZUS лише частина: у списку весь рядок)}."""
+    dup = dict(dup.items() if isinstance(dup, dict) else (dup or []))
+    ids, partial = [], []
+    for r in rows or []:
+        d = dup.get(r.get('analytic_id') or 0, 0)
+        if d and d == cents(r.get('amount')):
+            continue
+        ids.append(r['id'])
+        if d:
+            partial.append(r['id'])
+    return {'ids': ids, 'partial': partial}
+
+
+def remain_steps(row):
+    """Водоспад після «чисто» (картка лінії, спливаюче вікно C): − ZUS, PIT-4 → − Загальні фірм → = Залишається; нульові кроки не
+    показуються, обох часток немає — [] («Залишається» = «Чисто», другий стовпець не потрібен). Крок — як у chain_steps."""
+    hr = float(row.get('hours_rate') or 0)
+    z, o = cents(row.get('zus_amount')), cents(row.get('office_amount'))
+    if not z and not o:
+        return []
+    out = [{'key': k, 'amount': eur(c), 'ph': per_hour(eur(c), hr)} for k, c in (('zus', z), ('office', o)) if c]
+    r = cents(row.get('remain'))
+    out.append({'key': 'remain', 'amount': eur(r), 'ph': per_hour(eur(r), hr)})
+    return out
+
+
+def remain_totals(rows):
+    """До підсумку рядків (calc.totals) — «ZUS і загальні» і «Залишається»: {'zus', 'office', 'overhead' (обидві частки), 'remain',
+    'zus_ph', 'office_ph', 'overhead_ph', 'remain_ph'}; € год — на години зі ставкою (немає — None): чисто + ZUS і загальні = залишається
+    до цента за місяць."""
+    rows = rows or []
+    hr = round(sum(float(r.get('hours_rate') or 0) for r in rows), 2)
+    z = sum(cents(r.get('zus_amount')) for r in rows)
+    o = sum(cents(r.get('office_amount')) for r in rows)
+    rem = sum(cents(r.get('remain')) for r in rows)
+    return {'zus': eur(z), 'office': eur(o), 'overhead': eur(z + o), 'remain': eur(rem), 'zus_ph': per_hour(eur(z), hr),
+            'office_ph': per_hour(eur(o), hr), 'overhead_ph': per_hour(eur(z + o), hr), 'remain_ph': per_hour(eur(rem), hr)}
+
+
 def kind_label(kind, lang='uk'):
     return t('k_' + kind, lang) if ('k_' + str(kind)) in TX else str(kind or '')
 
@@ -884,13 +1071,17 @@ def row_name(row, names, lang='uk'):
     return t('n_un', lang) % base
 
 
-def verify(rows, aal_expected, dkv_expected, month, lang='uk', raw=None, moved=0.0, nobill=None):
+def verify(rows, aal_expected, dkv_expected, month, lang='uk', raw=None, moved=0.0, nobill=None, overhead=None):
     """Звірка місяця: сума грошей аналітики в рядках = аналітика плану за місяць (та сама вибірка, частини періодів і курс) до цента;
     гроші DKV у рядках = мінус брутто транзакцій місяця; у кожному рядку стовпці SPREAD дають aal_amount + dkv_amount.
     raw — окремий підрахунок аналітики плану за датою (read_group, не через розклад) по валютах фірм: [{'currency', 'books', 'calc'}]
     (calc — ті самі рядки в розкладі, повні суми, у валюті фірми); різниця — розбіжність. moved — скільки EUR періоди послуги перенесли
     між місяцями (довідково). nobill — {'n', 'amount'}: транзакції DKV місяця без рахунку в Odoo (довідково; разом із рядками «рахунок DKV
     без транзакцій» — попередження про можливий подвійний рахунок).
+    overhead (круг 4; немає — не звіряється) — {'zus_books' (ZUS і PIT-4 місяця за рахунками), 'zus_rows' (частки рядків + не
+    розподілене), 'office_books' (рядки «Офіс» без рахунків ZUS / PIT-4), 'office_rows', 'unlabeled_n', 'unlabeled', 'elsewhere'
+    (аналітика рахунків ZUS / PIT-4 у рядках не «Офіс»), 'outside_n', 'outside' (круг 4б: рахунки місяця проводки з міткою поза вікном
+    пошуку — contrib_outside)}: розподілене = книгам до цента; без мітки, «поза Офісом» і «поза вікном» — довідково.
     rows — [{'name', 'tag', поля SPREAD, 'aal_amount', 'dkv_amount'}] → {'ok', 'aal', 'aal_expected', 'dkv', 'dkv_expected', 'bad',
     'raw_bad', 'text'}."""
     aal = sum(cents(r.get('aal_amount')) for r in rows or [])
@@ -899,10 +1090,15 @@ def verify(rows, aal_expected, dkv_expected, month, lang='uk', raw=None, moved=0
            if sum(cents(r.get(f)) for f in SPREAD) != cents(r.get('aal_amount')) + cents(r.get('dkv_amount'))]
     raw_bad = [x for x in raw or [] if cents(x.get('books')) != cents(x.get('calc'))]
     want_aal, want_dkv = cents(aal_expected), cents(dkv_expected)
-    ok = aal == want_aal and dkv == want_dkv and not bad and not raw_bad
+    oh = overhead or {}
+    zus_diff = cents(oh.get('zus_rows')) - cents(oh.get('zus_books'))
+    office_diff = cents(oh.get('office_rows')) - cents(oh.get('office_books'))
+    ok = aal == want_aal and dkv == want_dkv and not bad and not raw_bad and not zus_diff and not office_diff
     m = fmt_month(month)
     if ok:
         parts = [t('v_ok', lang) % (m, money_text(eur(aal)), money_text(eur(dkv)))]
+        if cents(oh.get('zus_books')) or cents(oh.get('office_books')):
+            parts.append(t('v_overhead_ok', lang) % (money_text(oh.get('zus_books')), money_text(oh.get('office_books'))))
     else:
         parts = [t('v_bad', lang) % m]
         if aal != want_aal:
@@ -914,6 +1110,17 @@ def verify(rows, aal_expected, dkv_expected, month, lang='uk', raw=None, moved=0
                                              money_text(eur(cents(x.get('calc')) - cents(x.get('books'))))))
         if bad:
             parts.append(t('v_rows', lang) % ', '.join(bad[:5]))
+        if zus_diff:
+            parts.append(t('v_zus', lang) % (money_text(oh.get('zus_rows')), money_text(oh.get('zus_books')), money_text(eur(zus_diff))))
+        if office_diff:
+            parts.append(t('v_office', lang) % (money_text(oh.get('office_rows')), money_text(oh.get('office_books')),
+                                                money_text(eur(office_diff))))
+    if oh.get('unlabeled_n'):
+        parts.append(t('v_unlabeled', lang) % (oh['unlabeled_n'], money_text(oh.get('unlabeled'))))
+    if cents(oh.get('elsewhere')):
+        parts.append(t('v_zus_elsewhere', lang) % money_text(oh.get('elsewhere')))
+    if oh.get('outside_n'):
+        parts.append(t('v_outside', lang) % (oh['outside_n'], money_text(oh.get('outside'))))
     if cents(moved):
         parts.append(t('v_moved', lang) % money_text(moved))
     nb = nobill or {}
@@ -1102,7 +1309,8 @@ def waterfall(steps):
     raw = []
     for i, s in enumerate(steps or []):
         c = cents(s.get('amount'))
-        if i == 0 or s.get('key') == 'net':
+        # «Залишається» (круг 4, remain_steps) — теж підсумок від нуля, як «чисто»
+        if i == 0 or s.get('key') in ('net', 'remain'):
             lo, hi = min(0, c), max(0, c)
             run = c
             d = 'total'

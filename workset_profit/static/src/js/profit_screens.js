@@ -225,12 +225,35 @@ class ProfitScreen extends Component {
         return spec ? _t("Відкрити записи") : false;
     }
 
-    /** Клік і наведення на графіку (круг 3в): номер місяця найближчої точки чи стовпця (Chart.js getElementsAtEventForMode, режим «index»
-     *  без точного влучання — як підказка) → onPick(i); над полем графіка — рука. */
-    chartPick(onPick) {
+    /** Клавіатура (круг 4, ревю 3в): елемент із описом списку — кнопка для читача екрана (role), у порядку Tab (tabindex); Enter або
+     *  пробіл — як клік. Без опису — без ролі й без місця в Tab. */
+    role(spec) {
+        return spec ? "button" : false;
+    }
+
+    tab(spec) {
+        return spec ? "0" : false;
+    }
+
+    keyOpen(ev, spec) {
+        if (spec && (ev.key === "Enter" || ev.key === " ")) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            this.openList(spec);
+        }
+    }
+
+    /** Клік і наведення на графіку (круг 3в; круг 4 — ревю): місяць — стовпчик осі під курсором (scales.x.getValueForPixel), лише
+     *  всередині поля графіка (chartArea) і лише коли в цьому місяці є значення (has(i)): клік по порожньому місяцю не переходить на
+     *  сусідній, над легендою й осями — звичайний курсор. → onPick(i). */
+    chartPick(onPick, has) {
         const at = (chart, ev) => {
-            const els = chart.getElementsAtEventForMode(ev, "index", { intersect: false }, true);
-            return els.length ? els[0].index : null;
+            const a = chart.chartArea;
+            if (!a || ev.x < a.left || ev.x > a.right || ev.y < a.top || ev.y > a.bottom) {
+                return null;
+            }
+            const i = Math.round(chart.scales.x.getValueForPixel(ev.x));
+            return Number.isInteger(i) && i >= 0 && i < chart.data.labels.length && has(i) ? i : null;
         };
         return {
             onClick: (ev, _els, chart) => {
@@ -436,8 +459,11 @@ export class ProfitOverview extends ProfitScreen {
                 data: { labels: s.labels, datasets },
                 options: {
                     ...c.options,
-                    // клік по місяцю — «Огляд» цього місяця (як вибір місяця вгорі)
-                    ...this.chartPick((i) => s.months[i] && this.setMonth(s.months[i].value)),
+                    // клік по місяцю — «Огляд» цього місяця (як вибір місяця вгорі); місяць без жодної точки — без кліку
+                    ...this.chartPick(
+                        (i) => s.months[i] && this.setMonth(s.months[i].value),
+                        (i) => [s.total, ...s.lines.map((l) => l.values)].some((v) => v[i] !== null && v[i] !== undefined)
+                    ),
                     plugins: {
                         legend: this.legend(c, [
                             { text: s.total_label, color: c.brand, width: 4 },
@@ -490,7 +516,23 @@ export class ProfitLineCard extends ProfitScreen {
             this.lineId = data.line ? data.line.id : false;
             this.state.data = data;
             this.save();
+            this.setName(data);
         }
+    }
+
+    /** Ім'я дії — «Лінія · Жовтень 2026» (круг 4, п. 7е): після F5 чи прямого URL дія приходить без імені — хлібна крихта показувала
+     *  «Неназваний», вкладка — «Odoo». env.config.setDisplayName (Odoo 17+, як стандартні client actions) оновлює і крихту, і заголовок
+     *  вкладки. Лінії немає — ім'я з підказки екрана. */
+    setName(data) {
+        const config = this.env.config;
+        if (config && typeof config.setDisplayName === "function") {
+            config.setDisplayName(data.line ? `${data.line.name} · ${data.month.title}` : _t("Оберіть лінію на екрані «Огляд»"));
+        }
+    }
+
+    /** Порожня картка (лінії немає — прямий URL без контексту, у місяці ліній немає): перехід на «Огляд». */
+    openOverview() {
+        this.action.doAction("workset_profit.action_overview");
     }
 
     keep(data) {
@@ -525,21 +567,31 @@ export class ProfitLineCard extends ProfitScreen {
         return b.dir === "up" ? `+${euros(b.amount)}` : euros(b.amount);
     }
 
-    /** Частка й повернення — один колір; витрата — темніше; «Чисто» — бренд, нижче нуля — червоне. */
+    /** Підсумок водоспаду — «Чисто» і (круг 4) «Залишається»: крупно, кольором бренду, нижче нуля — червоним. */
+    isTotal(b) {
+        return b.key === "net" || b.key === "remain";
+    }
+
+    /** Частка й повернення — один колір; витрата — темніше; «Чисто» і «Залишається» — бренд, нижче нуля — червоне. */
     barClass(b) {
-        if (b.key === "net") {
+        if (this.isTotal(b)) {
             return b.amount < 0 ? "bg-danger" : "o_workset_profit_fall_net";
         }
         return b.dir === "down" ? "o_workset_profit_fall_down" : "o_workset_profit_fall_total";
     }
 
-    /** «Рядки за місяць»: у «чисто» (і табелі) — основний список; буфер житла, гроші лінії, фонд — окремою групою нижче. */
+    /** «Рядки за місяць»: у «чисто» (і табелі) — основний список; буфер житла, гроші лінії, фонд — окремою групою нижче; круг 4 — група
+     *  «ZUS і загальні (за годинами)» (частки лінії) між ними. */
     get mainRows() {
         return this.data.rows.filter((r) => r.chain || r.timesheets);
     }
 
     get asideRows() {
-        return this.data.rows.filter((r) => !r.chain && !r.timesheets);
+        return this.data.rows.filter((r) => !r.chain && !r.timesheets && !r.overhead);
+    }
+
+    get overheadRows() {
+        return this.data.rows.filter((r) => r.overhead);
     }
 
     renderChart() {
@@ -597,17 +649,35 @@ export class ProfitLineCard extends ProfitScreen {
                             tension: 0,
                             order: 1,
                         },
+                        // круг 4: «Залишається» € год — пунктирна лінія кольору тексту з крапками (поверх стовпців «чисто»)
+                        {
+                            type: "line",
+                            label: d.series.remain_label,
+                            data: d.series.remain,
+                            borderColor: c.text,
+                            backgroundColor: c.text,
+                            borderWidth: 2,
+                            borderDash: [5, 3],
+                            pointRadius: 2,
+                            pointHitRadius: 6,
+                            tension: 0,
+                            order: 0,
+                        },
                     ],
                 },
                 options: {
                     ...c.options,
-                    // клік по стовпцю — картка лінії на цей місяць (як стрілки)
-                    ...this.chartPick((i) => this.go(d.series.months[i])),
+                    // клік по стовпцю — картка лінії на цей місяць (як стрілки); лише місяці з числом
+                    ...this.chartPick(
+                        (i) => this.go(d.series.months[i]),
+                        (i) => net[i] !== null && net[i] !== undefined
+                    ),
                     interaction: { mode: "index", intersect: false },
                     layout: { padding: { top: 8, bottom: 4 } },
                     plugins: {
                         legend: this.legend(c, [
                             { text: d.series.net_label, color: c.brand },
+                            { text: d.series.remain_label, color: c.text, width: 2 },
                             { text: d.series.share_label, color: c.line, width: 1 },
                         ]),
                         tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label || ""}: ${perHour(ctx.parsed.y)}` } },
@@ -639,7 +709,8 @@ export class ProfitMatrix extends ProfitScreen {
     setup() {
         this.from = false;
         this.to = false;
-        this.view = useState({ unit: "hour" });
+        // одиниця «€ год | € за місяць» і (круг 4) показник «Чисто | Залишається»
+        this.view = useState({ unit: "hour", metric: "net" });
         this.popover = usePopover(ChainPopover, { position: "bottom" });
         super.setup();
     }
@@ -672,26 +743,61 @@ export class ProfitMatrix extends ProfitScreen {
         this.view.unit = unit;
     }
 
-    /** Заливка — лише червоне (чисто < 0) і жовте (падіння); клітинка без годин зі ставкою ('neg_text') — без заливки, червоним текстом. */
-    cellClass(cell) {
-        return cell.tone === "neg" ? "text-bg-danger" : cell.tone === "drop" ? "text-bg-warning" : cell.tone === "neg_text" ? "text-danger" : "";
+    setMetric(metric) {
+        this.view.metric = metric;
     }
 
-    /** Значення клітинки в обраній одиниці (одиниця — у шапці таблиці): «€ год» — чисто на годину, «€ за місяць» — чисто місяця. Годин зі
-     *  ставкою немає: «—», а чисто місяця нижче нуля — сума за місяць з одиницею «€/міс», дрібно червоним. */
+    /** Показник клітинки чи підсумку (круг 4): «Чисто» — net / net_ph / tone, «Залишається» — remain / remain_ph / remain_tone (той самий
+     *  calc.cell_tone, що для «чисто»). */
+    pick(x) {
+        return this.view.metric === "remain"
+            ? { amount: x.remain, ph: x.remain_ph, tone: x.remain_tone }
+            : { amount: x.net, ph: x.net_ph, tone: x.tone };
+    }
+
+    /** Заливка — лише червоне (нижче нуля) і жовте (падіння); клітинка без годин зі ставкою ('neg_text') — без заливки, червоним текстом. */
+    cellClass(cell) {
+        const tone = this.pick(cell).tone;
+        return tone === "neg" ? "text-bg-danger" : tone === "drop" ? "text-bg-warning" : tone === "neg_text" ? "text-danger" : "";
+    }
+
+    /** Значення клітинки в обраній одиниці й показнику (одиниця — у шапці таблиці): «€ год» — на годину, «€ за місяць» — за місяць.
+     *  Годин зі ставкою немає: «—», а місяць нижче нуля — сума за місяць з одиницею «€/міс», дрібно червоним. */
     cellValue(cell) {
-        if (this.view.unit === "hour") {
-            if (hasPh(cell.net_ph)) {
-                return perHour(cell.net_ph);
-            }
-            return cell.tone === "neg_text" ? `${euros(cell.net)} ${this.data.labels.month}` : "—";
+        const v = this.pick(cell);
+        // круг 4б: місяць не перераховано після оновлення — «Залишається» невідоме: «—», не 0
+        if (v.amount === null || v.amount === undefined) {
+            return "—";
         }
-        return euros(cell.net);
+        if (this.view.unit === "hour") {
+            if (hasPh(v.ph)) {
+                return perHour(v.ph);
+            }
+            return v.tone === "neg_text" ? `${euros(v.amount)} ${this.data.labels.month}` : "—";
+        }
+        return euros(v.amount);
     }
 
     /** Дрібний шрифт — лише сума за місяць у режимі «€ год» (клітинка без годин зі ставкою). */
     cellSmall(cell) {
-        return this.view.unit === "hour" && cell.tone === "neg_text";
+        return this.view.unit === "hour" && this.pick(cell).tone === "neg_text";
+    }
+
+    /** Підказка клітинки (круг 4б): у режимі «Залишається» місяць без підсумку «ZUS і загальні» — «не перераховано, натисніть …». */
+    missHint(x) {
+        return this.view.metric === "remain" && x.oh_missing ? this.data.labels.oh_missing : false;
+    }
+
+    /** Підсумок періоду лінії в обраному показнику: «€ год» (немає годин — «—») або € за місяць. */
+    totalValue(total) {
+        const v = this.pick(total);
+        if (v.amount === null || v.amount === undefined) {
+            return "—";
+        }
+        if (this.view.unit === "hour") {
+            return hasPh(v.ph) ? perHour(v.ph) : "—";
+        }
+        return euros(v.amount);
     }
 
     /** Крок ланцюжка з одиницею; годин зі ставкою немає — лише «—». */
@@ -702,6 +808,14 @@ export class ProfitMatrix extends ProfitScreen {
         return `${euros(step.amount)} ${this.data.labels.month}`;
     }
 
+    /** Клітинка лінії з клавіатури (круг 4): Enter або пробіл — той самий ланцюжок, що клік. */
+    keyCell(ev, line, cell) {
+        if (ev.key === "Enter" || ev.key === " ") {
+            ev.preventDefault();
+            this.onCell(ev, line, cell);
+        }
+    }
+
     onCell(ev, line, cell) {
         if (!cell.has) {
             return;
@@ -710,7 +824,8 @@ export class ProfitMatrix extends ProfitScreen {
         this.popover.open(ev.currentTarget, {
             // назва місяця з роком: з 2027 у таблиці можуть бути два січні
             title: `${line.name}, ${month ? month.title : ""}`,
-            steps: cell.chain,
+            // «Залишається» (круг 4) — ланцюжок далі: − ZUS, PIT-4 → − Загальні фірм → = Залишається
+            steps: this.view.metric === "remain" ? [...cell.chain, ...cell.remain_chain] : cell.chain,
             format: (s) => this.stepValue(s),
             onOpen: () => this.openCard(line.id, cell.month, line.name),
         });

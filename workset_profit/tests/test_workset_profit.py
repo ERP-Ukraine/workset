@@ -12,7 +12,8 @@ workset_profit). Усі дані — вигадані в самому тесті
 - перевезення (картка «перевезення», 9) — за прибуттями: працівник 1 не прибув (табель 10.02, розрив 22 дні), працівник 3 — у A,
   працівники 2 і 4 — у B (у працівника 4 розрив 48 днів) → A 3, B 6;
 - компанія: власник −10, картка офісу −3, картка без періоду −1,2, рахунок DKV з транзакціями −17,7 (розкладено), рахунок DKV без
-  транзакцій −4, стаття без розмітки −2,5 (підказка «інструмент»)."""
+  транзакцій −4, стаття без розмітки −2,5 (підказка «інструмент»);
+- круг 4: картка офісу −3 — загальні фірм березня, діляться за годинами табеля (A 20, B 16); рахунки ZUS / PIT-4 — лише в своєму тесті."""
 from unittest.mock import patch
 
 from psycopg2 import IntegrityError
@@ -538,10 +539,14 @@ class TestWorksetProfit(TransactionCase):
         with self._deals():
             card = self.Month.with_context(profit_today='2030-04-20').profit_line_card(self.line_a.id, M)
         bars = card['waterfall']['bars']
-        self.assertEqual([b['key'] for b in bars], ['share', 'car_rent', 'housing', 'tool', 'transport', 'net'],
-                         'нульових кроків немає (паливо лінії A — з фонду)')
-        self.assertAlmostEqual(sum(b['amount'] for b in bars[:-1]), bars[-1]['amount'], msg='ланцюжок сходиться до «чисто»')
-        self.assertEqual(bars[-1]['amount'], row.net)
+        # круг 4: після «чисто» — − Загальні фірм (картка офісу −3 за годинами) → = Залишається; ZUS у березні немає — кроку немає
+        self.assertEqual([b['key'] for b in bars], ['share', 'car_rent', 'housing', 'tool', 'transport', 'net', 'office', 'remain'],
+                         'нульових кроків немає (паливо лінії A — з фонду, ZUS немає)')
+        net_i = [b['key'] for b in bars].index('net')
+        self.assertAlmostEqual(sum(b['amount'] for b in bars[:net_i]), bars[net_i]['amount'], msg='ланцюжок сходиться до «чисто»')
+        self.assertEqual(bars[net_i]['amount'], row.net)
+        self.assertAlmostEqual(bars[net_i]['amount'] + bars[net_i + 1]['amount'], bars[-1]['amount'], msg='чисто − загальні = залишається')
+        self.assertEqual(bars[-1]['amount'], row.remain)
         self.assertEqual(card['totals']['net_ph'], row.net_per_hour)
         rows = card['rows']
         chain = sum(r['amount'] for r in rows if r['chain'])
@@ -578,7 +583,7 @@ class TestWorksetProfit(TransactionCase):
         with self._deals():
             later = self.Month.with_context(profit_today='2030-04-20').profit_line_card(self.line_a.id, M)
         self.assertTrue(later['stale'], 'аналітику змінили після перерахунку — «рядки змінилися після перерахунку»')
-        self.assertEqual(later['waterfall']['bars'][-1]['amount'], row.net, 'ланцюжок — досі збережений рядок')
+        self.assertEqual([b['amount'] for b in later['waterfall']['bars'] if b['key'] == 'net'], [row.net], 'ланцюжок — досі збережений рядок')
 
     def test_screen_matrix_tones_and_only_2026(self):
         self._screen_rows()
@@ -726,14 +731,16 @@ class TestWorksetProfit(TransactionCase):
             return self.env[spec['model']].search(spec['domain'])
         # A: п'ять підсумків — табелі місяця, рядки ліній місяця, рядки ліній з витратами
         op = over['opens']
-        self.assertEqual(set(op), {'hours', 'share', 'costs', 'net', 'net_month'})
-        for k in ('share', 'costs', 'net', 'net_month'):
+        self.assertEqual(set(op), {'hours', 'share', 'costs', 'net', 'net_month', 'zus', 'office', 'remain', 'remain_month'})
+        for k in ('share', 'net', 'net_month', 'remain', 'remain_month'):
             self.assertIn(('month', '=', M), op[k]['domain'], k)
-        for k in ('share', 'net', 'net_month'):
             self.assertEqual(got(op[k], k), rows, 'A %s — рядки ліній місяця' % k)
-        costs = rows.filtered(lambda r: any(r[f] for f in ('car_rent', 'housing', 'housing_customer', 'auto', 'fuel', 'tool', 'transport')))
-        self.assertTrue(costs)
-        self.assertEqual(got(op['costs'], 'A витрати'), costs, 'A витрати — рядки ліній з витратами')
+        # круг 4 (ревю 3в): «Житло, авто, паливо, інструмент» — записи витрат ліній (аналітика: житло лінії A −10, інструмент −3; житло B
+        # платить партнер — не витрата «чисто»), не рядки ліній
+        self.assertEqual(op['costs']['model'], 'account.analytic.line')
+        self.assertEqual(sorted(got(op['costs'], 'A витрати').mapped('amount')), [-10, -3], 'A витрати — записи витрат місяця')
+        self.assertFalse(op['zus'], 'рахунків ZUS у березні немає — без кліку')
+        self.assertEqual(got(op['office'], 'A загальні').mapped('row_kind'), ['office'], 'загальні — рядки «Офіс» місяця')
         self.assertEqual(op['hours']['model'], 'account.analytic.line')
         self.assertAlmostEqual(sum(got(op['hours'], 'A години').mapped('unit_amount')), sum(rows.mapped('hours_total')),
                                msg='табелі місяця = «Годин» «Огляду»')
@@ -749,8 +756,9 @@ class TestWorksetProfit(TransactionCase):
         bars = {b['key']: b for b in card['waterfall']['bars']}
         for k, b in bars.items():
             got(b['open'], 'крок %s' % k)
-        for k in ('share', 'car_rent', 'net'):
+        for k in ('share', 'car_rent', 'net', 'remain'):
             self.assertEqual(got(bars[k]['open'], k), row_a, '%s — рядок лінії' % k)
+        self.assertEqual(got(bars['office']['open'], 'office').mapped('row_kind'), ['office'], 'крок «Загальні фірм» — рядки «Офіс»')
         for k in ('housing', 'tool'):
             self.assertEqual(bars[k]['open']['model'], 'account.analytic.line', k)
             self.assertAlmostEqual(sum(got(bars[k]['open'], k).mapped('amount')), bars[k]['amount'], msg='%s: записи = сума кроку' % k)
@@ -787,6 +795,122 @@ class TestWorksetProfit(TransactionCase):
         chk = data['checks'][0]['open']
         self.assertEqual(chk['model'], 'workset.profit.check')
         self.assertEqual(calc.iso(self.env['workset.profit.check'].browse(chk['res_id']).month), M, '«Звірка» — запис свого місяця (форма)')
+
+    # ——— круг 4: «− ZUS − загальні = Залишається WorkSET» ———
+    def _contrib_bill(self, partner, day, text, amount, analytic=None):
+        # рахунок постачальника (проведений) — як рахунки ZUS / PIT-4 польських фірм; податків у тестової фірми немає
+        line = {'name': text, 'account_id': self.g_exp.id, 'quantity': 1, 'price_unit': amount, 'tax_ids': [(6, 0, [])]}
+        if analytic:
+            line['analytic_distribution'] = {str(analytic.id): 100}
+        move = self.env['account.move'].with_company(self.co).create({
+            'move_type': 'in_invoice', 'journal_id': self.purchase.id, 'partner_id': partner.id, 'invoice_date': day, 'date': day,
+            'ref': text, 'invoice_line_ids': [(0, 0, line)]})
+        move.action_post()
+        return move
+
+    def test_overhead_zus_by_work_month_and_office_by_hours(self):
+        # березень 2030: ZUS «03/2030» 12 (проведено 10.04, аналітика — у статтю «офіс»), PIT-4 без мітки 2,5 (проведено 20.03 — березень,
+        # «без мітки»), CIT податкової 7 — не наше; загальні фірм — картка офісу −3. Години табеля: A 20, B 16 → частки за годинами
+        Account = self.env['account.account'].with_company(self.co)
+        payable = Account.create({'name': 'Test payable bills', 'code': '499903', 'account_type': 'liability_payable', 'reconcile': True})
+        Partner = self.env['res.partner']
+        zus = Partner.create({'name': 'Zakład Ubezpieczeń Społecznych', 'is_company': True})
+        tax = Partner.create({'name': 'Urząd Skarbowy Test', 'is_company': True})
+        for p in (zus, tax):
+            p.with_company(self.co).property_account_payable_id = payable
+        self.purchase = self.env['account.journal'].with_company(self.co).create({'name': 'Test purchase P', 'code': 'TPUP', 'type': 'purchase',
+                                                                                  'company_id': self.co.id})
+        office_acc = self.env['account.analytic.account'].create({'name': 'Office costs', 'plan_id': self.node_office.id, 'company_id': False})
+        self.env['workset.profit.analytic.map'].create({'analytic_id': office_acc.id, 'kind': 'office'})
+        bill_zus = self._contrib_bill(zus, '2030-04-10', 'ZUS 03/2030', 12, office_acc)
+        bill_pit = self._contrib_bill(tax, '2030-03-20', 'PIT-4', 2.5)
+        self._contrib_bill(tax, '2030-03-21', 'CIT-8 03/2030', 7)
+        res = self._run(M, '2030-04-30')
+        for check in res['verify']:
+            self.assertTrue(check['ok'], check['text'])
+        mar = res['verify'][0]['text']
+        self.assertIn('ZUS і PIT-4 −14,50', mar, 'ZUS за міткою (проведено у квітні) і PIT-4 без мітки — у березні; CIT — ні')
+        self.assertIn('ZUS без мітки місяця: 1, сума −2,50', mar)
+        oh = self.env['workset.profit.overhead'].search([('month', '=', M)])
+        self.assertEqual((oh.zus, oh.pit4, oh.office, oh.hours), (-14.5, -2.5, -3, 36))
+        self.assertEqual((oh.move_ids, oh.unlabeled_ids), (bill_zus | bill_pit, bill_pit))
+        a = self._rows(row_kind='line', line_id=self.line_a.id)
+        b = self._rows(row_kind='line', line_id=self.line_b.id)
+        self.assertEqual((a.zus_amount, b.zus_amount, a.office_amount, b.office_amount), (-8.06, -6.44, -1.67, -1.33),
+                         '−14,50 і −3 за годинами 20 / 16 — до цента, остаток округлення — найбільшій')
+        self.assertEqual((a.net, a.remain, b.remain), (40, 30.27, 32.23), '«чисто» не змінилось; залишається = чисто + частки')
+        self.assertAlmostEqual(a.remain_per_hour, round(30.27 / 16, 2))
+        # квітень: аналітика рахунку ZUS лягла в «Офіс» (−12) — у загальні не входить (уже ZUS березня): подвійного рахунку немає
+        apr = self.env['workset.profit.overhead'].search([('month', '=', APR)])
+        self.assertEqual((self._rows(APR, row_kind='office').mapped('amount'), apr.office_dup, apr.office, apr.zus), ([-12], -12, 0, 0))
+        # звірка ловить частку, якої немає в рахунках
+        a.sudo().write({'zus_amount': a.zus_amount - 0.01})
+        bad = self.Month._verify(M)
+        self.assertFalse(bad['ok'])
+        self.assertIn('ZUS і PIT-4: у рядках −14,51, за рахунками −14,50', bad['text'])
+        a.sudo().write({'zus_amount': a.zus_amount + 0.01})
+        # екрани: A — «ZUS і загальні» і «Залишається», клік — рахунки / рядки «Офіс», чип «без мітки»; B — водоспад далі «чисто»; C — рядки компанії
+        Screen = self.Month.with_context(profit_today='2030-05-20')
+        with self._deals():
+            over = Screen.profit_overview(M)
+            card = Screen.profit_line_card(self.line_a.id, M)
+            data = Screen.profit_matrix(M, M_LAST)
+        tot = over['totals']
+        self.assertEqual((tot['overhead'], tot['remain']), (-17.5, 62.5))
+        self.assertAlmostEqual(tot['net'] + tot['overhead'], tot['remain'])
+        self.assertEqual(tot['remain_ph'], round(62.5 / 24, 2))
+        self.assertEqual(self.env['account.move'].search(over['opens']['zus']['domain']), bill_zus | bill_pit)
+        alerts = {x['key']: x for x in over['alerts']}
+        self.assertEqual(alerts['zus_unlabeled']['count'], 1)
+        self.assertEqual(self.env['account.move'].search(alerts['zus_unlabeled']['open']['domain']), bill_pit)
+        tile = [t for t in over['lines'] if t['id'] == self.line_a.id][0]
+        self.assertEqual((tile['remain'], tile['remain_ph']), (30.27, a.remain_per_hour))
+        bars = {x['key']: x for x in card['waterfall']['bars']}
+        self.assertEqual([x['key'] for x in card['waterfall']['bars']][-3:], ['zus', 'office', 'remain'])
+        self.assertEqual((bars['zus']['amount'], bars['office']['amount'], bars['remain']['amount']), (-8.06, -1.67, 30.27))
+        self.assertEqual(bars['zus']['open']['model'], 'account.move')
+        self.assertEqual(card['totals']['remain'], 30.27)
+        rows = [r for r in card['rows'] if r.get('overhead')]
+        self.assertEqual([r['amount'] for r in rows], [-8.06, -1.67], 'група «ZUS і загальні (за годинами)»')
+        self.assertTrue(card['rows'][-1].get('timesheets'), 'табелі — як і раніше останні')
+        self.assertEqual(card['series']['remain'][card['series']['months'].index(card['month'])], a.remain_per_hour)
+        self.assertEqual((data['zus']['cells'][0]['amount'], data['office']['cells'][0]['amount']), (-14.5, -3))
+        self.assertEqual(self.env['account.move'].search(data['zus']['cells'][0]['open']['domain']), bill_zus | bill_pit)
+        cell = [x for x in data['lines'] if x['id'] == self.line_a.id][0]['cells'][0]
+        self.assertEqual((cell['remain'], cell['remain_ph'], cell['remain_tone']), (30.27, a.remain_per_hour, ''))
+        self.assertEqual([s['key'] for s in cell['remain_chain']], ['zus', 'office', 'remain'])
+
+    def test_screen_month_without_overhead_not_recomputed(self):
+        # круг 4б: рядки, пораховані до круга 4 (підсумку «ZUS і загальні» місяця немає), — екрани кажуть «не перераховано», а не
+        # «Залишається 0 €»: A — признак, «—» і без кліку; B — без кроків ZUS / загальні; C — «—» без тону й без «N місяців»
+        self._screen_rows()
+        Screen = self.Month.with_context(profit_today='2030-08-10')
+        with self._deals():
+            over = Screen.profit_overview('2030-06-01')
+            card = Screen.profit_line_card(self.line_a.id, '2030-06-01')
+            data = Screen.profit_matrix('2030-05-01', '2030-07-31')
+        self.assertTrue(over['oh_missing'])
+        self.assertEqual(over['oh_hint'], calc.t('oh_missing', self.Month._lang()))
+        self.assertEqual((over['totals']['remain'], over['totals']['remain_ph'], over['totals']['overhead_ph']), (None, None, None))
+        self.assertEqual(over['totals']['net'], 70, '«чисто» — як було')
+        self.assertFalse(over['opens']['remain'])
+        tile = [t for t in over['lines'] if t['id'] == self.line_a.id][0]
+        self.assertEqual((tile['remain'], tile['remain_ph']), (None, None))
+        self.assertTrue(card['oh_missing'])
+        self.assertEqual(card['waterfall']['bars'][-1]['key'], 'net', 'кроків ZUS / загальні немає')
+        self.assertIsNone(card['totals']['remain_ph'])
+        self.assertTrue(all(v is None for v in card['series']['remain']), 'точок «Залишається» немає')
+        cells = [x for x in data['lines'] if x['id'] == self.line_a.id][0]['cells']
+        self.assertEqual([(c['remain'], c['remain_ph'], c['remain_tone'], c['oh_missing']) for c in cells], [(None, None, '', True)] * 3)
+        self.assertEqual([c['tone'] for c in cells], ['', 'drop', 'neg'], '«чисто» — тони як були')
+        total = [x for x in data['lines'] if x['id'] == self.line_a.id][0]['total']
+        self.assertEqual((total['remain'], total['remain_ph'], total['oh_missing']), (None, None, True))
+        # після перерахунку (березень) підсумок є — признака немає
+        self._run()
+        with self._deals():
+            done = self.Month.with_context(profit_today='2030-04-20').profit_overview(M)
+        self.assertFalse(done['oh_missing'])
+        self.assertIsNotNone(done['totals']['remain'])
 
     def test_screen_access_only_viewer_group(self):
         viewer = new_test_user(self.env, login='ws_profit_screen_viewer', groups='base.group_user,workset_profit.group_viewer')

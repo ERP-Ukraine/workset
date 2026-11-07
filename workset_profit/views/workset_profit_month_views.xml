@@ -33,6 +33,11 @@
                 <field name="transport" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" sum="Разом"/>
                 <field name="net" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="fw-semibold" sum="Разом"/>
                 <field name="net_per_hour" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" class="fw-semibold"/>
+                <!-- круг 4: нижче «чисто» — частки ZUS, PIT-4 і загальних фірм за годинами табеля й «Залишається» -->
+                <field name="zus_amount" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" optional="show" sum="Разом"/>
+                <field name="office_amount" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" optional="show" sum="Разом"/>
+                <field name="remain" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" optional="show" sum="Разом"/>
+                <field name="remain_per_hour" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" optional="show"/>
                 <field name="partner_paid" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" optional="show" sum="Разом"/>
                 <field name="fund_paid" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" optional="show" sum="Разом"/>
                 <field name="fund_in" widget="monetary" options="{'currency_field': 'currency_id', 'no_symbol': True}" optional="hide" sum="Разом"/>
@@ -82,6 +87,12 @@
                             <field name="transport" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not transport"/>
                             <field name="net" widget="monetary" options="{'currency_field': 'currency_id'}" class="fw-semibold"/>
                             <field name="net_per_hour" widget="monetary" options="{'currency_field': 'currency_id'}" class="fw-semibold"/>
+                            <field name="zus_amount" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not zus_amount"/>
+                            <field name="office_amount" widget="monetary" options="{'currency_field': 'currency_id'}" invisible="not office_amount"/>
+                            <field name="remain" widget="monetary" options="{'currency_field': 'currency_id'}" class="fw-semibold"
+                                   invisible="not zus_amount and not office_amount"/>
+                            <field name="remain_per_hour" widget="monetary" options="{'currency_field': 'currency_id'}"
+                                   invisible="not zus_amount and not office_amount"/>
                         </group>
                         <group name="aside" string="Поруч, не в «чисто»"
                                invisible="not partner_paid and not fund_in and not fund_paid and not housing_buffer">

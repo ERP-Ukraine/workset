@@ -25,33 +25,56 @@
                     <!-- сервер не відповів на зміну місяця — дані попередні, з позначкою (і повідомлення Odoo) -->
                     <div t-if="state.failed" class="alert alert-warning py-2">Не вдалося оновити — на екрані попередні дані</div>
                     <t t-if="data.has">
-                        <!-- п'ять підсумків місяця по лініях: «Чисто» — головне число кольором бренду (нижче нуля — червоним) -->
+                        <!-- вісім підсумків місяця по лініях (круг 4: широко — 4 × 2, вузько — 2 в ряд): «Чисто» і «Залишається» — головні
+                             числа кольором бренду (нижче нуля — червоним); «ZUS і загальні» — мінусом, клік — окремо «ZUS» і «загальні» -->
                         <t t-set="tot" t-value="data.totals"/>
-                        <!-- круг 3в: кожен підсумок відкриває свої записи (сервер: opens) — клітинка як кнопка, вигляд числа той самий -->
+                        <!-- круг 3в: кожен підсумок відкриває свої записи (сервер: opens) — клітинка як кнопка, вигляд числа той самий;
+                             круг 4: і з клавіатури (role, tabindex, Enter / пробіл) -->
                         <t t-set="op" t-value="data.opens"/>
-                        <div class="card o_workset_profit_band mb-3">
-                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.hours)" t-att-title="hint(op.hours)" t-on-click="() => this.openList(op.hours)">
+                        <div class="card o_workset_profit_band o_workset_profit_band_8 mb-3">
+                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.hours)" t-att-title="hint(op.hours)" t-att-role="role(op.hours)" t-att-tabindex="tab(op.hours)" t-on-click="() => this.openList(op.hours)" t-on-keydown="(ev) => this.keyOpen(ev, op.hours)">
                                 <span class="d-block text-muted text-truncate">Годин</span>
                                 <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" t-esc="whole(tot.hours)"/>
                                 <span t-if="tot.hours_no_rate" class="small text-muted">зі ставкою <t t-esc="whole(tot.hours_rate)"/></span>
                             </div>
-                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.share)" t-att-title="hint(op.share)" t-on-click="() => this.openList(op.share)">
+                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.share)" t-att-title="hint(op.share)" t-att-role="role(op.share)" t-att-tabindex="tab(op.share)" t-on-click="() => this.openList(op.share)" t-on-keydown="(ev) => this.keyOpen(ev, op.share)">
                                 <span class="d-block text-muted text-truncate">Частка WorkSET</span>
                                 <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num"><t t-esc="perHour(tot.share_ph)"/><span t-if="hasPh(tot.share_ph)" class="o_workset_profit_unit text-muted fw-normal">€ год</span></span>
                             </div>
-                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.costs)" t-att-title="hint(op.costs)" t-on-click="() => this.openList(op.costs)">
+                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.costs)" t-att-title="hint(op.costs)" t-att-role="role(op.costs)" t-att-tabindex="tab(op.costs)" t-on-click="() => this.openList(op.costs)" t-on-keydown="(ev) => this.keyOpen(ev, op.costs)">
                                 <span class="d-block text-muted text-truncate" title="Оренда авто плюсом; житло, авто, паливо, інструмент, перевезення — мінусом">Житло, авто, паливо, інструмент</span>
                                 <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num"><t t-esc="perHour(tot.costs_ph)"/><span t-if="hasPh(tot.costs_ph)" class="o_workset_profit_unit text-muted fw-normal">€ год</span></span>
                             </div>
-                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.net)" t-att-title="hint(op.net)" t-on-click="() => this.openList(op.net)">
+                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.net)" t-att-title="hint(op.net)" t-att-role="role(op.net)" t-att-tabindex="tab(op.net)" t-on-click="() => this.openList(op.net)" t-on-keydown="(ev) => this.keyOpen(ev, op.net)">
                                 <span class="d-block text-muted text-truncate">Чисто</span>
                                 <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" t-att-class="tot.net &lt; 0 ? 'text-danger' : 'text-primary'"><t t-esc="perHour(tot.net_ph)"/><span t-if="hasPh(tot.net_ph)" class="o_workset_profit_unit text-muted fw-normal">€ год</span></span>
                             </div>
-                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.net_month)" t-att-title="hint(op.net_month)" t-on-click="() => this.openList(op.net_month)">
+                            <!-- круг 4: «ZUS і загальні» — частки ліній за годинами табеля (версія 1); число — сума обох, клік — кожна окремо -->
+                            <div class="o_workset_profit_band_cell text-center">
+                                <span class="d-block text-muted text-truncate" title="ZUS і загальні розподілено за годинами табеля (версія 1)">ZUS і загальні</span>
+                                <!-- круг 4б: число — частка ліній за годинами, а клік «ZUS» — усі рахунки місяця (сума списку більша на частку «без лінії») -->
+                                <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" title="частка ліній за годинами; клік — усі рахунки місяця"><t t-esc="perHour(tot.overhead_ph)"/><span t-if="hasPh(tot.overhead_ph)" class="o_workset_profit_unit text-muted fw-normal">€ год</span></span>
+                                <span class="small text-muted text-nowrap">
+                                    <span t-att-class="clickCls(op.zus)" t-att-title="hint(op.zus)" t-att-role="role(op.zus)" t-att-tabindex="tab(op.zus)" t-on-click="() => this.openList(op.zus)" t-on-keydown="(ev) => this.keyOpen(ev, op.zus)">ZUS <t t-esc="perHour(tot.zus_ph)"/></span>
+                                    · <span t-att-class="clickCls(op.office)" t-att-title="hint(op.office)" t-att-role="role(op.office)" t-att-tabindex="tab(op.office)" t-on-click="() => this.openList(op.office)" t-on-keydown="(ev) => this.keyOpen(ev, op.office)">загальні <t t-esc="perHour(tot.office_ph)"/></span>
+                                </span>
+                            </div>
+                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.remain)" t-att-title="hint(op.remain)" t-att-role="role(op.remain)" t-att-tabindex="tab(op.remain)" t-on-click="() => this.openList(op.remain)" t-on-keydown="(ev) => this.keyOpen(ev, op.remain)">
+                                <span class="d-block text-muted text-truncate">Залишається</span>
+                                <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" t-att-class="tot.remain &lt; 0 ? 'text-danger' : 'text-primary'"><t t-esc="perHour(tot.remain_ph)"/><span t-if="hasPh(tot.remain_ph)" class="o_workset_profit_unit text-muted fw-normal">€ год</span></span>
+                            </div>
+                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.net_month)" t-att-title="hint(op.net_month)" t-att-role="role(op.net_month)" t-att-tabindex="tab(op.net_month)" t-on-click="() => this.openList(op.net_month)" t-on-keydown="(ev) => this.keyOpen(ev, op.net_month)">
                                 <span class="d-block text-muted text-truncate">Чисто за місяць</span>
                                 <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" t-att-class="tot.net &lt; 0 ? 'text-danger' : ''"><t t-esc="euros(tot.net)"/><span class="o_workset_profit_unit text-muted fw-normal">€</span></span>
                             </div>
+                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.remain_month)" t-att-title="hint(op.remain_month)" t-att-role="role(op.remain_month)" t-att-tabindex="tab(op.remain_month)" t-on-click="() => this.openList(op.remain_month)" t-on-keydown="(ev) => this.keyOpen(ev, op.remain_month)">
+                                <span class="d-block text-muted text-truncate">Залишається за місяць</span>
+                                <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" t-att-class="tot.remain &lt; 0 ? 'text-danger' : ''"><t t-if="tot.remain === null">—</t><t t-else=""><t t-esc="euros(tot.remain)"/><span class="o_workset_profit_unit text-muted fw-normal">€</span></t></span>
+                            </div>
                         </div>
+                        <!-- круг 4б: місяць пораховано до круга 4 — «—» у «ZUS і загальні» та «Залишається» і підказка, а не нуль -->
+                        <div t-if="data.oh_missing" class="small text-warning mb-3" t-esc="data.oh_hint"/>
+                        <div t-elif="tot.overhead" class="small o_workset_profit_muted mb-3">ZUS і загальні розподілено за годинами табеля (версія 1)</div>
 
                         <!-- тривоги: підпис, лічильник у сірій капсулі, крапка кольору тривоги; клік — список рядків («Звірка» — її текст);
                              «Власники» — один нейтральний чип без кольору (сума, під нею кожна стаття), останнім -->
@@ -73,6 +96,10 @@
                                     </t>
                                     <t t-elif="a.key === 'housing_shift'">
                                         <span class="flex-grow-1 text-truncate">Житло не в своєму місяці</span>
+                                        <span class="badge rounded-pill o_workset_profit_count" t-esc="a.count"/>
+                                    </t>
+                                    <t t-elif="a.key === 'zus_unlabeled'">
+                                        <span class="flex-grow-1 text-truncate" title="Рахунки ZUS / PIT-4 без мітки «ММ/РРРР» — місяць за датою проводки">ZUS без мітки місяця</span>
                                         <span class="badge rounded-pill o_workset_profit_count" t-esc="a.count"/>
                                     </t>
                                     <t t-elif="a.key === 'owners'">
@@ -110,6 +137,10 @@
                                             <i t-att-class="line.trend.dir === 'down' ? 'fa fa-arrow-down' : 'fa fa-arrow-up'"/>
                                             <t t-esc="plain(line.trend.delta)"/>
                                         </span>
+                                    </div>
+                                    <!-- круг 4: після ZUS і загальних (частка лінії за годинами) — дрібно; мінус — червоним -->
+                                    <div class="small text-nowrap" t-att-class="line.remain_tone === 'neg' ? 'text-danger' : 'text-muted'">
+                                        залишається <t t-if="hasPh(line.remain_ph)"><t t-esc="perHour(line.remain_ph)"/> € год</t><t t-elif="line.remain === null">—</t><t t-else=""><t t-esc="euros(line.remain)"/> € за місяць</t>
                                     </div>
                                 </button>
                             </t>
@@ -180,8 +211,9 @@
                         <t t-set="tot" t-value="data.totals"/>
                         <!-- круг 3в: підсумки відкривають свої записи (сервер: opens): години — табелі лінії, решта — рядок лінії місяця -->
                         <t t-set="op" t-value="data.opens"/>
-                        <div class="card o_workset_profit_band mb-3">
-                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.hours)" t-att-title="hint(op.hours)" t-on-click="() => this.openList(op.hours)">
+                        <!-- круг 4: шість підсумків — шостий «Залишається» (після ZUS і загальних за годинами табеля) -->
+                        <div class="card o_workset_profit_band o_workset_profit_band_6 mb-3">
+                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.hours)" t-att-title="hint(op.hours)" t-att-role="role(op.hours)" t-att-tabindex="tab(op.hours)" t-on-click="() => this.openList(op.hours)" t-on-keydown="(ev) => this.keyOpen(ev, op.hours)">
                                 <span class="d-block text-muted text-truncate">Години</span>
                                 <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" t-esc="whole(tot.hours)"/>
                                 <span t-if="tot.hours_no_rate" class="small text-muted">зі ставкою <t t-esc="whole(tot.hours_rate)"/></span>
@@ -192,24 +224,29 @@
                                     <span class="o_workset_profit_dot rounded-circle flex-shrink-0 bg-warning"/>
                                 </button>
                             </div>
-                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.share)" t-att-title="hint(op.share)" t-on-click="() => this.openList(op.share)">
+                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.share)" t-att-title="hint(op.share)" t-att-role="role(op.share)" t-att-tabindex="tab(op.share)" t-on-click="() => this.openList(op.share)" t-on-keydown="(ev) => this.keyOpen(ev, op.share)">
                                 <span class="d-block text-muted text-truncate">Частка WorkSET</span>
                                 <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num"><t t-esc="perHour(tot.share_ph)"/><span t-if="hasPh(tot.share_ph)" class="o_workset_profit_unit text-muted fw-normal">€ год</span></span>
                             </div>
-                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.costs)" t-att-title="hint(op.costs)" t-on-click="() => this.openList(op.costs)">
+                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.costs)" t-att-title="hint(op.costs)" t-att-role="role(op.costs)" t-att-tabindex="tab(op.costs)" t-on-click="() => this.openList(op.costs)" t-on-keydown="(ev) => this.keyOpen(ev, op.costs)">
                                 <span class="d-block text-muted text-truncate">Витрати на лінію</span>
                                 <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num"><t t-esc="perHour(tot.costs_ph)"/><span t-if="hasPh(tot.costs_ph)" class="o_workset_profit_unit text-muted fw-normal">€ год</span></span>
                             </div>
-                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.net)" t-att-title="hint(op.net)" t-on-click="() => this.openList(op.net)">
+                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.net)" t-att-title="hint(op.net)" t-att-role="role(op.net)" t-att-tabindex="tab(op.net)" t-on-click="() => this.openList(op.net)" t-on-keydown="(ev) => this.keyOpen(ev, op.net)">
                                 <span class="d-block text-truncate fw-semibold" t-att-class="tot.net &lt; 0 ? 'text-danger' : 'text-primary'">Чисто</span>
                                 <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" t-att-class="tot.net &lt; 0 ? 'text-danger' : 'text-primary'"><t t-esc="perHour(tot.net_ph)"/><span t-if="hasPh(tot.net_ph)" class="o_workset_profit_unit text-muted fw-normal">€ год</span></span>
                             </div>
-                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.net_month)" t-att-title="hint(op.net_month)" t-on-click="() => this.openList(op.net_month)">
+                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.net_month)" t-att-title="hint(op.net_month)" t-att-role="role(op.net_month)" t-att-tabindex="tab(op.net_month)" t-on-click="() => this.openList(op.net_month)" t-on-keydown="(ev) => this.keyOpen(ev, op.net_month)">
                                 <span class="d-block text-muted text-truncate">Чисто за місяць</span>
                                 <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" t-att-class="tot.net &lt; 0 ? 'text-danger' : ''"><t t-esc="euros(tot.net)"/><span class="o_workset_profit_unit text-muted fw-normal">€</span></span>
                             </div>
+                            <div class="o_workset_profit_band_cell text-center" t-att-class="clickCls(op.remain)" t-att-title="hint(op.remain)" t-att-role="role(op.remain)" t-att-tabindex="tab(op.remain)" t-on-click="() => this.openList(op.remain)" t-on-keydown="(ev) => this.keyOpen(ev, op.remain)">
+                                <span class="d-block text-truncate fw-semibold" t-att-class="tot.remain &lt; 0 ? 'text-danger' : 'text-primary'" title="Після ZUS і загальних фірм — розподілено за годинами табеля (версія 1)">Залишається</span>
+                                <span class="d-block fs-1 fw-semibold lh-sm text-nowrap o_workset_profit_num" t-att-class="tot.remain &lt; 0 ? 'text-danger' : 'text-primary'"><t t-esc="perHour(tot.remain_ph)"/><span t-if="hasPh(tot.remain_ph)" class="o_workset_profit_unit text-muted fw-normal">€ год</span></span>
+                            </div>
                         </div>
 
+                        <div t-if="data.oh_missing" class="small text-warning mb-3" t-esc="data.oh_hint"/>
                         <div class="o_workset_profit_card_top mb-3">
                             <!-- водоспад: лінія нуля, пунктир між кроками, сума — над плюсом і під мінусом (однаково в усіх), повернення (плюс між
                                  часткою й «чисто») — кольором частки з підписом «повернення»; назва й € год під полем; нульових кроків немає -->
@@ -217,19 +254,20 @@
                                 <div class="card-header fw-semibold">Від частки до чистого, <t t-esc="data.month.title_in"/></div>
                                 <div class="card-body">
                                     <div class="o_workset_profit_fall">
-                                        <!-- круг 3в: стовпець — записи свого виду (як група «Рядків»), частка й «Чисто» — рядок лінії -->
+                                        <!-- круг 3в: стовпець — записи свого виду (як група «Рядків»), частка й «Чисто» — рядок лінії; круг 4: далі
+                                             − ZUS, PIT-4 (рахунки місяця) → − Загальні фірм (рядки «Офіс») → = Залишається (рядок лінії, як «Чисто») -->
                                         <t t-foreach="data.waterfall.bars" t-as="b" t-key="b.key">
-                                            <div class="o_workset_profit_fall_col o_workset_profit_click" title="Відкрити записи" t-on-click="() => this.openList(b.open)">
+                                            <div class="o_workset_profit_fall_col" t-att-class="clickCls(b.open)" t-att-title="hint(b.open)" t-att-role="role(b.open)" t-att-tabindex="tab(b.open)" t-on-click="() => this.openList(b.open)" t-on-keydown="(ev) => this.keyOpen(ev, b.open)">
                                                 <div class="o_workset_profit_fall_area">
                                                     <div class="o_workset_profit_fall_zero" t-attf-style="bottom: {{data.waterfall.zero}}%;"/>
                                                     <div t-if="!b_last" class="o_workset_profit_fall_link" t-att-style="linkStyle(b)"/>
                                                     <div class="o_workset_profit_fall_bar" t-att-class="barClass(b)" t-att-style="barStyle(b)"/>
-                                                    <div class="o_workset_profit_fall_value small fw-semibold text-nowrap" t-att-class="b.key === 'net' and b.amount &lt; 0 ? 'text-danger' : ''" t-att-style="valueStyle(b)">
+                                                    <div class="o_workset_profit_fall_value small fw-semibold text-nowrap" t-att-class="isTotal(b) and b.amount &lt; 0 ? 'text-danger' : ''" t-att-style="valueStyle(b)">
                                                         <t t-esc="stepAmount(b)"/> €<span t-if="b.dir === 'up'" class="d-block fw-normal text-muted">повернення</span>
                                                     </div>
                                                 </div>
                                                 <div class="small text-center mt-1">
-                                                    <div class="text-truncate" t-att-class="b.key === 'net' ? 'fw-semibold' : ''" t-att-title="b.label" t-esc="b.label"/>
+                                                    <div class="text-truncate" t-att-class="isTotal(b) ? 'fw-semibold' : ''" t-att-title="b.label" t-esc="b.label"/>
                                                     <div class="text-muted text-nowrap"><t t-esc="perHour(b.ph)"/><t t-if="hasPh(b.ph)"> € год</t></div>
                                                 </div>
                                             </div>
@@ -244,9 +282,10 @@
                                     <div class="card-header fw-semibold">Хто платить</div>
                                     <!-- круг 3в: рядок — правило, за яким визначено платника (форма); згорнутий рядок — правила лінії -->
                                     <ul class="list-group list-group-flush">
-                                        <li class="list-group-item" t-att-class="clickCls(fold.open)" t-att-title="hint(fold.open)" t-on-click="() => this.openList(fold.open)" t-esc="fold.head"/>
+                                        <li class="list-group-item" t-att-class="clickCls(fold.open)" t-att-title="hint(fold.open)" t-att-role="role(fold.open)" t-att-tabindex="tab(fold.open)" t-on-click="() => this.openList(fold.open)" t-on-keydown="(ev) => this.keyOpen(ev, fold.open)" t-esc="fold.head"/>
                                         <li t-foreach="fold.rows" t-as="ex" t-key="ex_index" class="list-group-item small" t-att-class="clickCls(ex.open)" t-att-title="hint(ex.open)"
-                                            t-on-click="() => this.openList(ex.open)"><t t-esc="ex.label"/> — <t t-esc="ex.payer"/></li>
+                                            t-att-role="role(ex.open)" t-att-tabindex="tab(ex.open)"
+                                            t-on-click="() => this.openList(ex.open)" t-on-keydown="(ev) => this.keyOpen(ev, ex.open)"><t t-esc="ex.label"/> — <t t-esc="ex.payer"/></li>
                                         <li t-if="fold.cards.length" class="list-group-item small text-muted">Картки DKV: <t t-esc="fold.cards.join(', ')"/></li>
                                     </ul>
                                 </div>
@@ -265,6 +304,11 @@
                         </div>
                     </t>
                     <div t-elif="data.line" class="alert alert-info">немає даних за <t t-esc="data.month.title_in"/></div>
+                    <!-- круг 4, п. 7е: картка без лінії (прямий URL без контексту) — підказка й перехід на «Огляд», а не порожній екран -->
+                    <div t-else="" class="alert alert-info d-flex flex-wrap align-items-center gap-2">
+                        <span>Оберіть лінію на екрані «Огляд»</span>
+                        <button type="button" class="btn btn-link p-0" t-on-click="() => this.openOverview()">Відкрити «Огляд»</button>
+                    </div>
 
                     <div class="o_workset_profit_panels">
                         <!-- лише місяці з даними лінії; легенда під графіком -->
@@ -285,6 +329,14 @@
                                 <!-- у «чисто» й табелі — основний список; буфер житла, гроші лінії, фонд — окремою групою нижче (назви записів Odoo — як є) -->
                                 <t t-foreach="mainRows" t-as="r" t-key="r_index">
                                     <t t-call="workset_profit.CardRow"/>
+                                </t>
+                                <!-- круг 4: частки лінії ZUS, PIT-4 і загальних фірм — за годинами табеля (версія 1); клік — рахунки / рядки «Офіс» -->
+                                <t t-set="overhead" t-value="overheadRows"/>
+                                <t t-if="overhead.length">
+                                    <div class="list-group-item small fw-semibold text-muted bg-body-tertiary" title="ZUS і загальні розподілено за годинами табеля (версія 1)">ZUS і загальні (за годинами)</div>
+                                    <t t-foreach="overhead" t-as="r" t-key="r_index">
+                                        <t t-call="workset_profit.CardRow"/>
+                                    </t>
                                 </t>
                                 <t t-set="aside" t-value="asideRows"/>
                                 <t t-if="aside.length">
@@ -339,9 +391,16 @@
                                 </t>
                             </select>
                         </div>
-                        <div class="btn-group" role="group" aria-label="Одиниця">
-                            <button type="button" class="btn" t-att-class="view.unit === 'hour' ? 'btn-primary' : 'btn-secondary'" t-on-click="() => this.setUnit('hour')">€ год</button>
-                            <button type="button" class="btn" t-att-class="view.unit === 'month' ? 'btn-primary' : 'btn-secondary'" t-on-click="() => this.setUnit('month')">€ за місяць</button>
+                        <div class="d-flex flex-wrap gap-2">
+                            <!-- круг 4: показник — «Чисто» або «Залишається» (після ZUS і загальних за годинами табеля) -->
+                            <div class="btn-group" role="group" aria-label="Показник">
+                                <button type="button" class="btn" t-att-class="view.metric === 'net' ? 'btn-primary' : 'btn-secondary'" t-on-click="() => this.setMetric('net')">Чисто</button>
+                                <button type="button" class="btn" t-att-class="view.metric === 'remain' ? 'btn-primary' : 'btn-secondary'" t-on-click="() => this.setMetric('remain')" title="ZUS і загальні розподілено за годинами табеля (версія 1)">Залишається</button>
+                            </div>
+                            <div class="btn-group" role="group" aria-label="Одиниця">
+                                <button type="button" class="btn" t-att-class="view.unit === 'hour' ? 'btn-primary' : 'btn-secondary'" t-on-click="() => this.setUnit('hour')">€ год</button>
+                                <button type="button" class="btn" t-att-class="view.unit === 'month' ? 'btn-primary' : 'btn-secondary'" t-on-click="() => this.setUnit('month')">€ за місяць</button>
+                            </div>
                         </div>
                     </div>
 
@@ -362,46 +421,62 @@
                                         <th class="o_workset_profit_sticky fw-normal text-nowrap" t-esc="line.name"/>
                                         <t t-foreach="line.cells" t-as="cell" t-key="cell.month">
                                             <!-- без годин зі ставкою — без заливки: «—» або дрібно червоним сума за місяць (calc.cell_tone 'neg_text') -->
-                                            <td t-if="cell.has" class="text-end text-nowrap o_workset_profit_cell" t-att-class="cellClass(cell)" t-on-click="(ev) => this.onCell(ev, line, cell)">
+                                            <td t-if="cell.has" class="text-end text-nowrap o_workset_profit_cell" t-att-class="cellClass(cell)" t-att-title="missHint(cell)" role="button" tabindex="0"
+                                                t-on-click="(ev) => this.onCell(ev, line, cell)" t-on-keydown="(ev) => this.keyCell(ev, line, cell)">
                                                 <span t-att-class="cellSmall(cell) ? 'small' : ''" t-esc="cellValue(cell)"/>
                                             </td>
                                             <td t-else="" class="text-end text-muted">—</td>
                                         </t>
-                                        <!-- підсумок періоду нижче нуля — червоним, як клітинки (сервер: total.tone, круг 3б) -->
-                                        <td class="text-end text-nowrap fw-semibold o_workset_profit_click" title="Відкрити записи" t-att-class="line.total.tone === 'neg' ? 'text-danger' : ''"
-                                            t-on-click="() => this.openList(line.total.open)">
-                                            <t t-if="view.unit === 'hour'"><t t-if="line.total.net_ph !== null" t-esc="perHour(line.total.net_ph)"/><t t-else="">—</t></t>
-                                            <t t-else="" t-esc="euros(line.total.net)"/>
-                                        </td>
+                                        <!-- підсумок періоду нижче нуля — червоним, як клітинки (сервер: total.tone / remain_tone, круг 3б, круг 4) -->
+                                        <td class="text-end text-nowrap fw-semibold o_workset_profit_click" title="Відкрити записи" t-att-class="pick(line.total).tone === 'neg' ? 'text-danger' : ''"
+                                            role="button" tabindex="0" t-on-click="() => this.openList(line.total.open)" t-on-keydown="(ev) => this.keyOpen(ev, line.total.open)"
+                                            t-esc="totalValue(line.total)"/>
                                     </tr>
                                 </tbody>
                                 <!-- нижче: «Не розподілено», власники, звірка — завжди € за місяць (підпис групи), світліше за лінії, але читається й на темній -->
                                 <tbody class="o_workset_profit_company">
-                                    <tr t-if="data.unallocated or data.owners.length">
+                                    <tr t-if="data.unallocated or data.owners.length or data.zus or data.office">
                                         <td t-att-colspan="data.months.length + 2" class="small o_workset_profit_muted py-1"><span class="o_workset_profit_sticky_text">Компанія, € за місяць</span></td>
                                     </tr>
                                     <tr t-if="data.unallocated">
                                         <th class="o_workset_profit_sticky fw-normal text-nowrap">Не розподілено</th>
                                         <!-- круг 3в: клітинка — рядки «Не розподілено» місяця, підсумок — за період -->
                                         <td t-foreach="data.unallocated.cells" t-as="c" t-key="c.month" class="text-end text-nowrap" t-att-class="clickCls(c.open)"
-                                            t-att-title="hint(c.open)" t-on-click="() => this.openList(c.open)">
+                                            t-att-title="hint(c.open)" t-att-role="role(c.open)" t-att-tabindex="tab(c.open)"
+                                            t-on-click="() => this.openList(c.open)" t-on-keydown="(ev) => this.keyOpen(ev, c.open)">
                                             <t t-if="c.has" t-esc="euros(c.amount)"/><t t-else="">—</t>
                                         </td>
-                                        <td class="text-end text-nowrap o_workset_profit_click" title="Відкрити записи" t-on-click="() => this.openList(data.unallocated.open)" t-esc="euros(data.unallocated.total)"/>
+                                        <td class="text-end text-nowrap o_workset_profit_click" title="Відкрити записи" role="button" tabindex="0" t-on-click="() => this.openList(data.unallocated.open)"
+                                            t-on-keydown="(ev) => this.keyOpen(ev, data.unallocated.open)" t-esc="euros(data.unallocated.total)"/>
+                                    </tr>
+                                    <!-- круг 4: ZUS і PIT-4 (рахунки за місяцем роботи) і загальні фірм — суми місяця всієї компанії; клік — рахунки /
+                                         рядки «Офіс»; у лінії вони вже частками за годинами (показник «Залишається») -->
+                                    <tr t-if="data.zus">
+                                        <th class="o_workset_profit_sticky fw-normal text-nowrap">ZUS, PIT-4</th>
+                                        <t t-set="row" t-value="data.zus"/>
+                                        <t t-call="workset_profit.CompanyCells"/>
+                                    </tr>
+                                    <tr t-if="data.office">
+                                        <th class="o_workset_profit_sticky fw-normal text-nowrap">Загальні фірм</th>
+                                        <t t-set="row" t-value="data.office"/>
+                                        <t t-call="workset_profit.CompanyCells"/>
                                     </tr>
                                     <tr t-foreach="data.owners" t-as="o" t-key="o.code">
                                         <th class="o_workset_profit_sticky fw-normal text-nowrap">Власник <t t-esc="o.code"/></th>
                                         <td t-foreach="o.cells" t-as="c" t-key="c.month" class="text-end text-nowrap" t-att-class="clickCls(c.open)"
-                                            t-att-title="hint(c.open)" t-on-click="() => this.openList(c.open)">
+                                            t-att-title="hint(c.open)" t-att-role="role(c.open)" t-att-tabindex="tab(c.open)"
+                                            t-on-click="() => this.openList(c.open)" t-on-keydown="(ev) => this.keyOpen(ev, c.open)">
                                             <t t-if="c.has" t-esc="euros(c.amount)"/><t t-else="">—</t>
                                         </td>
-                                        <td class="text-end text-nowrap o_workset_profit_click" title="Відкрити записи" t-on-click="() => this.openList(o.open)" t-esc="euros(o.total)"/>
+                                        <td class="text-end text-nowrap o_workset_profit_click" title="Відкрити записи" role="button" tabindex="0" t-on-click="() => this.openList(o.open)"
+                                            t-on-keydown="(ev) => this.keyOpen(ev, o.open)" t-esc="euros(o.total)"/>
                                     </tr>
                                     <tr>
                                         <th class="o_workset_profit_sticky fw-normal text-nowrap">Звірка з аналітикою</th>
                                         <!-- звірка місяця — її запис (форма); підказка — текст звірки і «Відкрити записи» -->
                                         <td t-foreach="data.checks" t-as="c" t-key="c.month" class="text-end" t-att-class="clickCls(c.open)"
-                                            t-att-title="c.open ? c.text + ' · ' + hint(c.open) : c.text" t-on-click="() => this.openList(c.open)">
+                                            t-att-title="c.open ? c.text + ' · ' + hint(c.open) : c.text" t-att-role="role(c.open)" t-att-tabindex="tab(c.open)"
+                                            t-on-click="() => this.openList(c.open)" t-on-keydown="(ev) => this.keyOpen(ev, c.open)">
                                             <i t-if="c.state === 'ok'" class="fa fa-check"/>
                                             <i t-elif="c.state === 'bad'" class="fa fa-exclamation-triangle text-danger"/>
                                             <t t-else="">—</t>
@@ -411,7 +486,14 @@
                                 </tbody>
                             </table>
                         </div>
-                        <div class="small o_workset_profit_muted text-end mt-2">
+                        <!-- круг 4б: легенда — про обраний показник («чисто» або «залишається»); «—» у «Залишається» — місяць не перераховано -->
+                        <div t-if="view.metric === 'remain'" class="small o_workset_profit_muted text-end mt-2">
+                            <span class="text-danger">червоний</span> — залишається нижче нуля, <span class="text-warning">жовтий</span> — залишається впало більше ніж на
+                            <t t-esc="plain(data.threshold)"/> € год порівняно з минулим місяцем;
+                            <span class="text-danger">мінус червоним дрібно «€/міс»</span> — місяць без годин зі ставкою, але з витратами;
+                            «—» — місяць не перераховано після оновлення; клік по клітинці — ланцюжок до «Залишається».
+                        </div>
+                        <div t-else="" class="small o_workset_profit_muted text-end mt-2">
                             <span class="text-danger">червоний</span> — чисто нижче нуля, <span class="text-warning">жовтий</span> — упало більше ніж на
                             <t t-esc="plain(data.threshold)"/> € год порівняно з минулим місяцем;
                             <span class="text-danger">мінус червоним дрібно «€/міс»</span> — місяць без годин зі ставкою, але з витратами;
@@ -424,13 +506,25 @@
         </div>
     </t>
 
+    <!-- круг 4: клітинки рядка компанії «ZUS, PIT-4» / «Загальні фірм» таблиці C (row — data.zus або data.office): місяць — записи місяця,
+         останній стовпець — за період; без суми — «—» без кліку -->
+    <t t-name="workset_profit.CompanyCells">
+        <td t-foreach="row.cells" t-as="c" t-key="c.month" class="text-end text-nowrap" t-att-class="clickCls(c.open)"
+            t-att-title="hint(c.open)" t-att-role="role(c.open)" t-att-tabindex="tab(c.open)"
+            t-on-click="() => this.openList(c.open)" t-on-keydown="(ev) => this.keyOpen(ev, c.open)">
+            <t t-if="c.has" t-esc="euros(c.amount)"/><t t-else="">—</t>
+        </td>
+        <td class="text-end text-nowrap" t-att-class="clickCls(row.open)" t-att-title="hint(row.open)" t-att-role="role(row.open)" t-att-tabindex="tab(row.open)"
+            t-on-click="() => this.openList(row.open)" t-on-keydown="(ev) => this.keyOpen(ev, row.open)" t-esc="euros(row.total)"/>
+    </t>
+
     <!-- спливаюче вікно клітинки: ланцюжок місяця в обраній одиниці, «Відкрити рядки» — картка лінії -->
     <t t-name="workset_profit.ChainPopover">
         <div class="p-3 o_workset_profit_pop">
             <div class="fw-semibold mb-2" t-esc="props.title"/>
             <table class="table table-sm table-borderless mb-2">
                 <tbody>
-                    <tr t-foreach="props.steps" t-as="s" t-key="s.key" t-att-class="s.key === 'net' ? 'fw-semibold border-top' : ''">
+                    <tr t-foreach="props.steps" t-as="s" t-key="s.key" t-att-class="s.key === 'net' or s.key === 'remain' ? 'fw-semibold border-top' : ''">
                         <td class="ps-0" t-esc="s.label"/>
                         <td class="text-end text-nowrap pe-0" t-esc="props.format(s)"/>
                     </tr>

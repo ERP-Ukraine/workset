@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """«Лінія × місяць» (М3) — хранимий підсумок прибутковості: години → частка WorkSET (зі «Ставок») → − житло → − авто → − паливо →
 − інструмент → − перевезення = чисто €/міс і €/год; поруч — гроші лінії (партнер), фонд працівників (у фонд і з фонду), буфер житла
-(довідково); рядки компанії — «Без лінії», «Не розподілено» (за статтями), «Офіс», «Власник», «Не враховано», рахунки DKV.
+(довідково); рядки компанії — «Без лінії», «Не розподілено» (за статтями), «Офіс», «Власник», «Не враховано», рахунки DKV. Нижче «чисто»
+(круг 4) — − ZUS і PIT-4 − загальні фірм за годинами табеля = «Залишається WorkSET» (поля рядка й підсумок workset.profit.overhead).
 
 Звідки:
 - години — табелі (account.analytic.line з проєктом і працівником, без рахунку, години > 0) у фірмах периметра «Ставок»; людина — робочий
@@ -91,6 +92,15 @@ class WorksetProfitMonth(models.Model):
     fund_left = fields.Monetary(string='Фонд: залишок місяця', currency_field='currency_id', readonly=True, help='У фонд + з фонду')
     housing_buffer = fields.Monetary(string='Буфер житла', currency_field='currency_id', readonly=True,
                                      help='Довідково: частина оплати замовника, передана в буфер житла, — не дохід, у «чисто» не входить')
+    # круг 4: «− ZUS − загальні = Залишається WorkSET» (лінія й «без лінії»; версія 1 — за годинами табеля, calc.overhead)
+    zus_amount = fields.Monetary(string='ZUS, PIT-4 (частка)', currency_field='currency_id', readonly=True,
+                                 help='ZUS і PIT-4 місяця роботи × години рядка ÷ усі години табеля місяця (мінус — витрата)')
+    office_amount = fields.Monetary(string='Загальні фірм (частка)', currency_field='currency_id', readonly=True,
+                                    help='Загальні фірм місяця (рядки «Офіс» без рахунків ZUS / PIT-4) × години рядка ÷ усі години табеля')
+    remain = fields.Monetary(string='Залишається WorkSET', currency_field='currency_id', readonly=True,
+                             help='Чисто + частка ZUS, PIT-4 + частка загальних фірм. Власники, «Не розподілено» й «Не враховано» — не загальні')
+    remain_per_hour = fields.Monetary(string='Залишається, €/год', currency_field='currency_id', readonly=True, aggregator=False,
+                                      help='Залишається ÷ години зі ставкою')
     amount = fields.Monetary(string='Сума', currency_field='currency_id', readonly=True, help='Сума рядка компанії')
     aal_amount = fields.Monetary(string='З аналітики', currency_field='currency_id', readonly=True, help='Службове для звірки')
     dkv_amount = fields.Monetary(string='З транзакцій DKV', currency_field='currency_id', readonly=True, help='Службове для звірки')
@@ -363,18 +373,108 @@ class WorksetProfitMonth(models.Model):
         hours += [{'key': calc.key_of('line', line=line), 'housing_customer': v}
                   for line, v in calc.customer_housing(*self._customer_housing_input(month_ts, segs, plans, cust_lines, hr))]
         # 2–4. аналітика, DKV, перевезення за прибуттями (_month_entries — ті самі записи бачить картка лінії)
-        entries, _refs = self._month_entries(first, last, cust_lines, line_nodes, ts, hr)
+        entries, refs = self._month_entries(first, last, cust_lines, line_nodes, ts, hr)
         rows = calc.assemble(hours, entries)
+        # 4б (круг 4). ZUS і PIT-4 за місяцем роботи + загальні фірм (рядки «Офіс» без аналітики рахунків ZUS / PIT-4 — вона вже в ZUS) →
+        # частки ліній і «без лінії» за годинами табеля; чисто й решта рядків — без змін
+        contrib = calc.contrib_sum(self._contrib_items(first))
+        dup = self._contrib_in_rows(entries, refs)
+        office = calc.eur(sum(calc.cents(r['net']) for r in rows if r['row_kind'] == 'office') - calc.cents(dup['office']))
+        rows, oh = calc.overhead(rows, contrib['zus'], office)
         # 5. запис: місяць заново (рядки пише лише код)
         self.search([('month', '=', first)]).unlink()
+        Overhead = self.env['workset.profit.overhead'].sudo()
+        Overhead.search([('month', '=', first)]).unlink()
         names = self._names(rows)
         self.create([self._row_vals(r, first, names) for r in rows])
+        Overhead.create({'month': first, 'zus': oh['zus'], 'pit4': contrib['pit4'], 'office': oh['office'], 'office_dup': dup['office'],
+                         'zus_elsewhere': dup['elsewhere'], 'total': oh['total'], 'hours': oh['hours'], 'per_hour': oh['per_hour'],
+                         'zus_rest': oh['zus_rest'], 'office_rest': oh['office_rest'], 'move_ids': [(6, 0, contrib['move_ids'])],
+                         'unlabeled_ids': [(6, 0, contrib['unlabeled_ids'])]})
         return len(rows)
+
+    # ——— ZUS і PIT-4 (круг 4; викликається з перерахунку й звірки — self уже sudo) ———
+    def _move_texts(self, move):
+        """Тексти рахунку для мітки місяця й «PIT-4»: ref і назви рядків (як інструмент штабу odoo_contrib_redate.js)."""
+        return [move.ref or ''] + [ml.name or '' for ml in move.line_ids]
+
+    def _contrib_items(self, first):
+        """Рахунки ZUS і PIT-4 місяця роботи first: проведені рахунки постачальника (calc.CONTRIB_TYPES) фірм периметра «Ставок» з
+        партнером ZUS або податкової, датовані у вікні calc.contrib_window (мітка буває на місяць уперед і до року назад), вид —
+        calc.contrib_kind, місяць роботи — calc.contrib_month. Сума — рядки рахунку (display_type 'product': без податку й кредиторки),
+        balance у валюті фірми → EUR за датою рядка (те саме правило, що в аналітики), мінусом. → [{'move_id', 'kind', 'amount', 'labeled'}]."""
+        lo, hi = calc.contrib_window(first)
+        dom = [('state', '=', 'posted'), ('move_type', 'in', list(calc.CONTRIB_TYPES)), ('date', '>=', lo), ('date', '<=', hi),
+               '|', ('partner_id.name', 'ilike', 'ubezpiecze'), ('partner_id.name', 'ilike', 'skarbow')]
+        skip = self.env['workset.rate'].sudo()._skip_companies()
+        if skip:
+            dom.append(('company_id', 'not in', skip))
+        return [dict(it, labeled=calc.contrib_month(it['texts'], it['date'])['labeled'])
+                for it in self._contrib_moves(dom) if calc.contrib_month(it['texts'], it['date'])['month'] == first]
+
+    def _contrib_moves(self, dom):
+        """Рахунки ZUS / PIT-4 за доменом account.move (вид — calc.contrib_kind) → [{'move_id', 'kind', 'amount', 'date', 'texts'}]; сума —
+        рядки рахунку (display_type 'product': без податку й кредиторки), balance у валюті фірми → EUR за датою рядка, мінусом."""
+        eur = self.env.ref('base.EUR')
+        out = []
+        for move in self.env['account.move'].sudo().search(dom, order='date, id'):
+            texts = self._move_texts(move)
+            kind = calc.contrib_kind(move.partner_id.name, texts)
+            if not kind:
+                continue
+            cur = move.company_id.currency_id
+            total = 0
+            for ml in move.line_ids.filtered(lambda x: x.display_type == 'product'):
+                amount = -ml.balance
+                if cur and cur != eur:
+                    amount = cur._convert(amount, eur, move.company_id, ml.date)
+                total += calc.cents(amount)
+            out.append({'move_id': move.id, 'kind': kind, 'amount': calc.eur(total), 'date': calc.iso(move.date), 'texts': texts})
+        return out
+
+    def _contrib_outside(self, first, last):
+        """Круг 4б: рахунки ZUS / PIT-4, проведені в місяці first – last, з міткою, до вікна якої дата проводки не входить
+        (calc.contrib_outside) — їх не рахує жоден місяць → {'n', 'amount'} для звірки (довідково)."""
+        dom = [('state', '=', 'posted'), ('move_type', 'in', list(calc.CONTRIB_TYPES)), ('date', '>=', first), ('date', '<=', last),
+               '|', ('partner_id.name', 'ilike', 'ubezpiecze'), ('partner_id.name', 'ilike', 'skarbow')]
+        skip = self.env['workset.rate'].sudo()._skip_companies()
+        if skip:
+            dom.append(('company_id', 'not in', skip))
+        got = [it for it in self._contrib_moves(dom) if calc.contrib_outside(it['texts'], it['date'])]
+        return {'n': len(got), 'amount': calc.eur(sum(calc.cents(it['amount']) for it in got))}
+
+    def _contrib_ids(self, move_ids):
+        """Які з рахунків move_ids — ZUS / PIT-4 (партнер і calc.contrib_kind) → множина id. Тексти рядків читаються лише в рахунків
+        партнера ZUS чи податкової."""
+        out = set()
+        for move in self.env['account.move'].sudo().browse(sorted(move_ids)):
+            name = move.partner_id.name or ''
+            if (calc.ZUS_RE.search(name) or calc.TAX_RE.search(name)) and calc.contrib_kind(name, self._move_texts(move)):
+                out.add(move.id)
+        return out
+
+    def _contrib_in_rows(self, entries, refs):
+        """Аналітика рахунків ZUS / PIT-4 у розкладі місяця (за рахунком рядка аналітики — refs[i]['move']) → {'office' (у рядках «Офіс»:
+        із загальних виключається — інакше двічі), 'elsewhere' (у лініях, «без лінії», «Не розподілено», «Власник» — довідково в
+        звірці), 'by_analytic' (круг 4б: {стаття рядка «Офіс»: центи} — для calc.office_rows_in)}, EUR."""
+        moves = {(ref or {}).get('move') for ref in refs or []} - {0, None}
+        mine = self._contrib_ids(moves) if moves else set()
+        office = elsewhere = 0
+        by_analytic = {}
+        for e, ref in zip(entries or [], refs or []):
+            if (ref or {}).get('move') not in mine:
+                continue
+            if e['key'][0] == 'office':
+                office += calc.cents(e['amount'])
+                by_analytic[e['key'][3]] = by_analytic.get(e['key'][3], 0) + calc.cents(e['amount'])
+            elif e['key'][0] in ('line', 'noline', 'unallocated', 'owner'):
+                elsewhere += calc.cents(e['amount'])
+        return {'office': calc.eur(office), 'elsewhere': calc.eur(elsewhere), 'by_analytic': by_analytic}
 
     def _month_entries(self, first, last, cust_lines, line_nodes, ts=None, hr=None):
         """Записи розкладу місяця (кроки 2–4 перерахунку): аналітика за розміткою, транзакції DKV за періодом картки, перевезення без лінії —
         між лініями за прибуттями. → (entries, refs): refs[i] — звідки entries[i]: {'aal': [id], 'txn': [id], 'analytic', 'account',
-        'card', 'pool'} — для «Рядків за місяць» картки лінії (ті самі записи, що в перерахунку, — без розбіжності). ts — табелі від
+        'move' (рахунок рядка аналітики), 'card', 'pool'} — для «Рядків за місяць» картки лінії (ті самі записи, що в перерахунку, — без розбіжності). ts — табелі від
         first − розрив − 1 до last (немає — читаються, лише коли є перевезення без лінії); hr — правила житла (_housing_rules; немає —
         читаються тут один раз). Викликати на sudo."""
         # 2. аналітика: розмітка → вид, лінія, замовник → хто платить → рядок і стовпець
@@ -398,7 +498,8 @@ class WorksetProfitMonth(models.Model):
             elif c['line_id'] and c['kind'] in calc.COST_KINDS:
                 payer = calc.cost_payer(cost_rules, c['line_id'], c['cust'], c['kind'], it['date'])
             tgt = calc.target(c, it, payer)
-            ref = {'aal': [it['aal_id']], 'analytic': it['analytic_id'], 'account': it['account_id']}
+            # move — рахунок рядка аналітики (круг 4: аналітика рахунків ZUS / PIT-4 — не в загальні, _contrib_in_rows)
+            ref = {'aal': [it['aal_id']], 'analytic': it['analytic_id'], 'account': it['account_id'], 'move': it['move_id']}
             if tgt.get('pool'):
                 pool.append(({'amount': it['amount'], 'src': 'aal', 'date': it['date']}, ref))
             else:
@@ -475,6 +576,8 @@ class WorksetProfitMonth(models.Model):
                 'account_id': r['account_id'] or False, 'card_id': r['card_id'] or False, 'tag': r['tag'] or False,
                 'hint_kind': r['hint'] or False, 'net': r['net'], 'net_per_hour': r['net_per_hour'], 'fund_left': r['fund_left']}
         vals.update({f: r[f] for f in calc.HOURS + calc.MONEY})
+        # remain_per_hour без годин зі ставкою — пусто (calc.overhead → None), як «немає числа», а не 0 (круг 4б)
+        vals.update({f: (r.get(f) if r.get(f) is not None else False) for f in calc.OVERHEAD_FIELDS})
         return vals
 
     # ——— звірка ———
@@ -486,7 +589,8 @@ class WorksetProfitMonth(models.Model):
         first = calc.month_first(calc.iso(month))
         last = calc.month_last(first)
         me = self.sudo()
-        rows = me.search_read([('month', '=', first)], ['name', 'tag', 'aal_amount', 'dkv_amount'] + list(calc.SPREAD))
+        rows = me.search_read([('month', '=', first)], ['name', 'tag', 'row_kind', 'aal_amount', 'dkv_amount', 'zus_amount', 'office_amount']
+                              + list(calc.SPREAD))
         items = me._analytic_items(first, last)
         aal = calc.eur(sum(calc.cents(i['amount']) for i in items))
         dkv = calc.eur(-sum(calc.cents(x['amount_gross']) for x in me._txns(first, last)))
@@ -497,7 +601,24 @@ class WorksetProfitMonth(models.Model):
                 mine[i['currency']] = mine.get(i['currency'], 0) + calc.cents(i['line_cur'])
         raw = [{'currency': c, 'books': books.get(c, 0.0), 'calc': calc.eur(mine.get(c, 0))} for c in sorted(set(books) | set(mine))]
         moved = calc.eur(sum(calc.cents(i['amount']) for i in items) - sum(calc.cents(i['line_eur']) for i in items if i['in_month']))
-        return calc.verify(rows, aal, dkv, first, self._lang(), raw=raw, moved=moved, nobill=me._nobill(first, last))
+        return calc.verify(rows, aal, dkv, first, self._lang(), raw=raw, moved=moved, nobill=me._nobill(first, last),
+                           overhead=me._overhead_check(first, rows))
+
+    def _overhead_check(self, first, rows):
+        """Звірка ZUS і загальних (круг 4) для calc.verify: ZUS і PIT-4 за рахунками — наново (_contrib_items), загальні — рядки «Офіс»
+        без аналітики рахунків ZUS / PIT-4 (office_dup — з підсумку місяця); у рядках — частки + не розподілене (немає годин). Підсумку
+        «ZUS і загальні» місяця немає (рахували до круга 4) — None: не звіряється, до «Перерахувати». Викликати на sudo."""
+        oh = self.env['workset.profit.overhead'].sudo().search([('month', '=', first)], limit=1)
+        if not oh:
+            return None
+        contrib = calc.contrib_sum(self._contrib_items(first))
+        outside = self._contrib_outside(first, calc.month_last(first))
+        office = sum(calc.cents(r['amount']) for r in rows if r.get('row_kind') == 'office') - calc.cents(oh.office_dup)
+        return {'zus_books': contrib['zus'], 'zus_rows': calc.eur(sum(calc.cents(r.get('zus_amount')) for r in rows) + calc.cents(oh.zus_rest)),
+                'office_books': calc.eur(office),
+                'office_rows': calc.eur(sum(calc.cents(r.get('office_amount')) for r in rows) + calc.cents(oh.office_rest)),
+                'unlabeled_n': len(contrib['unlabeled_ids']), 'unlabeled': contrib['unlabeled'], 'elsewhere': oh.zus_elsewhere,
+                'outside_n': outside['n'], 'outside': outside['amount']}
 
     # ——— публічне: інструмент штабу, кнопки, плановое ———
     @api.model

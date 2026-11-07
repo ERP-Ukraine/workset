@@ -307,6 +307,36 @@
             grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
         }
     }
+    // круг 4: шість підсумків (B, шостий — «Залишається») і вісім (A, з «ZUS і загальні» і «Залишається»): вузько — по два в ряд, без
+    // першого на всю ширину, роздільник — перед другим у ряду; широко — B шість в ряд, A 4 × 2 (роздільник — не перед першим у ряду)
+    @include media-breakpoint-down(md) {
+        .o_workset_profit_band_6,
+        .o_workset_profit_band_8 {
+            .o_workset_profit_band_cell {
+                &:first-child {
+                    grid-column: auto;
+                }
+                &:nth-child(odd) {
+                    border-left: 0;
+                }
+                &:nth-child(even) {
+                    border-left: 1px solid $border-color;
+                }
+            }
+        }
+    }
+    @include media-breakpoint-up(lg) {
+        .o_workset_profit_band_6 {
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+        }
+        .o_workset_profit_band_8 {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+
+            .o_workset_profit_band_cell:nth-child(4n + 1) {
+                border-left: 0;
+            }
+        }
+    }
     // чип «Власники» (сума й кожна стаття) — на дві колонки, від планшета
     @include media-breakpoint-up(md) {
         .o_workset_profit_chip_wide {
