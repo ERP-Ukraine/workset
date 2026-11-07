@@ -4,8 +4,10 @@
 
 Звідки (правила ступенів — runtime/shared/2026-11-06-ekrany-po-rolyam/01-arhitektura.md, розділ B):
 - 1 — рядки аналітики кореня плану рекрутингу за P&L-рахунками фірм периметра (проведені); контроль другим способом — проводки
-  (account.move.line × analytic_distribution), розбіжність понад 0,01 — звірка «не зійшлася»; 1а — вузли власників усередині тієї ж вибірки
-  (повернення в прибуток); 1г — лише поправки + підрахунок кандидатів (сплачені рахунки клієнтів без аналітики, за датою оплати);
+  (account.move.line × analytic_distribution), розбіжність понад 0,01 — звірка «не зійшлася». Odoo 19 сам тримає розподіл у лад із рядками
+  аналітики (account.analytic.line.unlink / write → move_line_id._update_analytic_distribution): видалення рядка через ORM стирає й розподіл,
+  тож контроль ловить лише розбіжність повз ORM (SQL, міграція, контекст skip_analytic_sync), а рядок без розподілу видно в «без місця»;
+  1а — вузли власників усередині тієї ж вибірки (повернення в прибуток); 1г — лише поправки + підрахунок кандидатів (сплачені рахунки клієнтів без аналітики, за датою оплати);
 - 2 — Україна: фірма, план і рахунок ліквідності з параметрів; 3 — сума активних поправок ступеня 3; 4 = до часток − 3;
   4' = до часток − перекази партнерам нетто (рядки АНАЛІТИКИ статті «II етапу» за місяць, що за текстом name (підрядок, без регістру) потрапили
   на розпізнану лінію, × 9; транзитні фрази й нерозпізнані рядки в 4' не входять; AN — від'ємні рядки конверта як є; рахунок «II етапу» в 4'
@@ -144,6 +146,11 @@ class WorksetFinanceMonth(models.Model):
         if miss:
             raise UserError(calc.t('param_missing', self._lang()) % ', '.join(miss))
         return values
+
+    def _param_notes(self, lang):
+        """Примітки звірки про параметри фраз (calc.param_notes): фрази-числа розбір пропускає — звірка називає параметр і скільки."""
+        get = self.env['ir.config_parameter'].sudo().get_param
+        return calc.param_notes({n: get(calc.P_PREFIX + n) or '' for n, kind, _req in calc.PARAM_SPECS if kind in ('phrases', 'phrasepairs')}, lang)
 
     def _perimeter(self):
         """Фірми периметра: усі активні мінус workset_rates.out_of_perimeter_company_ids."""
@@ -371,7 +378,7 @@ class WorksetFinanceMonth(models.Model):
                 items.append(item('cash_other', calc.t(key, lang), calc.eur(g['net']), count=g['count'], model=AAL, domain=pd,
                                   note='%s; %s' % (calc.t(key, lang), calc.t('not_in_4', lang))))
         partner_net = cash6['partner_net']
-        notes = [calc.t('line_missing', lang) % lost_lines] if lost_lines else []
+        notes = ([calc.t('line_missing', lang) % lost_lines] if lost_lines else []) + me._param_notes(lang)
         an = 0.0
         if p['an_envelope_analytic_id']:
             dom_an = [('account_id', '=', p['an_envelope_analytic_id']), ('amount', '<', 0), ('company_id', 'in', cos)] + dates

@@ -13,6 +13,7 @@
 """
 import datetime
 import json
+import re
 from decimal import ROUND_HALF_UP, Decimal
 
 MIN_MONTH = '2026-01-01'   # екрани й перерахунок — лише з січня 2026 (рішення власника 06.11: «цікавить лише 2026 рік»)
@@ -25,6 +26,15 @@ BANK_GAP_DAYS = 14        # «банк без документа» — рядо�
 TRUTH_PCT = 1.0            # поріг «місяць правдивий» (рішення власника 14.10.2026: 1 %), як MC.truthShare
 UNPAID_MIN = 0.005         # залишок рахунку менший за це — вважається оплаченим
 MAX_ID = 2147483647        # найбільший id запису (integer PostgreSQL): лінія пари більша — пропуск (інакше browse упаде на SQL)
+# Пробільні символи країв фрази — ОДИН набір із PHRASE_WS у tools/lib/odoo_finance_ladder.js: str.strip() Python і String.prototype.trim() JS
+# ріжуть різне (strip — ще \x1c–\x1f і \x85, trim — ще ﻿), тому обидві сторони беруть об'єднання (круг 1д). Пробіл нульової ширини
+# (​) не пробільний ні там, ні там — лишається у фразі.
+PHRASE_WS = ''.join(chr(c) for c in (*range(0x09, 0x0e), *range(0x1c, 0x21), 0x85, 0xa0, 0x1680, *range(0x2000, 0x200b), 0x2028, 0x2029, 0x202f,
+                                     0x205f, 0x3000, 0xfeff))
+# Фраза-число (сума, рік, номер документа: «123», «12,5», «1 234,56») — не фраза: такий підрядок знайшовся б у чужих рядках. Межа — стільки
+# цифр; довший ряд цифр (хвіст рахунку чи картки, від 8 цифр) — ідентифікатор, фраза. Як PHRASE_NUM_MAX_DIGITS у JS-драбині.
+PHRASE_NUM_MAX_DIGITS = 7
+_NUM_RE = re.compile(r'[+-]?[0-9]+(?:[.,][0-9]+)?')
 
 PL_TYPES = ('income', 'income_other', 'expense', 'expense_other', 'expense_depreciation', 'expense_direct_cost')  # tools/lib/odoo_pnl_types.js
 INCOME_TYPES = ('income', 'income_other')
@@ -88,6 +98,8 @@ TX = {
     'month_many': ['Забагато місяців за раз: %d (не більше %d).', 'Слишком много месяцев за раз: %d (не больше %d).'],
     'line_missing': ['Лінія партнера в карті «II етапу» не знайдена: %d (перекази рахуються, лінії в рядку немає).',
                      'Линия партнёра в карте «II этапа» не найдена: %d (переводы считаются, линии в строке нет).'],
+    'phrase_number': ['Параметр %s: фраз-чисел пропущено %d (сума, рік чи номер до %d цифр збігся б із чужими рядками) — виправте посів.',
+                      'Параметр %s: фраз-чисел пропущено %d (сумма, год или номер до %d цифр совпал бы с чужими строками) — исправьте посев.'],
     'not_in_4': ["в 4' не входить", "в 4' не входит"],
     'line_gone': ['лінії немає в базі', 'линии нет в базе'],
     'unknown': ['не розпізнано', 'не распознано'],
@@ -225,26 +237,58 @@ def json_loads(text):
     return json.loads(text, parse_constant=_no_constant)
 
 
-def parse_phrases(text):
-    """JSON-масив рядків → [str] (порожні пропускаються, дубль — один раз); не JSON-масив — увесь рядок як одна фраза (сумісність зі старою
-    формою параметра); порожнє — []."""
-    raw = str(text or '').strip()
+def phrase_strip(s):
+    """Краї фрази без пробільних символів PHRASE_WS (не str.strip(): у JS trim() інший набір) — як phraseStrip у JS-драбині."""
+    return str(s).strip(PHRASE_WS)
+
+
+def is_number_phrase(s):
+    """True: фраза — число: без пробільних (PHRASE_WS) це цифри зі знаком і, може, дробовою частиною через «.» чи «,» («123», «12,5»,
+    «1 234,56»), і цифр не більше PHRASE_NUM_MAX_DIGITS. Як isNumberPhrase у JS-драбині."""
+    compact = ''.join(ch for ch in str(s) if ch not in PHRASE_WS)
+    return bool(_NUM_RE.fullmatch(compact)) and sum(ch in '0123456789' for ch in compact) <= PHRASE_NUM_MAX_DIGITS
+
+
+def _phrase(x):
+    """Значення з JSON → (фраза, це число): фраза — рядок без пробільних країв, не порожній і не фраза-число; число JSON (не bool) і рядок-число →
+    ('', True); інше → ('', False)."""
+    if isinstance(x, (int, float)) and not isinstance(x, bool):
+        return '', True
+    if not isinstance(x, str):
+        return '', False
+    s = phrase_strip(x)
+    if s and is_number_phrase(s):
+        return '', True
+    return s, False
+
+
+def _phrases(text):
+    """parse_phrases → (фрази, скільки фраз-чисел пропущено)."""
+    raw = phrase_strip(text or '')
     if not raw:
-        return []
+        return [], 0
     try:
         got = json_loads(raw)
     except (TypeError, ValueError):
         got = raw
     if isinstance(got, dict):
-        return []
+        return [], 0
     if isinstance(got, str) or not isinstance(got, list):
         got = [raw if not isinstance(got, str) else got]   # рядок, число, null: вихідний текст — одна фраза
-    out = []
+    out, nums = [], 0
     for x in got:
-        s = str(x).strip() if isinstance(x, (str, int, float)) and not isinstance(x, bool) else ''
+        s, num = _phrase(x)
+        nums += num
         if s and s not in out:
             out.append(s)
-    return out
+    return out, nums
+
+
+def parse_phrases(text):
+    """JSON-масив рядків → [str] (порожні пропускаються, дубль — один раз); не JSON-масив — увесь рядок як одна фраза (сумісність зі старою
+    формою параметра); порожнє — []. Фраза — лише рядок; краї ріже PHRASE_WS; фраза-число (is_number_phrase) і число JSON — пропуск (скільки —
+    number_phrases, примітка звірки). Ті самі правила, що parsePhrases JS-драбини (випадки — tools/tests/fixtures/finance_phrase_pairs_cases.json)."""
+    return _phrases(text)[0]
 
 
 def pair_line(v):
@@ -257,23 +301,50 @@ def pair_line(v):
     return n if 0 < n <= MAX_ID else 0
 
 
-def parse_phrase_pairs(text):
-    """JSON-МАСИВ пар [["фраза", лінія], …] → [(фраза, лінія)] у порядку масиву (порядок = пріоритет збігу). Ті самі правила, що parsePhrasePairs
-    у tools/lib/odoo_finance_ladder.js (спільні випадки — tools/tests/fixtures/finance_phrase_pairs_cases.json); помилки тут не буває ніколи:
-    не JSON (і NaN / Infinity) чи не масив (зокрема об'єкт) — []; пара — лише масив рівно з двох; фраза — рядок, не порожній після strip;
-    лінія — pair_line; інша пара — пропуск. Явну помилку дає посів (--seed інструмента штабу)."""
+def _phrase_pairs(text):
+    """parse_phrase_pairs → (пари, скільки фраз-чисел пропущено)."""
     try:
         raw = json_loads(text) if text else []
     except (TypeError, ValueError):
-        return []
-    out = []
+        return [], 0
+    out, nums = [], 0
     if isinstance(raw, list):
         for pair in raw:
             if not isinstance(pair, list) or len(pair) != 2:
                 continue
-            ph, line = pair[0], pair_line(pair[1])
-            if isinstance(ph, str) and ph.strip() and line:
-                out.append((ph.strip(), line))
+            (ph, num), line = _phrase(pair[0]), pair_line(pair[1])
+            nums += num
+            if ph and line:
+                out.append((ph, line))
+    return out, nums
+
+
+def parse_phrase_pairs(text):
+    """JSON-МАСИВ пар [["фраза", лінія], …] → [(фраза, лінія)] у порядку масиву (порядок = пріоритет збігу). Ті самі правила, що parsePhrasePairs
+    у tools/lib/odoo_finance_ladder.js (спільні випадки — tools/tests/fixtures/finance_phrase_pairs_cases.json); помилки тут не буває ніколи:
+    не JSON (і NaN / Infinity) чи не масив (зокрема об'єкт) — []; пара — лише масив рівно з двох; фраза — рядок, не порожній після phrase_strip
+    і не фраза-число (is_number_phrase; скільки пропущено — number_phrases, примітка звірки); лінія — pair_line; інша пара — пропуск. Явну
+    помилку дає посів (--seed інструмента штабу)."""
+    return _phrase_pairs(text)[0]
+
+
+def number_phrases(kind, text):
+    """Скільки фраз-чисел пропустив розбір параметра виду phrasepairs / phrases → int (інший вид — 0)."""
+    if kind == 'phrasepairs':
+        return _phrase_pairs(text)[1]
+    if kind == 'phrases':
+        return _phrases(text)[1]
+    return 0
+
+
+def param_notes(raw, lang=0):
+    """Примітки звірки про параметри фраз: raw — {ім'я без префікса: текст параметра} → [рядок «фраз-чисел пропущено»] у порядку PARAM_SPECS.
+    Розбір їх пропускає мовчки (помилки в ньому не буває), тож звірка називає параметр і скільки — щоб пропуск не лишився непомітним."""
+    out = []
+    for name, kind, _req in PARAM_SPECS:
+        n = number_phrases(kind, (raw or {}).get(name) or '') if name in (raw or {}) else 0
+        if n:
+            out.append(t('phrase_number', lang) % (P_PREFIX + name, n, PHRASE_NUM_MAX_DIGITS))
     return out
 
 
@@ -436,7 +507,7 @@ def unpaid_bucket(partner, company_partners, energy_partners, out_partners=()):
 def has_phrase(text, phrases):
     """True: є хоч одна непорожня фраза, що є підрядком text (без урахування регістру, як ilike; .lower() — паритет з JS)."""
     low = str(text or '').lower()
-    return any(str(p).strip() and str(p).strip().lower() in low for p in phrases or [])
+    return any(phrase_strip(p) and phrase_strip(p).lower() in low for p in phrases or [])
 
 
 def stage2_kind(text, pairs, transit):
@@ -447,7 +518,7 @@ def stage2_kind(text, pairs, transit):
         return 'transit', 0
     low = str(text or '').lower()
     for ph, line in pairs or []:
-        if str(ph).strip() and str(ph).strip().lower() in low:
+        if phrase_strip(ph) and phrase_strip(ph).lower() in low:
             return 'net', line
     return 'unknown', 0
 

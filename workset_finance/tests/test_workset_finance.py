@@ -18,6 +18,7 @@ import json
 
 from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tests.common import TransactionCase, new_test_user, tagged
+from odoo.tools import SQL
 
 from ..models import calc
 
@@ -212,15 +213,21 @@ class TestWorksetFinance(TransactionCase):
         act = unpaid.action_open()
         self.assertEqual(act['res_model'], 'account.move')
         self.assertEqual(self.env['account.move'].search(act['domain']), self.inv_cust)
-        cash = items.filtered(lambda i: i.kind == 'cash' and i.res_model == 'account.analytic.line')
+        # вид cash — усе, що віднімається в 4': розпізнані рядки партнерів (по рядку на лінію) і конверт AN (теж рядки аналітики, примітка 'AN')
+        cash = items.filtered(lambda i: i.kind == 'cash')
         other = items.filtered(lambda i: i.kind == 'cash_other')
-        self.assertEqual(len(cash), 1, 'в «за грошима» — только розпізнаний рядок')
+        net = cash.filtered(lambda i: i.note != 'AN')
+        an = cash.filtered(lambda i: i.note == 'AN')
+        self.assertEqual((len(net), len(an)), (1, 1), 'в «за грошима» — один розпізнаний рядок партнера й конверт AN; нерозпізнані й транзит — окремий вид')
         unknown = other.filtered(lambda i: calc.t('unknown', 0) in i.note)
         self.assertIn(calc.t('not_in_4', 0), unknown.note, 'нерозпізнані й транзит — окремий вид, з позначкою «в 4\' не входить»')
         self.assertEqual((unknown.amount, unknown.count), (36, 1), 'рядок без збігу фрази — «не розпізнано», сума × 9, у переказ не входить')
-        net = cash.filtered(lambda i: i.line_id)
-        self.assertEqual((net.amount, net.line_id), (90, self.line), 'розпізнаний за фразою (без регістру): 10 × 9, лінія з карти; брутто (×10) — у примітці')
+        self.assertEqual((net.amount, net.line_id, net.res_model), (90, self.line, 'account.analytic.line'),
+                         'розпізнаний за фразою (без регістру): 10 × 9, лінія з карти; брутто (×10) — у примітці')
         self.assertIn('100,00', net.note)
+        self.assertEqual((an.amount, an.line_id.id, an.res_model), (8, False, 'account.analytic.line'), 'конверт AN: −(−8) як є, без лінії; +3 не рахується')
+        self.assertAlmostEqual(sum(cash.mapped('amount')), self._month().cash_out, msg='сума виду cash = перекази партнерам нетто (cash_out)')
+        self.assertAlmostEqual(self._month().cash_out, 98)
         transit = other.filtered(lambda i: calc.t('transit', 0) in i.note)
         self.assertEqual((transit.amount, transit.count), (54, 1))
         self.assertEqual(self.env['account.analytic.line'].search(unknown.action_open()['domain']).mapped('name'), ['Payout to nobody known'])
@@ -272,6 +279,21 @@ class TestWorksetFinance(TransactionCase):
         Param.set_param(P + 'stage2_partner_lines', json.dumps([['contact person', self.line.id], ['phrase a', self.line.id]]))
         self._run()
         self.assertAlmostEqual(self._month().cash_out, 125, msg='ім\'я самого контакту — розпізнано: 3 × 9 = 27 + 90 + AN 8')
+
+    def test_number_phrase_skipped_with_note(self):
+        """Фраза-число (сума, рік, номер до 7 цифр) розпізнала б чужі рядки: розбір її пропускає (як JS-драбина), звірка називає параметр і
+        скільки пропущено; хвіст рахунку від 8 цифр — фраза (круг 1д)."""
+        P = calc.P_PREFIX
+        self._aal(self.co, self.a_stage2, 2, self.cash, name='Payout 2030 to nobody')
+        self._aal(self.co, self.a_stage2, 1, self.cash, name='Payout to acc 12345678')
+        Param = self.env['ir.config_parameter'].sudo()
+        Param.set_param(P + 'stage2_partner_lines', json.dumps([['2030', self.line.id], [' 12,5 ', self.line.id], ['12345678', self.line.id],
+                                                                 ['phrase a', self.line.id]]))
+        res = self._run()
+        self.assertAlmostEqual(self._month().cash_out, 107, msg='«2030» пропущено (інакше + 2 × 9 = 125); «12345678» — фраза: 1 × 9 + 90 + AN 8')
+        text = res['verify'][0]['text']
+        self.assertIn(calc.t('phrase_number', 0) % (P + 'stage2_partner_lines', 2, calc.PHRASE_NUM_MAX_DIGITS), text)
+        self.assertTrue(res['verify'][0]['ok'], 'примітка на «зійшлося» не впливає')
 
     def test_out_of_perimeter_firm_rows_not_in_steps(self):
         """Під sudo видно рядки всіх фірм: рядки аналітики фірми поза периметром (AN, «II етап», власники) у ступені не входять (круг 1г:
@@ -395,14 +417,42 @@ class TestWorksetFinance(TransactionCase):
         self.assertTrue(later['stale'], 'в книгах з’явилось після перерахунку')
         self.assertAlmostEqual(later['steps']['s1_docs'], 123)
 
-    def test_verify_control_catches_lost_analytic_line(self):
-        self._run()
+    def _entry_25(self):
+        """Проведена витрата 25 на Node A (100 %) 22.03.2030 → її рядок P&L."""
         move = self._entry(self.co, '2030-03-22', [{'account_id': self.expense.id, 'debit': 25, 'analytic_distribution': {str(self.a_node_a.id): 100}},
                                                    {'account_id': self.cash.id, 'credit': 25}])
-        move.line_ids.analytic_line_ids.unlink()
+        line = move.line_ids.filtered(lambda x: x.account_id == self.expense)
+        self.assertTrue(line.analytic_line_ids, 'передумова: проведення створило рядок аналітики')
+        return line
+
+    def test_verify_control_catches_lost_analytic_line(self):
+        """Рядок аналітики зник ПОВЗ ORM (SQL, міграція 16 → 19, код із контекстом skip_analytic_sync), розподіл у проводці лишився: другий
+        спосіб бачить 25, перший — ні. Через ORM так не буває: account.analytic.line.unlink() в Odoo 19 зове
+        move_line_id._update_analytic_distribution() і переписує розподіл із рядків, що лишилися (addons/account/models/account_analytic_line.py)
+        — це перевіряє test_verify_orm_unlink_moves_amount_to_unplaced."""
+        self._run()
+        line = self._entry_25()
+        self.env.flush_all()
+        self.env.cr.execute(SQL('DELETE FROM account_analytic_line WHERE id = ANY(%s)', line.analytic_line_ids.ids))
+        self.env.invalidate_all()
+        self.assertFalse(line.analytic_line_ids, 'рядка аналітики немає')
+        self.assertIn(str(self.a_node_a.id), line.analytic_distribution or {}, 'а розподіл у проводці лишився')
         got = self.Month.finance_verify([M])['months'][0]
         self.assertFalse(got['ok'], 'проводка з розподілом без рядка аналітики: другий спосіб бачить 25, перший — ні')
-        self.assertIn('Ступінь 1', got['text'])
+        self.assertIn(calc.t('v_control', 0) % ('130,00', '105,00', '25,00'), got['text'])
+        self.assertAlmostEqual(got['steps']['s1_docs'], 130)
+
+    def test_verify_orm_unlink_moves_amount_to_unplaced(self):
+        """Odoo 19 тримає розподіл проводки в лад із рядками аналітики: видалення рядка через ORM стирає й розподіл (_update_analytic_distribution),
+        тож обидва способи ступеня 1 сходяться, а 25 не зникає мовчки — рядок без розподілу йде в «без місця» якості даних."""
+        self._run()
+        line = self._entry_25()
+        line.analytic_line_ids.unlink()
+        self.assertFalse(line.analytic_distribution, 'передумова (Odoo 19): розподіл стерто разом із рядком аналітики')
+        got = self.Month.finance_verify([M])['months'][0]
+        self.assertTrue(got['ok'], got['text'])
+        self.assertAlmostEqual(got['steps']['s1_docs'], 130, msg='витрата без розподілу у ступінь 1 не входить — ні першим, ні другим способом')
+        self.assertAlmostEqual(got['steps']['q_unplaced'], 58, msg='83 + (−25): рядок без розподілу — «без місця»')
 
     # ——— права ———
     def test_rights(self):
