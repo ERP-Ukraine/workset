@@ -8,17 +8,18 @@
         <div class="o_action o_workset_rates_ov">
             <Layout display="{ controlPanel: {} }" className="'o_workset_rates_ov_main overflow-auto'">
                 <div class="container-fluid py-3" t-if="data">
-                    <!-- «Сьогодні вирішити» (блок Е, на показ): один рядок над усім — лише «Потрібна дія» (сервер, calc.decide_chips: гроші
-                         першими, не більше 5, нулів немає). Чип — число крупно жирним і підпис звичайним; гроші — червона рамка й число без
-                         заливки, решта — нейтральна рамка; вузько — чипи переносяться. Клік — те саме, що рядок «Тривог» (openChip).
-                         Нічого вирішувати — один сірий рядок -->
+                    <!-- «Сьогодні вирішити» (блок Е, на показ): один рядок над усім — лише живі числа (слово власника 07.11; сервер,
+                         calc.decide_chips: «договір ≠ база», «нижче мінімуму» — з плиток, «без ставки» — жива тривога; гроші першими, не
+                         більше 5, нулів немає). Чип — число крупно жирним і підпис звичайним; гроші — червона рамка й число без заливки,
+                         решта — нейтральна рамка; вузько — чипи переносяться. Клік — той самий список, що в числа (openChip), підказка — із
+                         сервера (chip.tip). Нічого вирішувати — один сірий рядок -->
                     <div class="o_workset_rates_ov_decide d-flex flex-wrap align-items-center gap-2 mb-3">
                         <t t-if="data.decide.length">
                             <span class="fw-semibold me-1">Сьогодні вирішити</span>
                             <t t-foreach="data.decide" t-as="chip" t-key="chip.key">
                                 <button type="button" class="btn o_workset_rates_ov_decide_chip d-inline-flex align-items-baseline gap-1"
                                         t-att-class="(chip.money ? 'o_workset_rates_ov_decide_money' : '') + (chip.open.link === false ? ' pe-none' : '')"
-                                        t-att-title="chip.open.check ? data.labels.tip_check : undefined" t-on-click="() => this.openChip(chip)">
+                                        t-att-title="chip.tip or undefined" t-on-click="() => this.openChip(chip)">
                                     <span class="o_workset_rates_ov_decide_n" t-esc="int(chip.n)"/>
                                     <span t-esc="chip.label"/>
                                 </button>
@@ -106,16 +107,9 @@
                     </div>
 
                     <!-- «пігулки» (круг вигляду 06.11: лише важливе): лише з числом > 0 — нульових не видно, «Ставок» (усі діючі) прибрано; підпис,
-                         лічильник у сірій капсулі справа, кольорова крапка тривоги; «Договір ≠ база» — з підказкою, чим його число відрізняється
-                         від пунктів звірки в «Тривогах» -->
+                         лічильник у сірій капсулі справа, кольорова крапка тривоги. «Договір ≠ база» прибрано (слово власника 07.11: число —
+                         у стрічці «Сьогодні вирішити», там і підказка, чим воно відрізняється від пунктів звірки в «Тривогах») -->
                     <div t-if="hasPills" class="o_workset_rates_ov_pills mb-4">
-                        <t t-call="workset_rates.OverviewPill">
-                            <t t-set="key" t-value="'contract_diff'"/>
-                            <t t-set="value" t-value="tiles.contract_diff"/>
-                            <t t-set="dot" t-value="'bg-danger'"/>
-                            <t t-set="label">Договір ≠ база</t>
-                            <t t-set="tip" t-value="data.labels.tip_contract"/>
-                        </t>
                         <t t-call="workset_rates.OverviewPill">
                             <t t-set="key" t-value="'below_min'"/>
                             <t t-set="value" t-value="tiles.below_min"/>

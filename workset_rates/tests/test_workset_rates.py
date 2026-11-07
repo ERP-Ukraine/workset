@@ -1694,7 +1694,10 @@ class TestWorksetRates(TransactionCase):
         self.assertEqual([x['key'] for x in res['alerts']], ['raise_soon', 'future', 'no_line', 'to_check', 'no_rate', 'talk'])
         self.assertEqual([x for x in res['alerts'] if x['key'] == 'future'][0]['ids'], fut.ids, 'майбутня ставка лінії — у тривозі «на 7 днів»')
         self.assertNotIn('future', [c['key'] for c in res['decide']], '«Сьогодні вирішити» — лише гроші й люди без ставки')
+        self.assertIn(('below_min', 1, True), [(c['key'], c['n'], c['money']) for c in res['decide']], 'стрічка — живе число плитки «нижче мінімуму»')
         self._assert_decide_matches(res)
+        # «пігулки» «Договір ≠ база» на «Огляді» немає (слово власника 07.11): її підказка — у чипі стрічки, не в підписах сторінки
+        self.assertNotIn('tip_contract', res['labels'])
         self.assertEqual(sum(x['count'] for x in res['buckets']), 2)
         self.assertEqual(res['found'], {'us': 1, 'line': 1, 'none': 0})
         # домен звужує: інша лінія — нулі; «Без лінії» — ставка замовника поза лініями
@@ -1715,10 +1718,16 @@ class TestWorksetRates(TransactionCase):
         self.assertEqual(self.R.rates_overview(dom, 12, only_working=False)['tiles']['share_tone'], 'low', 'середня нижче мінімуму — червона')
         # «Договір ≠ база» — той самий підрахунок calc.summary, що полоса: увімкнено — серед тих, хто працює, вимкнено — по всіх діючих
         (us | ln).sudo().with_context(workset_rates_internal=True).write({'contract_ok': False})
-        on = self.R.rates_overview(dom, 12)['tiles']
-        off = self.R.rates_overview(dom, 12, only_working=False)['tiles']
+        on_res = self.R.rates_overview(dom, 12)
+        off_res = self.R.rates_overview(dom, 12, only_working=False)
+        on, off = on_res['tiles'], off_res['tiles']
         self.assertEqual((on['contract_diff'], off['contract_diff']), (1, 2))
         self.assertEqual(on['contract_diff'], self.R.rates_summary(dom + [('state', '=', 'current'), ('work_group', '=', 'g1_work')])['contract_diff'])
+        # стрічка «Сьогодні вирішити» — те саме живе число в обох положеннях «Тільки працюють», першим чипом (гроші)
+        self.assertEqual([(c['key'], c['n']) for c in on_res['decide']][:1], [('contract_diff', 1)])
+        self.assertEqual([(c['key'], c['n']) for c in off_res['decide']][:1], [('contract_diff', 2)])
+        self._assert_decide_matches(on_res)
+        self._assert_decide_matches(off_res)
 
     def _open_count(self, spec):
         """Скільки рядків покаже список з опису «Огляду» (calc.ov_list) так, як його відкриє клієнт: прихований домен дії + фільтри пошуку
@@ -1786,6 +1795,11 @@ class TestWorksetRates(TransactionCase):
                 for card in res['lines']:
                     self.assertEqual(self._open_count(card['open']), card['count'], '%s — картка %s' % (msg, card['name']))
                     self.assertEqual(card['count'], card['working'] if only else card['total'], msg + ' — число картки')
+                # чип «Сьогодні вирішити» з плитки — той самий список, що в числа плитки (openList)
+                for chip in res['decide']:
+                    if 'action' in chip['open']:
+                        self.assertEqual(self._open_count(chip['open']), chip['n'], '%s — чип %s' % (msg, chip['key']))
+                self._assert_decide_matches(res)
         # дані справді розрізняють обидва положення: «Ставок» — усі діючі; картка лінії — 3 працюють із 4 діючих; тривоги не порожні
         on = self.R.rates_overview([], 12)
         off = self.R.rates_overview([], 12, only_working=False)
@@ -1794,6 +1808,7 @@ class TestWorksetRates(TransactionCase):
         self.assertEqual((card_on['count'], card_off['count']), (3, 4))
         self.assertEqual((on['tiles']['all'], on['tiles']['working'], off['tiles']['all']), (5, 4, 5))
         self.assertEqual((on['tiles']['to_check'], off['tiles']['to_check'], on['tiles']['raises'], on['tiles']['contract_diff']), (1, 2, 1, 1))
+        self.assertIn(('contract_diff', 1), [(c['key'], c['n']) for c in on['decide']], 'чип «договір ≠ база» — живе число плитки')
         self.assertEqual((on['found']['none'], on['tiles']['no_line']), (1, 1))
         # картка лінії: ім'я й сума посередника з тих самих даних, що вже віднімаються від частки
         self.assertEqual(card_on['agent'], 'yes')
@@ -1878,38 +1893,46 @@ class TestWorksetRates(TransactionCase):
         self.assertEqual(res['decide'], [], '«Сьогодні вирішити»: нічого — порожньо (на сторінці — один сірий рядок)')
 
     def test_b_decide_chips(self):
-        # «Сьогодні вирішити» (блок Е): чиста функція — гроші першими, лише «Потрібна дія», нулі випадають, не більше 5; клік — як рядок «Тривог»
+        # «Сьогодні вирішити» (блок Е; слово власника 07.11 «лента: только живые числа»): чиста функція — лише плитки «Огляду» й жива тривога,
+        # гроші першими, нулі випадають, не більше limit; розділи звірки сюди не йдуть; клік — той самий список, що в числа
+        self.assertEqual({src for _k, src, *_rest in calc.DECIDE}, {'tile', 'live'}, 'джерел із запису звірки в стрічці немає')
+        tiles = {'working': 40, 'contract_diff': 2, 'below_min': 3, 'to_check': 5, 'no_line': 1, 'raises': 4}
+        opens = calc.ov_tiles_open([['customer_id', '=', 7]], True, 'uk')
+        # тривоги з ключами розділів звірки (contract, low, nomap) — не живі числа «Огляду»: чипів із них немає
         live = [{'key': 'future', 'model': 'workset.rate', 'count': 2, 'ids': [1, 2]},
-                {'key': 'no_rate', 'model': 'account.analytic.line', 'count': 4, 'ids': [7, 8, 9, 10], 'link': False}]
-        groups = [{'key': 'action', 'items': [{'key': 'nomap', 'count': 6}, {'key': 'low', 'count': 3}, {'key': 'rule', 'count': 0},
-                                              {'key': 'contract', 'count': 88}, {'key': 'mismatch', 'count': 5}]},
-                  {'key': 'data', 'items': [{'key': 'norule', 'count': 226}, {'key': 'check', 'count': 52}]}]
-        chips = calc.decide_chips(live, groups, 'uk', 41)
+                {'key': 'no_rate', 'model': 'account.analytic.line', 'count': 4, 'ids': [7, 8, 9, 10], 'link': False},
+                {'key': 'contract', 'count': 88}, {'key': 'low', 'count': 3}, {'key': 'nomap', 'count': 6}]
+        chips = calc.decide_chips(tiles, opens, live, 'uk')
         self.assertEqual([(c['key'], c['n'], c['money']) for c in chips],
-                         [('contract', 88, True), ('low', 3, True), ('mismatch', 5, True), ('no_rate', 4, False), ('nomap', 6, False)],
-                         'гроші першими; «частка не за правилом» з нулем — ні; «Неповні дані» й «майбутні» — ні')
-        self.assertEqual(chips[0]['label'], 'договір ≠ база')
-        self.assertEqual(chips[0]['open'], {'check': 41}, 'розділ звірки — запис звірки, як рядок «Тривог»')
-        self.assertEqual(chips[3]['open'], {'model': 'account.analytic.line', 'ids': [7, 8, 9, 10], 'link': False}, 'жива тривога — її список')
-        self.assertEqual(calc.decide_chips(live, groups, 'ru', 41)[3]['label'], 'без ставки')
-        self.assertEqual(calc.decide_chips(live, groups, 'ru', 41)[2]['label'], 'стоимость часа ≠ ставка', 'підпис мовою користувача')
-        groups[0]['items'].append({'key': 'rule', 'count': 1})
-        groups[0]['items'] = [x for x in groups[0]['items'] if x['count']]
-        self.assertEqual(len(calc.decide_chips(live, groups, 'uk', 41)), 5, 'не більше 5: «проєкти без ставки» вже не влазить')
-        self.assertEqual([c['key'] for c in calc.decide_chips(live, groups, 'uk', 41)][3], 'rule')
-        self.assertEqual(calc.decide_chips([dict(x, count=0) for x in live], [], 'uk', False), [], 'усі нулі — порожньо')
-        self.assertEqual(calc.decide_chips([], False, 'uk', False), [], 'звірки немає — лише живі тривоги')
+                         [('contract_diff', 2, True), ('below_min', 3, True), ('no_rate', 4, False)],
+                         'гроші першими, далі люди без ставки; «перевірити», «без лінії», «тимчасові», «майбутні» й розділи звірки — ні')
+        self.assertEqual([c['label'] for c in chips], ['договір ≠ база', 'нижче мінімуму', 'без ставки'])
+        self.assertEqual([c['label'] for c in calc.decide_chips(tiles, opens, live, 'ru')], ['договор ≠ база', 'ниже минимума', 'без ставки'],
+                         'підпис мовою користувача')
+        self.assertEqual((chips[0]['open'], chips[1]['open']), (opens['contract_diff'], opens['below_min']), 'плитка — її список (openList)')
+        self.assertEqual(chips[2]['open'], {'model': 'account.analytic.line', 'ids': [7, 8, 9, 10], 'link': False}, 'жива тривога — її список')
+        self.assertEqual((chips[0]['tip'], chips[1]['tip']), (calc.t('ov_tip_contract', 'uk'), ''), 'підказка «договір ≠ база» — у чипі')
+        self.assertEqual([c['key'] for c in calc.decide_chips(dict(tiles, contract_diff=0), opens, live, 'uk')], ['below_min', 'no_rate'],
+                         'нуль — без чипа')
+        self.assertEqual([c['key'] for c in calc.decide_chips(tiles, opens, live, 'uk', limit=2)], ['contract_diff', 'below_min'], 'не більше limit')
+        self.assertLessEqual(len(chips), calc.DECIDE_MAX)
+        zero = dict(tiles, contract_diff=0, below_min=0)
+        self.assertEqual(calc.decide_chips(zero, opens, [dict(x, count=0) for x in live], 'uk'), [], 'усі нулі — порожньо')
+        self.assertEqual(calc.decide_chips({}, {}, [], 'uk'), [], 'ставок немає — порожньо')
 
     def _assert_decide_matches(self, res):
-        # чипи «Огляду» = «Потрібна дія» тих самих даних: число й перехід — як у живої тривоги або розділу звірки групи action
+        # чипи «Огляду» = живі числа тих самих даних (слово власника 07.11): плитка — число й список open.tiles того самого ключа, жива
+        # тривога — її число й список; кожне ненульове живе число DECIDE — у стрічці, по порядку; розділів звірки немає
         live = {a['key']: a for a in res['alerts']}
-        action = {x['key']: x['count'] for g in ((res['check'] or {}).get('groups') or []) if g['key'] == 'action' for x in g['items']}
         for chip in res['decide']:
-            if 'check' in chip['open']:
-                self.assertEqual((chip['n'], chip['open']['check']), (action.get(chip['key']), res['check']['id']), chip['key'])
-            else:
+            if chip['key'] in live:
                 a = live[chip['key']]
                 self.assertEqual((chip['n'], chip['open']['ids'], chip['open']['model']), (a['count'], a['ids'], a['model']), chip['key'])
+            else:
+                self.assertEqual((chip['n'], chip['open']), (res['tiles'][chip['key']], res['open']['tiles'][chip['key']]), chip['key'])
+            self.assertNotIn('check', chip['open'], 'запис звірки чип не відкриває')
+        want = [k for k, src, *_rest in calc.DECIDE if ((live.get(k) or {}).get('count') if src == 'live' else res['tiles'].get(k))]
+        self.assertEqual([c['key'] for c in res['decide']], want[:calc.DECIDE_MAX], 'кожне ненульове живе число — чип')
         money = [c['money'] for c in res['decide']]
         self.assertEqual(money, sorted(money, reverse=True), 'гроші першими')
         self.assertLessEqual(len(res['decide']), calc.DECIDE_MAX)

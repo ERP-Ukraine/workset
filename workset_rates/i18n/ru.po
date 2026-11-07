@@ -3049,13 +3049,6 @@ msgstr "Только работают"
 #. module: workset_rates
 #. odoo-javascript
 #: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
-#: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
-msgid "Договір ≠ база"
-msgstr "Договор ≠ база"
-
-#. module: workset_rates
-#. odoo-javascript
-#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 msgid "Лінію не вказано"
 msgstr "Линия не указана"
 
@@ -3155,3 +3148,9 @@ msgstr "по всем действующим"
 #: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
 msgid "Сер. частка WorkSET"
 msgstr "Сред. доля WorkSET"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_summary.xml:0
+msgid "Договір ≠ база"
+msgstr "Договор ≠ база"

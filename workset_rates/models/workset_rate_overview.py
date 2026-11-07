@@ -21,8 +21,8 @@ GANTT_CTX = 'workset_rates_gantt'                    # контекст дії �
 GANTT_ROW_FIELDS = frozenset(['line_id', 'person_id', 'customer_id'])  # рядок «Стрічки»: смугу в інший рядок не переносять
 GANTT_MOVE_FIELDS = GANTT_ROW_FIELDS | {'date_from'}                   # у контексті «Стрічки» — це перенос смуги
 LABELS = ('count', 'wage', 'price', 'share', 'net', 'people', 'found_us', 'found_line', 'found_none', 'found_empty', 'agent_from',
-          'fund', 'tip_check', 'tip_contract', 'tip_people', 'tip_price', 'tip_net', 'tip_below', 'tip_line', 'line_list', 'anchor_markup',
-          'anchor_tariff', 'agent_wait', 'share_short', 'g_action', 'g_contract', 'g_data')  # calc.TX: ov_<ключ>
+          'fund', 'tip_check', 'tip_people', 'tip_price', 'tip_net', 'tip_below', 'tip_line', 'line_list', 'anchor_markup',
+          'anchor_tariff', 'agent_wait', 'share_short', 'g_action', 'g_contract', 'g_data')  # calc.TX: ov_<ключ>; підказка «Договір ≠ база» — у чипі (decide)
 BUCKET_STEP = 2    # «Розподіл частки»: крок стовпця, €/год (круг вигляду 06.11: з кроком 1 половина стовпців порожні)
 ALERT_ROWS = 5     # рядків у тривозі «Огляду»; решта — списком за кліком на заголовок
 ALERT_IDS = 1000    # id для списку тривоги не більше
@@ -154,7 +154,7 @@ class WorksetRateOverview(models.Model):
     def rates_overview(self, domain=None, months=calc.OVERVIEW_DEFAULT, only_working=True):
         """domain — фільтр сторінки (лінії, замовник) на workset.rate; months — 6 / 12 / 24 (інше — 12); only_working — «тільки працюють».
         → {'today', 'months', 'tiles', 'lines', 'series', 'buckets', 'found', 'open', 'alerts', 'check', 'decide', 'options', 'labels'}; без
-        ставок — нулі й порожні списки ('decide' — чипи стрічки «Сьогодні вирішити», calc.decide_chips). Кожне число, по якому клікають, має поруч опис свого списку (calc.ov_list): плитки й сектори — 'open', картки ліній і
+        ставок — нулі й порожні списки ('decide' — чипи стрічки «Сьогодні вирішити» з живих чисел: плиток і тривог, calc.decide_chips). Кожне число, по якому клікають, має поруч опис свого списку (calc.ov_list): плитки й сектори — 'open', картки ліній і
         стовпці розподілу — 'open' у своєму записі; число картки лінії — 'count' (працюють або, коли «тільки працюють» вимкнено, усі діючі)."""
         self.check_access('read')
         lang = self._lang()
@@ -201,14 +201,16 @@ class WorksetRateOverview(models.Model):
         # розділ звірки «Проєкти без ставки» — та сама біда, що жива тривога «Працюють без ставки»: коли вона є, розділ не дублюється
         live = {a['key'] for a in alerts if a['count']}
         check = self._overview_check(lang, skip=('nomap',) if 'no_rate' in live else ())
+        tiles_open = calc.ov_tiles_open(base, only_working, lang)
         return {
             'today': today, 'months': months, 'tiles': tiles, 'lines': lines, 'series': series, 'buckets': buckets,
             'found': calc.found_split([r['found_by'] for r in rows]),
-            'open': {'tiles': calc.ov_tiles_open(base, only_working, lang), 'found': found_open},
+            'open': {'tiles': tiles_open, 'found': found_open},
             'alerts': alerts,
             'check': check,
-            # «Сьогодні вирішити»: чипи з тих самих тривог і груп звірки, що «Потрібна дія» нижче; клік — як рядок «Тривог»
-            'decide': calc.decide_chips(alerts, check and check['groups'], lang, check and check['id']),
+            # «Сьогодні вирішити» (слово власника 07.11 «только живые числа»): чипи з плиток і живих тривог — число й список ті самі, що в
+            # плитки чи тривоги; розділи звірки — лише в «Тривогах»
+            'decide': calc.decide_chips(tiles, tiles_open, alerts, lang),
             'options': self._overview_options(),
             'labels': {k: calc.t('ov_' + k, lang) for k in LABELS},
         }
