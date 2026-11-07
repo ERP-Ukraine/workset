@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Виїзди — окремі види стандартної заявки підбору hr.applicant (рядки з workset_state); стандартні види заявок не змінюються -->
+    <record id="view_dispatch_list" model="ir.ui.view">
+        <field name="name">hr.applicant.list.workset.dispatch</field>
+        <field name="model">hr.applicant</field>
+        <field name="priority">2000</field>
+        <field name="arch" type="xml">
+            <list string="Виїзди" create="0" sample="1" default_order="workset_departure_date desc, id desc"
+                  decoration-muted="workset_state == 'cancel'">
+                <field name="partner_name" string="Ім'я"/>
+                <field name="workset_departure_date" options="{'numeric': True}"/>
+                <field name="workset_customer_id" optional="show"/>
+                <field name="workset_customer_name" optional="hide"/>
+                <field name="job_id" optional="show"/>
+                <field name="workset_profession" optional="show"/>
+                <field name="workset_country_id" optional="show"/>
+                <field name="workset_firm_id" optional="show"/>
+                <field name="workset_state" widget="badge" decoration-warning="workset_state == 'wait_firm'" decoration-danger="workset_state == 'check_dup'"
+                       decoration-success="workset_state == 'done'" decoration-muted="workset_state == 'cancel'"/>
+                <field name="employee_id" string="Картка" optional="show"/>
+                <field name="workset_pd_url" widget="url" text="Pipedrive" optional="show"/>
+                <field name="workset_name_check" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dispatch_kanban" model="ir.ui.view">
+        <field name="name">hr.applicant.kanban.workset.dispatch</field>
+        <field name="model">hr.applicant</field>
+        <field name="priority">2000</field>
+        <field name="arch" type="xml">
+            <kanban string="Виїзди" create="0" default_group_by="workset_state" group_create="0" group_delete="0" group_edit="0" records_draggable="0" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <field name="partner_name" class="fw-bold fs-5"/>
+                        <div class="text-muted"><field name="workset_departure_date" options="{'numeric': True}"/></div>
+                        <field name="workset_customer_id"/>
+                        <field name="job_id"/>
+                        <field name="workset_firm_id" widget="badge"/>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- Картка Виїзду: шапка (кнопки + плашки фірм), статус, ім'я, ключове в блоках, чат. Плашки фірм — клікабельний рядок стану за фірмою з прапорцем
+         «Фірма для ZUS»: один клік зберігає вибір, а запис створює картку -->
+    <record id="view_dispatch_form" model="ir.ui.view">
+        <field name="name">hr.applicant.form.workset.dispatch</field>
+        <field name="model">hr.applicant</field>
+        <field name="priority">2000</field>
+        <field name="arch" type="xml">
+            <form string="Виїзд" create="0">
+                <header>
+                    <button name="workset_dispatch_same_person" type="object" string="Це та сама людина" class="btn-primary"
+                            invisible="workset_state != 'check_dup'" groups="hr_recruitment.group_hr_recruitment_user"/>
+                    <button name="workset_dispatch_new_person" type="object" string="Нова людина" class="btn-secondary"
+                            invisible="workset_state != 'check_dup'" groups="hr_recruitment.group_hr_recruitment_user"/>
+                    <button name="workset_dispatch_make" type="object" string="Створити картку" class="btn-primary"
+                            invisible="workset_state != 'wait_firm' or not workset_firm_id" groups="hr_recruitment.group_hr_recruitment_user"/>
+                    <field name="workset_firm_id" widget="statusbar" options="{'clickable': '1'}"
+                           invisible="workset_state not in ('wait_firm', 'check_dup')"/>
+                    <button name="workset_dispatch_not_ours" type="object" string="Не наш / не поїхав" class="btn-secondary"
+                            invisible="workset_state not in ('wait_firm', 'check_dup')" groups="hr_recruitment.group_hr_recruitment_user"
+                            confirm="Позначити «Не наш / не поїхав»? Картку не буде створено, Виїзд піде в архів."/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="В архіві" bg_color="text-bg-danger" invisible="active"/>
+                    <field name="active" invisible="1"/>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_employee" type="object" class="oe_stat_button" icon="fa-id-card-o" invisible="not employee_id">
+                            <div class="o_stat_info"><span class="o_stat_text">Картка</span></div>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="partner_name" placeholder="Ім'я"/></h1>
+                        <div class="d-flex align-items-baseline gap-2 flex-wrap">
+                            <field name="workset_state" widget="badge" decoration-warning="workset_state == 'wait_firm'" decoration-danger="workset_state == 'check_dup'"
+                                   decoration-success="workset_state == 'done'" decoration-muted="workset_state == 'cancel'"/>
+                            <field name="workset_pd_url" widget="url" text="Угода в Pipedrive" invisible="not workset_pd_url"/>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-baseline gap-2 flex-wrap fw-semibold text-warning my-2" role="alert" invisible="not workset_name_check">
+                        <div><i class="fa fa-exclamation-circle me-1" role="img" title="Звірити"/></div>
+                        <div>Ім'я записано з кирилиці — звірте з паспортом</div>
+                        <field name="workset_name_check" invisible="1"/>
+                    </div>
+                    <group invisible="workset_state != 'check_dup'" string="Схожі картки — вирішує Оля">
+                        <!-- Текстом (через sudo): картки інших фірм у many2many відсіюються за вибраними фірмами, а людині треба бачити всі -->
+                        <field name="workset_dup_text" string="Схожі картки" readonly="1"/>
+                        <field name="workset_pick_no" string="Номер зі списку" invisible="not workset_dup_text"/>
+                    </group>
+                    <group>
+                        <group name="trip" string="Виїзд">
+                            <field name="workset_departure_date" options="{'numeric': True}"/>
+                            <field name="workset_customer_id" options="{'no_create': True}" invisible="not workset_customer_id"/>
+                            <field name="workset_customer_name" string="Замовник (з Pipedrive)" invisible="workset_customer_id or not workset_customer_name"/>
+                            <field name="job_id" options="{'no_create': True}"/>
+                            <field name="workset_profession"/>
+                        </group>
+                        <group name="person" string="Людина">
+                            <field name="partner_phone" widget="phone"/>
+                            <field name="workset_birthday" options="{'numeric': True}"/>
+                            <field name="workset_country_id" options="{'no_create': True}"/>
+                            <field name="employee_id" string="Картка" readonly="1" invisible="not employee_id"/>
+                            <field name="workset_same_text" string="Ця ж людина вже є" readonly="1" invisible="not workset_same_text"/>
+                        </group>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_dispatch_search" model="ir.ui.view">
+        <field name="name">hr.applicant.search.workset.dispatch</field>
+        <field name="model">hr.applicant</field>
+        <field name="priority">2000</field>
+        <field name="arch" type="xml">
+            <search string="Виїзди">
+                <field name="partner_name" string="Ім'я"/>
+                <field name="workset_customer_id"/>
+                <field name="job_id"/>
+                <field name="workset_profession"/>
+                <field name="workset_pd_deal_id"/>
+                <filter name="not_cancel" string="Не скасовані" domain="[('workset_state', '!=', 'cancel')]"/>
+                <separator/>
+                <filter name="wait_firm" string="Чекають фірму" domain="[('workset_state', '=', 'wait_firm')]"/>
+                <filter name="check_dup" string="Перевірити дубль" domain="[('workset_state', '=', 'check_dup')]"/>
+                <filter name="done" string="Оформлено" domain="[('workset_state', '=', 'done')]"/>
+                <filter name="cancel" string="Не поїхав" domain="[('workset_state', '=', 'cancel')]"/>
+                <group string="Групувати">
+                    <filter name="group_firm" string="Фірма" context="{'group_by': 'workset_firm_id'}"/>
+                    <filter name="group_customer" string="Замовник" context="{'group_by': 'workset_customer_id'}"/>
+                    <filter name="group_month" string="Місяць виїзду" context="{'group_by': 'workset_departure_date:month'}"/>
+                    <filter name="group_state" string="Статус" context="{'group_by': 'workset_state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_workset_dispatch" model="ir.actions.act_window">
+        <field name="name">Виїзди</field>
+        <field name="res_model">hr.applicant</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="search_view_id" ref="view_dispatch_search"/>
+        <field name="domain">[('workset_state', '!=', False)]</field>
+        <!-- active_test: False — архів вакансії архівує її заявки (hr_recruitment), відкриті Виїзди не повинні зникати; за замовчуванням не скасовані -->
+        <field name="context">{'active_test': False, 'search_default_not_cancel': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Виїздів поки немає</p>
+            <p>Виїзд заводиться сам у день «Дати відправки» в Pipedrive.</p>
+        </field>
+    </record>
+    <record id="action_workset_dispatch_list" model="ir.actions.act_window.view">
+        <field name="sequence">1</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_dispatch_list"/>
+        <field name="act_window_id" ref="action_workset_dispatch"/>
+    </record>
+    <record id="action_workset_dispatch_kanban" model="ir.actions.act_window.view">
+        <field name="sequence">2</field>
+        <field name="view_mode">kanban</field>
+        <field name="view_id" ref="view_dispatch_kanban"/>
+        <field name="act_window_id" ref="action_workset_dispatch"/>
+    </record>
+    <record id="action_workset_dispatch_form" model="ir.actions.act_window.view">
+        <field name="sequence">3</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_dispatch_form"/>
+        <field name="act_window_id" ref="action_workset_dispatch"/>
+    </record>
+</odoo>
