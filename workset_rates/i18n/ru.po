@@ -3001,6 +3001,18 @@ msgstr "Настройки"
 #. module: workset_rates
 #. odoo-javascript
 #: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Сьогодні вирішити"
+msgstr "Сегодня решить"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
+msgid "Сьогодні вирішувати нічого"
+msgstr "Сегодня решать нечего"
+
+#. module: workset_rates
+#. odoo-javascript
+#: code:addons/workset_rates/static/src/xml/rates_overview.xml:0
 msgid "Лінії:"
 msgstr "Линии:"
 

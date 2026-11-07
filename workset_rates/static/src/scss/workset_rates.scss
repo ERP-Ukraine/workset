@@ -75,6 +75,33 @@ $o-ws-ov-chip: rgba($body-color, 0.1);   // тло сірої капсули л�
             box-shadow: 0 0 0 1px $o-brand-primary;
         }
     }
+    // «Сьогодні вирішити» (блок Е): чип — тонка рамка, число крупно жирним, підпис звичайним; гроші — рамка й число кольору небезпеки
+    // ($danger, як decoration-danger), без заливки; решта — нейтральна рамка. Наведення — обвідка кольору бренду, рамка своя
+    .o_workset_rates_ov_decide_chip {
+        border: 1px solid $o-ws-ov-line;
+        color: $body-color;
+        padding: map-get($spacers, 1) map-get($spacers, 2);
+        cursor: pointer;
+        transition: box-shadow 0.15s ease;
+
+        &:hover,
+        &:focus-visible {
+            box-shadow: 0 0 0 1px $o-brand-primary;
+        }
+    }
+    .o_workset_rates_ov_decide_n {
+        font-size: 1.5rem;
+        font-weight: 700;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+    }
+    .o_workset_rates_ov_decide_money {
+        border-color: $danger;
+
+        .o_workset_rates_ov_decide_n {
+            color: $danger;
+        }
+    }
     // смуга: п'ять відсіків — кожне число в своїй картці з рамкою, між відсіками проміжок (слово власника 06.11: тонка лінія в одній
     // картці цифр не розділяла). Вузько — «Працюють зараз» рядком зверху, чотири середні 2 × 2; широко — п'ять колонок
     .o_workset_rates_ov_band {
