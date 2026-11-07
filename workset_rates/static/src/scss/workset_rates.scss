@@ -291,9 +291,11 @@ $o-ws-ov-chip: rgba($body-color, 0.1);   // тло сірої капсули л�
 // web_gantt 17–18, на диску вихідного коду немає); змінної немає — 0. Класи o_gantt_pill / o_gantt_pill_title і структура — перевіряються
 // на копії. Обмежено видом gantt (.o_gantt_view): атрибута class для кореня арки gantt у Odoo 19 не підтверджено (невідомий атрибут —
 // помилка перевірки арки при оновленні), тож правило діє в усіх gantt бази — лише підпис, кольорів і розмірів не змінює
+// Копія 20, 07.11: правило web_gantt для пігулки (overflow: hidden) переважало це (computed — hidden, підписи знову за краєм); з
+// overflow: clip, поставленим у сторінці вручну, підпис видно в кожної смуги — тому !important
 .o_gantt_view {
     .o_gantt_pill {
-        overflow: clip;
+        overflow: clip !important;
     }
     .o_gantt_pill_title {
         position: sticky;
