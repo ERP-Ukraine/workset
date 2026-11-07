@@ -255,11 +255,6 @@ msgstr "Ждут фирму"
 
 #. module: workset_dispatch
 #: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_search
-msgid "Групувати"
-msgstr "Группировать"
-
-#. module: workset_dispatch
-#: model_terms:ir.ui.view,arch_db:workset_dispatch.view_dispatch_search
 msgid "Фірма"
 msgstr "Фирма"
 

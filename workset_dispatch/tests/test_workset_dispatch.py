@@ -241,12 +241,12 @@ class TestWorksetDispatch(TransactionCase):
     def test_07c_fuzzy_names_invented_pair(self):
         # вигадані: латинське прізвище з кириличною «А» в кінці, -A/-O, ім'я з вставленою Z
         near = self._card(self.co_a, 'ZELENKOVSKO  TAMDIN | AA')
-        far = self._card(self.co_a, 'PETRO IVANENKO | AA')
+        far = self._card(self.co_a, 'PETRO BRANTENKO | AA')
         res, app = self._import(deal_id=9010, person_id=910, last_name='ZELENKOVSKА', first_name='TAMDZIN', phone='+380 11 000 00 02')
         self.assertEqual(res['decision'], 'weak')
         self.assertEqual(app.partner_name, 'ZELENKOVSKA TAMDZIN')
         self.assertEqual(app.sudo().workset_dup_employee_ids, near)
-        res2, app2 = self._import(deal_id=9011, person_id=911, last_name='PETRENKO', first_name='IVAN', phone='+380 11 000 00 03')
+        res2, app2 = self._import(deal_id=9011, person_id=911, last_name='TESTENKO', first_name='BRANT', phone='+380 11 000 00 03')
         self.assertEqual(res2['decision'], 'created')
         self.assertFalse(app2.sudo().workset_dup_employee_ids & far)
 
@@ -289,6 +289,23 @@ class TestWorksetDispatch(TransactionCase):
         _res, other = self._import(deal_id=9032, person_id=932, last_name='Попов', first_name='Иван', phone='+375 11 000 00 06', citizenship='Другие страны')
         self.assertTrue(other.workset_name_check)
         self.assertFalse(other.workset_country_id)
+
+    # ——— порядок слів в імені: Pipedrive набирають по-різному ———
+    def test_08b_name_order_from_full_name(self):
+        # «ІМ'Я ПРІЗВИЩЕ» з перепутаними first/last Pipedrive → «ПРІЗВИЩЕ ІМ'Я», звірка не потрібна
+        _res, a = self._import(deal_id=9090, person_id=990, full_name='ANDRII TESTENKO', last_name='ANDRII', first_name='TESTENKO', phone='+380 11 000 00 20')
+        self.assertEqual((a.partner_name, a.workset_name_check), ('TESTENKO ANDRII', False))
+        _res, b = self._import(deal_id=9091, person_id=991, full_name='TESTENKO ANDRII', last_name='TESTENKO', first_name='ANDRII', phone='+380 11 000 00 21')
+        self.assertEqual((b.partner_name, b.workset_name_check), ('TESTENKO ANDRII', False))
+        # обидва слова — імена: як набрано і звірка
+        _res, c = self._import(deal_id=9092, person_id=992, full_name='IVAN PAVLO', phone='+380 11 000 00 22')
+        self.assertEqual((c.partner_name, c.workset_name_check), ('IVAN PAVLO', True))
+        # кирилиця: перестановка + транслітерація зі звіркою
+        _res, d = self._import(deal_id=9093, person_id=993, full_name='Андрій Тестенко', phone='+380 11 000 00 23')
+        self.assertEqual((d.partner_name, d.workset_name_check), ('TESTENKO ANDRII', True))
+        # картка отримує ім'я в паспортному порядку
+        a.write({'workset_firm_id': self.co_a.id})
+        self.assertEqual(a.employee_id.name, 'TESTENKO ANDRII | AA')
 
     # ——— (9) модуль не ходить у мережу ———
     def test_09_no_network_code(self):

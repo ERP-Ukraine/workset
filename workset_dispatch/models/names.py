@@ -163,8 +163,45 @@ NAME_GROUPS = (
     ('BOHDAN', 'BOGDAN', 'BAHDAN'),
     ('MAKSYM', 'MAKSIM', 'MAXIM', 'MAKSIMA'),
     ('DENYS', 'DENIS', 'DZIANIS'),
-    ('ARTEM', 'ARTYOM', 'ARTIOM', 'ARTSEM'),
+    ('ARTEM', 'ARTYOM', 'ARTIOM', 'ARTSEM', 'ARTSIOM'),
     ('KOSTIANTYN', 'KONSTANTIN', 'KANSTANTSIN', 'KOSTYANTYN'),
+    ('ILLIA', 'ILIA', 'ILYA', 'ILIYA', 'ILLYA'),
+    ('KYRYLO', 'KIRILL', 'KIRYLA', 'KIRIL'),
+    ('VIACHESLAV', 'VYACHESLAV', 'VIACHASLAU'),
+    ('MYROSLAV', 'MIROSLAV'),
+    ('VLADYSLAV', 'VLADISLAV', 'ULADZISLAU', 'VLADISLAU'),
+    ('VADYM', 'VADIM', 'VADZIM'),
+    ('VIKTOR', 'VIKTAR'),
+    ('LEONID', 'LIANID', 'LEONIDA'),
+    ('PETRO', 'PETR', 'PIOTR', 'PYOTR', 'PIATRO'),
+    ('FEDIR', 'FEDOR', 'FIODAR', 'FYODOR'),
+    ('ROMAN', 'RAMAN'),
+    ('SVIATLANA', 'SVETLANA', 'SVIATLANA', 'SVETLANA'),
+    ('NATALIIA', 'NATALIA', 'NATALLIA', 'NATALYA', 'NATALIYA'),
+    ('OLENA', 'ELENA', 'ALENA', 'ELENA'),
+    ('TETIANA', 'TATIANA', 'TATSIANA', 'TATYANA'),
+    ('IRYNA', 'IRINA', 'IRYNA'),
+    ('OKSANA', 'AKSANA'),
+    ('YULIIA', 'YULIA', 'IULIIA', 'JULIA', 'YULIYA'),
+    ('HALYNA', 'GALINA', 'HALINA'),
+    ('MARIIA', 'MARIA', 'MARYIA', 'MARIYA'),
+    ('OLHA', 'OLGA', 'VOLHA'),
+    ('ANNA', 'HANNA', 'ANNA'),
+    ('LIUDMYLA', 'LUDMILA', 'LIUDMILA', 'LUDMYLA'),
+    ('VALENTYNA', 'VALENTINA', 'VALIANCINA'),
+    ('KATERYNA', 'EKATERINA', 'KATARYNA', 'KATERINA'),
+)
+
+# Частые імена без рівнозначних написань у таблиці вище (паспортна латиниця UA / BY / RU): потрібні, щоб відрізнити ім'я від прізвища
+GIVEN_NAMES = (
+    'IVAN', 'VITALII', 'VALERII', 'ANATOLII', 'TARAS', 'RUSLAN', 'STEPAN', 'YAROSLAV', 'BORYS', 'NAZAR', 'ROSTYSLAV', 'YAKIV', 'SEMEN',
+    'ANDRIAN', 'ARKADII', 'DANYLO', 'DANIIL', 'EDUARD', 'EMIL', 'GLEB', 'HLIB', 'GRYGORII', 'HRYHORII', 'IGNAT', 'ILARION', 'KARL', 'LEV',
+    'MARK', 'MATVII', 'MAKAR', 'MYKYTA', 'NIKITA', 'OSTAP', 'PYLYP', 'SAVA', 'SERAFIM', 'TIMUR', 'TYMUR', 'TYMOFII', 'URIJ', 'VENIAMIN', 'ZENOVII',
+    'ADAM', 'ALEKSEJ', 'ALBERT', 'ARTUR', 'ARSEN', 'BOHUSLAV', 'DAVYD', 'DAVID', 'DENIS', 'DAMIAN', 'FILIP', 'JAN', 'JURIJ', 'KAROL', 'MAREK',
+    'MARTYN', 'MICHAL', 'PAWEL', 'PIOTR', 'RADOSLAV', 'STANISLAV', 'STANISLAU', 'TOMAS', 'ULADZIMER', 'VALENTYN', 'VALIANCIN', 'VITALY', 'VITALI',
+    'ALINA', 'ALLA', 'ANASTASIIA', 'ANASTASIA', 'ANGELINA', 'ANZHELA', 'DARIA', 'DARYA', 'DIANA', 'EVA', 'IRYNA', 'INNA', 'KATIA', 'KSENIIA',
+    'LARYSA', 'LESIA', 'LIUBOV', 'MAIIA', 'MAYA', 'MILA', 'NADIIA', 'NINA', 'OLEKSANDRA', 'POLINA', 'SOFIIA', 'SOFIA', 'VALERIIA', 'VERA', 'VIKTORIIA',
+    'VIRA', 'YANA', 'ZINAIDA', 'ZOIA', 'KRYSTYNA', 'MARYNA', 'MILENA', 'NATALKA', 'TAMARA', 'RAISA', 'LIDIIA', 'SVITLANA', 'ELVIRA',
 )
 
 
@@ -189,6 +226,45 @@ def word_forms(word):
     else:
         forms = {canon(word)} - {''}
     return forms | {'n:%d' % _GROUPS[f] for f in forms if f in _GROUPS}
+
+
+_GIVEN = None
+
+
+def is_given_name(word):
+    """Слово — ім'я (а не прізвище): є в таблиці рівнозначних імен або серед частих імен (кирилиця — за будь-якою зі схем)."""
+    global _GIVEN, _GROUPS
+    if _GROUPS is None:
+        _GROUPS = _group_index()
+    if _GIVEN is None:
+        _GIVEN = {canon(x) for x in GIVEN_NAMES}
+    return any(f in _GROUPS or f in _GIVEN for f in word_forms(word) if not f.startswith('n:'))
+
+
+def order_name(full_name, first='', last='', code=''):
+    """Ім'я контакта Pipedrive → («ПРІЗВИЩЕ ІМ'Я» латиницею великими, потрібна ли звірка з паспортом).
+    Порядок слів у Pipedrive різний («ІМ'Я ПРІЗВИЩЕ» у більшості, «ПРІЗВИЩЕ ІМ'Я» у решти), first_name / last_name Pipedrive ділить сам за першим словом —
+    їм вірити не можна. Дві слова: перше — ім'я, друге — ні → міняємо місцями; друге — ім'я, перше — ні → як набрано (звірка не потрібна);
+    обидва чи жодне і слів більше двох → як набрано й звірка. Кирилиця → латиниця за схемою країни, теж зі звіркою.
+    first / last — лише коли full_name порожнє: тоді «ПРІЗВИЩЕ ІМ'Я» з них, як і раніше, порядок не вгадується."""
+    if not clean_name(full_name):
+        return latin_name(last, first, code)
+    words = clean_name(full_name).split()
+    check = False
+    if len(words) == 2:
+        g0, g1 = is_given_name(words[0]), is_given_name(words[1])
+        if g0 and not g1:
+            words = [words[1], words[0]]
+        elif not g0 and g1:
+            pass
+        else:
+            check = True
+    else:
+        check = True
+    text = ' '.join(words)
+    if has_cyrillic(text):
+        return clean_name(translit(text, scheme_for_country(code))), True
+    return text, check
 
 
 def name_words(name):

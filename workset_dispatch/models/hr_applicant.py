@@ -142,7 +142,7 @@ class HrApplicant(models.Model):
     # ——— вхід від інструмента штабу ———
     @api.model
     def workset_dispatch_import(self, items, dry_run=False):
-        """items — [{deal_id, person_id, last_name, first_name, phone, phones, birthday, citizenship, profession, vacancy_label, org_id,
+        """items — [{deal_id, person_id, full_name, last_name, first_name, phone, phones, birthday, citizenship, profession, vacancy_label, org_id,
         org_name, departure_date}] → по кожній угоді {deal_id, decision, firms, created, applicant_id, no_job}.
         decision: created (нових повторів немає) | strong (той самий контакт чи телефон у картці; firms — фірми) | weak (збіг лише за ім'ям)
         | no_job (вакансії за кодом немає) | exists (Виїзд цієї угоди вже є) | skipped (замало даних) | error.
@@ -168,7 +168,7 @@ class HrApplicant(models.Model):
         deal_id = int(item.get('deal_id') or 0)
         res = {'deal_id': deal_id, 'decision': 'skipped', 'firms': [], 'created': False, 'applicant_id': 0, 'no_job': False}
         dep = calc.first_date(item.get('departure_date'))
-        if not deal_id or not dep or not (item.get('last_name') or item.get('first_name')):
+        if not deal_id or not dep or not (item.get('full_name') or item.get('last_name') or item.get('first_name')):
             return res
         existing = self.with_context(active_test=False).search([('workset_pd_deal_id', '=', deal_id)], limit=1)
         reopen = bool(existing) and existing.workset_state == 'cancel' and existing.workset_cancel_source == 'pipedrive'
@@ -184,7 +184,8 @@ class HrApplicant(models.Model):
         person_id = int(item.get('person_id') or 0)
         country_code = calc.country_code(item.get('citizenship'))
         country = self.env['res.country'].search([('code', '=', country_code)], limit=1) if country_code else self.env['res.country']
-        full_name, was_translit = names.latin_name(item.get('last_name'), item.get('first_name'), country_code)
+        # порядок слів у Pipedrive різний — full_name (як набрано) упорядковується за довідником імен; first/last — лише коли full_name порожнє
+        full_name, was_translit = names.order_name(item.get('full_name'), item.get('first_name'), item.get('last_name'), country_code)
         phones = calc.phone_list(item.get('phone'), item.get('phones'))
         phones9 = [p for p in (names.phone9(p) for p in phones) if p]
         primary9 = names.phone9(phones[0]) if phones else ''
