@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_workset_client_terms_editor,workset.client.terms editor,model_workset_client_terms,workset_client.group_editor,1,1,1,0
+access_workset_client_terms_system,workset.client.terms system,model_workset_client_terms,base.group_system,1,1,1,1

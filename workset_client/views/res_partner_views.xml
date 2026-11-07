@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Смарт-кнопка «Умови» на формі контакту — лише замовнику (є в «Замовниках» лінії або має діючі ставки) і лише групі «Перегляд»;
+         веде на екран «Умови клієнта» комерційного контрагента. Лише додавання в button_box (xpath за name) -->
+    <record id="view_partner_form_client" model="ir.ui.view">
+        <field name="name">res.partner.form.workset.client</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="priority">2010</field>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_workset_client_card" type="object" class="oe_stat_button" icon="fa-handshake-o"
+                        invisible="not workset_client_is_customer" groups="workset_client.group_viewer">
+                    <field name="workset_client_is_customer" invisible="1"/>
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Умови</span>
+                    </div>
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- «Умови клієнтів»: замовники з «Замовників» ліній або з діючими ставками; рядок відкриває екран «Умови клієнта» (js_class —
+         static/src/js/client_card.js), не форму контакту. Без «Створити», правки й видалення: умови правлять в екрані й у джерелах.
+         Порожнє — жовтим словом («не внесено», «не задано», «не перевірено»), а не порожньою клітинкою -->
+    <record id="view_partner_client_list" model="ir.ui.view">
+        <field name="name">res.partner.list.workset.client</field>
+        <field name="model">res.partner</field>
+        <field name="priority">100</field>
+        <field name="arch" type="xml">
+            <list string="Умови клієнтів" js_class="workset_client_list" create="0" edit="0" delete="0" default_order="name">
+                <field name="workset_client_has_contract" column_invisible="1"/>
+                <field name="workset_client_checked_date" column_invisible="1"/>
+                <field name="property_payment_term_id" column_invisible="1"/>
+                <field name="name" string="Замовник"/>
+                <field name="workset_client_line_text" string="Лінія"/>
+                <field name="workset_client_rate_count" string="Ставок діє"/>
+                <field name="workset_client_share_avg" string="Частка сер., € год"/>
+                <field name="workset_client_housing_text" string="Житло — хто платить"/>
+                <field name="workset_client_contract_text" string="Договір" decoration-warning="not workset_client_has_contract"/>
+                <field name="workset_client_term_text" string="Термін оплати" decoration-warning="not property_payment_term_id"/>
+                <field name="workset_client_checked_text" string="Перевірено" decoration-warning="not workset_client_checked_date"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_partner_client_search" model="ir.ui.view">
+        <field name="name">res.partner.search.workset.client</field>
+        <field name="model">res.partner</field>
+        <field name="priority">100</field>
+        <field name="arch" type="xml">
+            <search string="Умови клієнтів">
+                <field name="name" string="Замовник"/>
+                <!-- окремими групами: обрані разом — «і», не «або» -->
+                <filter name="no_contract" string="Без договору"
+                        domain="[('workset_client_contract_no', '=', False), ('workset_client_contract_scan_ids', '=', False)]"/>
+                <separator/>
+                <filter name="no_term" string="Без терміну оплати" domain="[('property_payment_term_id', '=', False)]"/>
+                <separator/>
+                <filter name="not_checked" string="Не перевірено" domain="[('workset_client_checked_date', '=', False)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_clients" model="ir.actions.act_window">
+        <field name="name">Умови клієнтів</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_partner_client_list"/>
+        <field name="search_view_id" ref="view_partner_client_search"/>
+        <field name="domain">[('workset_client_is_customer', '=', True)]</field>
+        <field name="context">{'create': False}</field>
+        <field name="path">workset-clients</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Замовників ще немає</p>
+            <p>Тут — замовники з «Замовників» ліній і з діючими ставками; рядок відкриває екран «Умови клієнта».</p>
+        </field>
+    </record>
+</odoo>

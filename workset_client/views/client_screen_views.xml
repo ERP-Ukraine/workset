@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Екран «Умови клієнта»: client action OWL (static/src/js/client_card.js), один виклик сервера (models/client_screen.py).
+         Замовник і період — у params дії (рядок списку, смарт-кнопка «Умови»); без них — останній відкритий цим користувачем.
+         path — постійна адреса сторінки (/odoo/workset-client) -->
+    <record id="action_card" model="ir.actions.client">
+        <field name="name">Умови клієнта</field>
+        <field name="tag">workset_client.card</field>
+        <field name="path">workset-client</field>
+    </record>
+</odoo>

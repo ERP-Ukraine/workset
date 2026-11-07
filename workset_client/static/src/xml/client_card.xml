@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <!-- Екран «Умови клієнта» за прийнятим макетом D (07.11): ліворуч — «Гроші за годину», «Хто платить», «Агент і хто знайшов» і
+         «Договір і оплата», праворуч — «Що з цього виходить» і «Останні зміни»; на телефоні — один стовпець. Стиль екранів
+         «Прибутковості»: підпис зверху, крупне число, «€ год» дрібно сірим; колір — лише бренд (частка) і тривоги (жовте «не задано»,
+         червоне — нижче нуля); решта — класи й змінні теми Bootstrap (світла й темна). Кожен елемент з описом 'open' — кнопка
+         (clickCls, role, tabindex, Enter); без опису — текст -->
+    <t t-name="workset_client.Card">
+        <div class="o_action o_workset_client">
+            <Layout display="{ controlPanel: {} }" className="'o_workset_client_main overflow-auto'">
+                <div class="container-fluid py-3" t-if="data">
+                    <!-- сервер не відповів на зміну періоду — дані попередні, з позначкою (і повідомлення Odoo) -->
+                    <div t-if="state.failed" class="alert alert-warning py-2">Не вдалося оновити — на екрані попередні дані</div>
+                    <t t-if="data.partner">
+                        <t t-set="p" t-value="data.partner"/>
+                        <!-- шапка: назва (клік — контакт), країна · ПДВ · лінія · проєкт; праворуч — «Перевірено <дата>» або жовте «не перевірено» -->
+                        <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
+                            <div class="o_workset_client_min0">
+                                <!-- назва — форма контакту (контакти читає кожен внутрішній користувач: клік є завжди) -->
+                                <div class="fs-2 fw-semibold text-truncate" t-att-class="clickCls(p.open)" title="Відкрити записи" t-att-role="role(p.open)" t-att-tabindex="tab(p.open)" t-on-click="() => this.openList(p.open)" t-on-keydown="(ev) => this.keyOpen(ev, p.open)" t-esc="p.name"/>
+                                <div class="text-muted o_workset_client_dots">
+                                    <span t-if="p.country" t-esc="p.country"/>
+                                    <span t-if="p.vat" t-esc="p.vat"/>
+                                    <span t-foreach="p.lines" t-as="l" t-key="l.id" t-att-class="clickCls(l.open)" t-att-title="hint(l.open)" t-att-role="role(l.open)" t-att-tabindex="tab(l.open)" t-on-click="() => this.openList(l.open)" t-on-keydown="(ev) => this.keyOpen(ev, l.open)">лінія <t t-esc="l.name"/></span>
+                                    <span t-if="p.projects.length" t-att-class="clickCls(p.projects_open)" t-att-title="hint(p.projects_open)" t-att-role="role(p.projects_open)" t-att-tabindex="tab(p.projects_open)" t-on-click="() => this.openList(p.projects_open)" t-on-keydown="(ev) => this.keyOpen(ev, p.projects_open)">проєкт <t t-esc="p.projects.join(', ')"/><t t-if="p.projects_more"> +<t t-esc="p.projects_more"/></t></span>
+                                </div>
+                            </div>
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <span t-if="p.checked.ok" class="badge rounded-pill border border-success text-success fw-normal o_workset_client_chip" t-att-title="p.checked.who"><i class="fa fa-check-circle-o me-1"/>Перевірено <t t-esc="p.checked.date"/></span>
+                                <span t-else="" class="badge rounded-pill text-bg-warning fw-normal o_workset_client_chip">не перевірено</span>
+                                <button t-if="data.can_edit" type="button" class="btn btn-secondary" t-on-click="() => this.markChecked()">Позначити перевіреним</button>
+                            </div>
+                        </div>
+
+                        <div class="o_workset_client_grid">
+                            <div class="d-flex flex-column gap-3 o_workset_client_min0">
+                                <!-- «Гроші за годину»: діючі ставки замовника на сьогодні; частка — середнє, крупно кольором бренду; мінімум — загальна
+                                     ставка лінії × замовника (немає — жовте «не задано»); відсоток за виведення — довідково (немає — сіре «—») -->
+                                <t t-set="m" t-value="data.money"/>
+                                <div class="card">
+                                    <div class="card-header fw-semibold">Гроші за годину</div>
+                                    <div class="o_workset_client_band">
+                                        <div class="o_workset_client_band_cell text-center" t-att-class="clickCls(m.open)" t-att-title="hint(m.open)" t-att-role="role(m.open)" t-att-tabindex="tab(m.open)" t-on-click="() => this.openList(m.open)" t-on-keydown="(ev) => this.keyOpen(ev, m.open)">
+                                            <span class="d-block text-muted text-truncate">Платять нам</span>
+                                            <span class="d-block fs-2 fw-semibold lh-sm text-nowrap o_workset_client_num"><t t-esc="range(m.price)"/><span t-if="m.price" class="o_workset_client_unit text-muted fw-normal">€ год</span></span>
+                                        </div>
+                                        <div class="o_workset_client_band_cell text-center" t-att-class="clickCls(m.open)" t-att-title="hint(m.open)" t-att-role="role(m.open)" t-att-tabindex="tab(m.open)" t-on-click="() => this.openList(m.open)" t-on-keydown="(ev) => this.keyOpen(ev, m.open)">
+                                            <span class="d-block text-muted text-truncate">На руки</span>
+                                            <span class="d-block fs-2 fw-semibold lh-sm text-nowrap o_workset_client_num"><t t-esc="range(m.wage)"/><span t-if="m.wage" class="o_workset_client_unit text-muted fw-normal">€ год</span></span>
+                                        </div>
+                                        <div class="o_workset_client_band_cell text-center" t-att-class="clickCls(m.open)" t-att-title="hint(m.open)" t-att-role="role(m.open)" t-att-tabindex="tab(m.open)" t-on-click="() => this.openList(m.open)" t-on-keydown="(ev) => this.keyOpen(ev, m.open)">
+                                            <span class="d-block text-truncate text-primary">Частка WorkSET</span>
+                                            <span class="d-block fs-2 fw-semibold lh-sm text-nowrap o_workset_client_num" t-att-class="m.share !== null and m.share &lt; 0 ? 'text-danger' : 'text-primary'"><t t-esc="money(m.share)"/><span t-if="m.share !== null" class="o_workset_client_unit text-muted fw-normal">€ год</span></span>
+                                        </div>
+                                        <div class="o_workset_client_band_cell text-center" t-att-class="clickCls(m.rule_open)" t-att-title="hint(m.rule_open)" t-att-role="role(m.rule_open)" t-att-tabindex="tab(m.rule_open)" t-on-click="() => this.openList(m.rule_open)" t-on-keydown="(ev) => this.keyOpen(ev, m.rule_open)">
+                                            <span class="d-block text-muted text-truncate">Мінімум частки</span>
+                                            <span t-if="m.min_share !== null" class="d-block fs-2 fw-semibold lh-sm text-nowrap o_workset_client_num"><t t-esc="money(m.min_share)"/><span class="o_workset_client_unit text-muted fw-normal">€ год</span></span>
+                                            <span t-else="" class="badge rounded-pill text-bg-warning fw-normal o_workset_client_chip mt-2">не задано</span>
+                                        </div>
+                                        <div class="o_workset_client_band_cell text-center">
+                                            <span class="d-block text-muted text-truncate" title="Довідково, у розрахунок прибутку не входить">Відсоток за виведення коштів</span>
+                                            <span t-if="m.withdraw !== null" class="d-block fs-2 fw-semibold lh-sm text-nowrap o_workset_client_num"><t t-esc="plain(m.withdraw)"/><span class="o_workset_client_unit text-muted fw-normal">%</span></span>
+                                            <span t-else="" class="d-block fs-2 lh-sm o_workset_client_muted">—</span>
+                                            <span class="small o_workset_client_muted">довідково</span>
+                                        </div>
+                                    </div>
+                                    <div class="card-footer small text-muted">
+                                        <span class="o_workset_client_dots" t-att-class="clickCls(m.open)" t-att-title="hint(m.open)" t-att-role="role(m.open)" t-att-tabindex="tab(m.open)" t-on-click="() => this.openList(m.open)" t-on-keydown="(ev) => this.keyOpen(ev, m.open)"><span>ставок діє: <t t-esc="m.count"/></span><span t-if="m.open">відкрити ставки ›</span></span>
+                                    </div>
+                                </div>
+
+                                <!-- «Хто платить»: житло — правило житла «Ставок», решта — правила «Хто платить» «Прибутковості» (замовник точніший за
+                                     лінію), оренда авто — загальна ставка, фонд — домовленість фонду або частка фонду в ставках; правила немає — сірим.
+                                     Рядок відкриває правило-джерело (форма), без правила — правила цього виду лінії -->
+                                <div class="card">
+                                    <div class="card-header fw-semibold">Хто платить</div>
+                                    <div class="o_workset_client_pays">
+                                        <div class="o_workset_client_pay o_workset_client_pay_head small text-muted">
+                                            <span>Що</span><span>Хто платить</span><span>З якого числа</span><span>Звідки правило</span><span/>
+                                        </div>
+                                        <t t-foreach="data.pays" t-as="r" t-key="r.key">
+                                            <div class="o_workset_client_pay" t-att-class="clickCls(r.open)" t-att-title="hint(r.open)" t-att-role="role(r.open)" t-att-tabindex="tab(r.open)" t-on-click="() => this.openList(r.open)" t-on-keydown="(ev) => this.keyOpen(ev, r.open)">
+                                                <span class="fw-semibold o_workset_client_pay_what" t-esc="r.label"/>
+                                                <span class="o_workset_client_pay_who" t-att-class="r.tone === 'muted' ? 'o_workset_client_muted' : ''">
+                                                    <t t-esc="r.payer"/><t t-if="r.amount !== null"> · <t t-esc="plain(r.amount)"/> <t t-esc="r.unit"/></t>
+                                                    <span t-if="r.key === 'fuel'" class="d-block small" t-att-class="(r.cards_open ? 'o_workset_client_click ' : '') + (r.cards.length ? '' : 'o_workset_client_muted')" t-att-role="role(r.cards_open)" t-att-tabindex="tab(r.cards_open)" t-on-click.stop="() => this.openList(r.cards_open)" t-on-keydown="(ev) => this.keyOpen(ev, r.cards_open)" t-esc="r.cards_text"/>
+                                                </span>
+                                                <span class="o_workset_client_pay_since text-nowrap"><t t-if="r.since" t-esc="r.since"/><t t-else="">—</t></span>
+                                                <span class="o_workset_client_pay_src text-muted">
+                                                    <t t-if="r.source" t-esc="r.source"/><t t-elif="!r.level_text">—</t>
+                                                    <span t-if="r.level_text" class="d-block small" t-esc="r.level_text"/>
+                                                </span>
+                                                <i t-if="r.open" class="fa fa-chevron-right text-muted o_workset_client_pay_go"/>
+                                            </div>
+                                        </t>
+                                    </div>
+                                </div>
+
+                                <div class="o_workset_client_pair">
+                                    <!-- «Агент і хто знайшов»: агент по замовнику — домовленості модуля «Агенти» (немає модуля — так і пишемо); агент лінії —
+                                         довідково; «Хто знайшов людей» — по діючих ставках, не вказано — жовтим «не вказано у K з N» -->
+                                    <t t-set="a" t-value="data.agent"/>
+                                    <div class="card">
+                                        <div class="card-header fw-semibold">Агент і хто знайшов</div>
+                                        <ul class="list-group list-group-flush">
+                                            <li class="list-group-item" t-att-class="clickCls(a.open)" t-att-title="hint(a.open)" t-att-role="role(a.open)" t-att-tabindex="tab(a.open)" t-on-click="() => this.openList(a.open)" t-on-keydown="(ev) => this.keyOpen(ev, a.open)">
+                                                <span class="text-muted">Агент по клієнту — </span>
+                                                <span t-if="!a.installed" class="o_workset_client_muted">модуль агентів не встановлено</span>
+                                                <t t-elif="a.items.length"><t t-foreach="a.items" t-as="i" t-key="i_index"><t t-if="!i_first">; </t><t t-esc="i.name"/> · <t t-if="i.kind === 'fixed'">фікс-аванс <t t-esc="plain(i.amount)"/> €/міс</t><t t-else=""><t t-esc="plain(i.amount)"/> € год</t></t></t>
+                                                <t t-else="">немає</t>
+                                            </li>
+                                            <li t-if="a.line_agent" class="list-group-item small" t-att-class="clickCls(a.line_agent_open)" t-att-title="hint(a.line_agent_open)" t-att-role="role(a.line_agent_open)" t-att-tabindex="tab(a.line_agent_open)" t-on-click="() => this.openList(a.line_agent_open)" t-on-keydown="(ev) => this.keyOpen(ev, a.line_agent_open)">
+                                                <span class="text-muted">Агент лінії (довідково) — </span><t t-esc="a.line_agent"/>
+                                            </li>
+                                            <li class="list-group-item" t-att-class="clickCls(a.found_open)" t-att-title="hint(a.found_open)" t-att-role="role(a.found_open)" t-att-tabindex="tab(a.found_open)" t-on-click="() => this.openList(a.found_open)" t-on-keydown="(ev) => this.keyOpen(ev, a.found_open)">
+                                                <span class="text-muted">Хто знайшов людей — </span>
+                                                <t t-if="a.found.total" t-esc="a.found.text"/><t t-else="">діючих ставок немає</t>
+                                                <span t-if="a.found.missing" class="badge rounded-pill text-bg-warning fw-normal ms-1" t-att-class="clickCls(a.missing_open)" t-att-role="role(a.missing_open)" t-att-tabindex="tab(a.missing_open)" t-on-click.stop="() => this.openList(a.missing_open)" t-on-keydown="(ev) => this.keyOpen(ev, a.missing_open)" t-esc="a.found.missing"/>
+                                            </li>
+                                        </ul>
+                                    </div>
+
+                                    <!-- «Договір і оплата»: свої поля замовника й стандартний строк оплати; порожнє — жовтим; «Заповнити» — вікно (редактор) -->
+                                    <div class="card">
+                                        <div class="card-header fw-semibold d-flex align-items-center justify-content-between gap-2">
+                                            <span>Договір і оплата</span>
+                                            <button t-if="data.can_edit" type="button" class="btn btn-sm btn-secondary" t-on-click="() => this.fill()">Заповнити</button>
+                                        </div>
+                                        <ul class="list-group list-group-flush">
+                                            <li t-foreach="data.contract.items" t-as="it" t-key="it.key" class="list-group-item" t-att-class="clickCls(it.open)" t-att-title="hint(it.open)" t-att-role="role(it.open)" t-att-tabindex="tab(it.open)" t-on-click="() => this.openList(it.open)" t-on-keydown="(ev) => this.keyOpen(ev, it.open)">
+                                                <span class="text-muted"><t t-esc="it.label"/> — </span>
+                                                <span t-if="it.empty" class="badge rounded-pill text-bg-warning fw-normal" t-esc="it.empty_text"/>
+                                                <span t-else="" class="o_workset_client_words" t-esc="it.value"/>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex flex-column gap-3 o_workset_client_min0">
+                                <!-- «Що з цього виходить»: рядки лінії «Прибутковості» за період (Місяць | Квартал | Рік, стрілки — сусідній період), € год
+                                     на години зі ставкою; «Залишається» — крупно; клік — рядки лінії; «Картка лінії ›» — лише групі «Прибутковість: Перегляд» -->
+                                <t t-set="pr" t-value="data.profit"/>
+                                <div class="card">
+                                    <div class="card-header">
+                                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                            <span class="fw-semibold">Що з цього виходить</span>
+                                            <div class="btn-group btn-group-sm" role="group" aria-label="Період">
+                                                <button type="button" class="btn" t-att-class="data.period.kind === 'month' ? 'btn-primary' : 'btn-secondary'" t-on-click="() => this.setPeriod('month')">Місяць</button>
+                                                <button type="button" class="btn" t-att-class="data.period.kind === 'quarter' ? 'btn-primary' : 'btn-secondary'" t-on-click="() => this.setPeriod('quarter')">Квартал</button>
+                                                <button type="button" class="btn" t-att-class="data.period.kind === 'year' ? 'btn-primary' : 'btn-secondary'" t-on-click="() => this.setPeriod('year')">Рік</button>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2 mt-2">
+                                            <button type="button" class="btn btn-sm btn-secondary" t-att-disabled="!data.period.prev" title="Попередній період" t-on-click="() => this.go(data.period.prev)"><i class="fa fa-chevron-left"/></button>
+                                            <span class="fw-semibold" t-esc="data.period.title"/>
+                                            <button type="button" class="btn btn-sm btn-secondary" t-att-disabled="!data.period.next" title="Наступний період" t-on-click="() => this.go(data.period.next)"><i class="fa fa-chevron-right"/></button>
+                                        </div>
+                                        <div class="small text-muted o_workset_client_dots mt-1">
+                                            <span t-if="data.period.range" t-esc="data.period.range"/>
+                                            <span t-if="pr.line">лінія <t t-esc="pr.line.name"/></span>
+                                        </div>
+                                    </div>
+                                    <t t-if="pr.has">
+                                        <ul class="list-group list-group-flush">
+                                            <li t-foreach="pr.rows" t-as="r" t-key="r.key" class="list-group-item d-flex justify-content-between align-items-baseline gap-2"
+                                                t-att-class="(r.key === 'remain' ? 'fs-4 fw-semibold ' : '') + clickCls(r.open)" t-att-title="hint(r.open)" t-att-role="role(r.open)" t-att-tabindex="tab(r.open)" t-on-click="() => this.openList(r.open)" t-on-keydown="(ev) => this.keyOpen(ev, r.open)">
+                                                <span t-esc="r.label"/>
+                                                <span class="text-nowrap o_workset_client_num" t-att-class="r.tone === 'neg' ? 'text-danger' : ''"><t t-esc="money(r.ph)"/><span t-if="r.ph !== null" class="o_workset_client_unit text-muted fw-normal">€ год</span></span>
+                                            </li>
+                                        </ul>
+                                        <div class="card-body py-2 small text-muted">
+                                            <div class="o_workset_client_dots">
+                                                <span>за період: чисто <t t-esc="euros(pr.net)"/> €</span>
+                                                <span t-if="pr.remain !== null">залишається <t t-esc="euros(pr.remain)"/> €</span>
+                                                <span>годин зі ставкою <t t-esc="euros(pr.hours_rate)"/></span>
+                                            </div>
+                                            <div t-if="pr.oh_missing" class="text-warning">ZUS і загальні: місяць не перераховано після оновлення «Прибутковості»</div>
+                                        </div>
+                                    </t>
+                                    <div t-elif="!pr.line" class="card-body o_workset_client_muted">лінії немає — прибутковість не рахується</div>
+                                    <div t-else="" class="card-body text-muted">немає даних: <t t-esc="data.period.title"/></div>
+                                    <div t-if="pr.link" class="card-footer">
+                                        <button type="button" class="btn btn-link p-0" t-on-click="() => this.openLineCard()">Картка лінії ›</button>
+                                    </div>
+                                </div>
+
+                                <!-- «Останні зміни»: дата · що: було → стало · хто; клік — запис, де змінили -->
+                                <div class="card">
+                                    <div class="card-header fw-semibold">Останні зміни</div>
+                                    <ul t-if="data.changes.length" class="list-group list-group-flush">
+                                        <li t-foreach="data.changes" t-as="c" t-key="c_index" class="list-group-item small" t-att-class="clickCls(c.open)" t-att-title="hint(c.open)" t-att-role="role(c.open)" t-att-tabindex="tab(c.open)" t-on-click="() => this.openList(c.open)" t-on-keydown="(ev) => this.keyOpen(ev, c.open)">
+                                            <span class="text-muted" t-esc="c.date"/> · <t t-esc="c.what"/><t t-if="c.old or c.new">: <span class="o_workset_client_words" t-esc="c.old + ' → ' + c.new"/></t><t t-if="c.who"> · <span class="text-muted" t-esc="c.who"/></t>
+                                            <span t-if="c.record" class="d-block text-muted text-truncate" t-att-title="c.record" t-esc="c.record"/>
+                                        </li>
+                                    </ul>
+                                    <div t-else="" class="card-body o_workset_client_muted">змін ще немає</div>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+                    <!-- без замовника (прямий URL без контексту) — підказка й перехід до списку, а не порожній екран -->
+                    <div t-else="" class="alert alert-info d-flex flex-wrap align-items-center gap-2">
+                        <span>Оберіть клієнта у списку «Умови клієнтів»</span>
+                        <button type="button" class="btn btn-link p-0" t-on-click="() => this.openClients()">Відкрити список</button>
+                    </div>
+                </div>
+            </Layout>
+        </div>
+    </t>
+</templates>

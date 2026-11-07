@@ -1,0 +1,545 @@
+# Russian translation of the Odoo module workset_client.
+# Згенеровано tools/odoo_addon_po.py — не правити вручну.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Language: ru\n"
+"Plural-Forms: \n"
+
+#. module: workset_client
+#: model:ir.model,name:workset_client.model_workset_client_terms
+msgid "Умови клієнта: заповнити"
+msgstr "Условия клиента: заполнить"
+
+#. module: workset_client
+#: model:ir.model.fields,field_description:workset_client.field_workset_client_terms__partner_id
+#: model_terms:ir.ui.view,arch_db:workset_client.view_partner_client_list
+#: model_terms:ir.ui.view,arch_db:workset_client.view_partner_client_search
+msgid "Замовник"
+msgstr "Заказчик"
+
+#. module: workset_client
+#: model:ir.model.fields,field_description:workset_client.field_workset_client_terms__contract_no
+#: model:ir.model.fields,field_description:workset_client.field_res_partner__workset_client_contract_no
+msgid "Номер договору"
+msgstr "Номер договора"
+
+#. module: workset_client
+#: model:ir.model.fields,field_description:workset_client.field_workset_client_terms__contract_date
+#: model:ir.model.fields,field_description:workset_client.field_res_partner__workset_client_contract_date
+msgid "Дата договору"
+msgstr "Дата договора"
+
+#. module: workset_client
+#: model:ir.model.fields,field_description:workset_client.field_workset_client_terms__scan_ids
+#: model:ir.model.fields,field_description:workset_client.field_res_partner__workset_client_contract_scan_ids
+msgid "Скан договору"
+msgstr "Скан договора"
+
+#. module: workset_client
+#: model:ir.model.fields,field_description:workset_client.field_workset_client_terms__payment_term_id
+#: model:ir.model.fields,field_description:workset_client.field_res_partner__workset_client_term_text
+#: model_terms:ir.ui.view,arch_db:workset_client.view_partner_client_list
+msgid "Термін оплати"
+msgstr "Срок оплаты"
+
+#. module: workset_client
+#: model:ir.model.fields,help:workset_client.field_workset_client_terms__payment_term_id
+msgid "Стандартне поле контакту «Умови оплати»: ним користуються рахунки"
+msgstr "Стандартное поле контакта «Условия оплаты»: им пользуются счета"
+
+#. module: workset_client
+#: model:ir.model.fields,field_description:workset_client.field_workset_client_terms__sign_id
+#: model:ir.model.fields,field_description:workset_client.field_res_partner__workset_client_sign_id
+msgid "Хто погоджує табель"
+msgstr "Кто согласует табель"
+
+#. module: workset_client
+#: model:ir.model.fields,field_description:workset_client.field_workset_client_terms__site_contact_id
+#: model:ir.model.fields,field_description:workset_client.field_res_partner__workset_client_site_contact_id
+msgid "Контакт на об'єкті"
+msgstr "Контакт на объекте"
+
+#. module: workset_client
+#: model:ir.model.fields,field_description:workset_client.field_workset_client_terms__site_address
+#: model:ir.model.fields,field_description:workset_client.field_res_partner__workset_client_site_address
+msgid "Адреса об'єкта"
+msgstr "Адрес объекта"
+
+#. module: workset_client
+#. odoo-javascript
+#: model:ir.model.fields,field_description:workset_client.field_workset_client_terms__withdraw_pct
+#: model:ir.model.fields,field_description:workset_client.field_res_partner__workset_client_withdraw_pct
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Відсоток за виведення коштів"
+msgstr "Процент за вывод средств"
+
+#. module: workset_client
+#: model:ir.model.fields,help:workset_client.field_workset_client_terms__withdraw_pct
+#: model:ir.model.fields,help:workset_client.field_res_partner__workset_client_withdraw_pct
+msgid "%; довідково, у розрахунок прибутку не входить"
+msgstr "%; справочно, в расчёт прибыли не входит"
+
+#. module: workset_client
+#: model:ir.model.fields,field_description:workset_client.field_workset_client_terms__note
+#: model:ir.model.fields,field_description:workset_client.field_res_partner__workset_client_terms_note
+#: model_terms:ir.ui.view,arch_db:workset_client.view_client_terms_form
+msgid "Особливі домовленості"
+msgstr "Особые договорённости"
+
+#. module: workset_client
+#: model:ir.model.fields,help:workset_client.field_res_partner__workset_client_sign_id
+msgid "Контакт замовника, який підписує табель годин"
+msgstr "Контакт заказчика, который подписывает табель часов"
+
+#. module: workset_client
+#. odoo-javascript
+#: model:ir.model.fields,field_description:workset_client.field_res_partner__workset_client_checked_date
+#: model_terms:ir.ui.view,arch_db:workset_client.view_partner_client_list
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Перевірено"
+msgstr "Проверено"
+
+#. module: workset_client
+#: model:ir.model.fields,help:workset_client.field_res_partner__workset_client_checked_date
+msgid "Коли умови клієнта звірено з договором і словами власника"
+msgstr "Когда условия клиента сверены с договором и словами собственника"
+
+#. module: workset_client
+#: model:ir.model.fields,field_description:workset_client.field_res_partner__workset_client_checked_by_id
+msgid "Ким перевірено"
+msgstr "Кем проверено"
+
+#. module: workset_client
+#: model:ir.model.fields,field_description:workset_client.field_res_partner__workset_client_is_customer
+msgid "Замовник у «Ставках»"
+msgstr "Заказчик в «Ставках»"
+
+#. module: workset_client
+#: model:ir.model.fields,help:workset_client.field_res_partner__workset_client_is_customer
+msgid "Є в «Замовниках» лінії або має діючі ставки"
+msgstr "Есть в «Заказчиках» линии или имеет действующие ставки"
+
+#. module: workset_client
+#: model:ir.model.fields,field_description:workset_client.field_res_partner__workset_client_line_text
+msgid "Лінія замовника"
+msgstr "Линия заказчика"
+
+#. module: workset_client
+#: model:ir.model.fields,field_description:workset_client.field_res_partner__workset_client_rate_count
+#: model_terms:ir.ui.view,arch_db:workset_client.view_partner_client_list
+msgid "Ставок діє"
+msgstr "Ставок действует"
+
+#. module: workset_client
+#: model:ir.model.fields,field_description:workset_client.field_res_partner__workset_client_share_avg
+msgid "Частка сер."
+msgstr "Доля ср."
+
+#. module: workset_client
+#: model:ir.model.fields,help:workset_client.field_res_partner__workset_client_share_avg
+msgid "Середня «Частка WorkSET» діючих ставок, € год"
+msgstr "Средняя «Доля WorkSET» действующих ставок, € ч"
+
+#. module: workset_client
+#: model:ir.model.fields,field_description:workset_client.field_res_partner__workset_client_housing_text
+#: model_terms:ir.ui.view,arch_db:workset_client.view_partner_client_list
+msgid "Житло — хто платить"
+msgstr "Жильё — кто платит"
+
+#. module: workset_client
+#: model:ir.model.fields,field_description:workset_client.field_res_partner__workset_client_has_contract
+msgid "Договір є"
+msgstr "Договор есть"
+
+#. module: workset_client
+#: model:ir.model.fields,field_description:workset_client.field_res_partner__workset_client_contract_text
+#: model_terms:ir.ui.view,arch_db:workset_client.view_partner_client_list
+msgid "Договір"
+msgstr "Договор"
+
+#. module: workset_client
+#: model:ir.model.fields,field_description:workset_client.field_res_partner__workset_client_checked_text
+msgid "Перевірено коли"
+msgstr "Когда проверено"
+
+#. module: workset_client
+#: model:res.groups.privilege,name:workset_client.res_groups_privilege_client
+#: model_terms:ir.ui.view,arch_db:workset_client.view_partner_client_list
+#: model_terms:ir.ui.view,arch_db:workset_client.view_partner_client_search
+#: model:ir.actions.act_window,name:workset_client.action_clients
+#: model:ir.ui.menu,name:workset_client.menu_root
+msgid "Умови клієнтів"
+msgstr "Условия клиентов"
+
+#. module: workset_client
+#: model:res.groups,name:workset_client.group_viewer
+msgid "Перегляд"
+msgstr "Просмотр"
+
+#. module: workset_client
+#: model:res.groups,comment:workset_client.group_viewer
+msgid "Бачить додаток «Умови клієнтів»: список замовників і екран «Умови клієнта» з частками (без правки). Лише ця група — і меню, і екран"
+msgstr "Видит приложение «Условия клиентов»: список заказчиков и экран «Условия клиента» с долями (без правки). Только эта группа — и меню, и экран"
+
+#. module: workset_client
+#: model:res.groups,comment:workset_client.group_editor
+msgid "Править договір, оплату, об'єкт і особливі домовленості замовника («Заповнити»), ставить «Позначити перевіреним»"
+msgstr "Правит договор, оплату, объект и особые договорённости заказчика («Заполнить»), ставит «Отметить проверенным»"
+
+#. module: workset_client
+#. odoo-javascript
+#: model_terms:ir.ui.view,arch_db:workset_client.view_client_terms_form
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Договір і оплата"
+msgstr "Договор и оплата"
+
+#. module: workset_client
+#: model_terms:ir.ui.view,arch_db:workset_client.view_client_terms_form
+msgid "Об'єкт"
+msgstr "Объект"
+
+#. module: workset_client
+#: model_terms:ir.ui.view,arch_db:workset_client.view_client_terms_form
+msgid "Що ще домовлено з клієнтом — словами, як є"
+msgstr "Что ещё договорено с клиентом — словами, как есть"
+
+#. module: workset_client
+#: model_terms:ir.ui.view,arch_db:workset_client.view_client_terms_form
+msgid "Зберегти"
+msgstr "Сохранить"
+
+#. module: workset_client
+#: model_terms:ir.ui.view,arch_db:workset_client.view_client_terms_form
+msgid "Скасувати"
+msgstr "Отмена"
+
+#. module: workset_client
+#: model_terms:ir.ui.view,arch_db:workset_client.view_partner_form_client
+msgid "Умови"
+msgstr "Условия"
+
+#. module: workset_client
+#: model_terms:ir.ui.view,arch_db:workset_client.view_partner_client_list
+msgid "Лінія"
+msgstr "Линия"
+
+#. module: workset_client
+#: model_terms:ir.ui.view,arch_db:workset_client.view_partner_client_list
+msgid "Частка сер., € год"
+msgstr "Доля ср., € ч"
+
+#. module: workset_client
+#: model_terms:ir.ui.view,arch_db:workset_client.view_partner_client_search
+msgid "Без договору"
+msgstr "Без договора"
+
+#. module: workset_client
+#: model_terms:ir.ui.view,arch_db:workset_client.view_partner_client_search
+msgid "Без терміну оплати"
+msgstr "Без срока оплаты"
+
+#. module: workset_client
+#: model_terms:ir.ui.view,arch_db:workset_client.view_partner_client_search
+msgid "Не перевірено"
+msgstr "Не проверено"
+
+#. module: workset_client
+#: model_terms:ir.actions.act_window,help:workset_client.action_clients
+msgid "Замовників ще немає"
+msgstr "Заказчиков пока нет"
+
+#. module: workset_client
+#: model_terms:ir.actions.act_window,help:workset_client.action_clients
+msgid "Тут — замовники з «Замовників» ліній і з діючими ставками; рядок відкриває екран «Умови клієнта»."
+msgstr "Здесь — заказчики из «Заказчиков» линий и с действующими ставками; строка открывает экран «Условия клиента»."
+
+#. module: workset_client
+#: model:ir.actions.client,name:workset_client.action_card
+msgid "Умови клієнта"
+msgstr "Условия клиента"
+
+#. module: workset_client
+#: model:ir.ui.menu,name:workset_client.menu_clients
+msgid "Клієнти"
+msgstr "Клиенты"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Не вдалося оновити — на екрані попередні дані"
+msgstr "Не удалось обновить — на экране прежние данные"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Відкрити записи"
+msgstr "Открыть записи"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "лінія"
+msgstr "линия"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "проєкт"
+msgstr "проект"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "не перевірено"
+msgstr "не проверено"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Позначити перевіреним"
+msgstr "Отметить проверенным"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Гроші за годину"
+msgstr "Деньги за час"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Платять нам"
+msgstr "Платят нам"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "€ год"
+msgstr "€ ч"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Частка WorkSET"
+msgstr "Доля WorkSET"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Мінімум частки"
+msgstr "Минимум доли"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Довідково, у розрахунок прибутку не входить"
+msgstr "Справочно, в расчёт прибыли не входит"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "довідково"
+msgstr "справочно"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "ставок діє:"
+msgstr "ставок действует:"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "відкрити ставки ›"
+msgstr "открыть ставки ›"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Хто платить"
+msgstr "Кто платит"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Що"
+msgstr "Что"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "З якого числа"
+msgstr "С какого числа"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Звідки правило"
+msgstr "Откуда правило"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Агент і хто знайшов"
+msgstr "Агент и кто нашёл"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Агент по клієнту —"
+msgstr "Агент по клиенту —"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "модуль агентів не встановлено"
+msgstr "модуль агентов не установлен"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "фікс-аванс"
+msgstr "фикс-аванс"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "€/міс"
+msgstr "€/мес"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "немає"
+msgstr "нет"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Агент лінії (довідково) —"
+msgstr "Агент линии (справочно) —"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Хто знайшов людей —"
+msgstr "Кто нашёл людей —"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "діючих ставок немає"
+msgstr "действующих ставок нет"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Заповнити"
+msgstr "Заполнить"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Що з цього виходить"
+msgstr "Что из этого выходит"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Період"
+msgstr "Период"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Місяць"
+msgstr "Месяц"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Рік"
+msgstr "Год"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Попередній період"
+msgstr "Предыдущий период"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Наступний період"
+msgstr "Следующий период"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "за період: чисто"
+msgstr "за период: чисто"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "залишається"
+msgstr "остаётся"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "годин зі ставкою"
+msgstr "часов со ставкой"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "ZUS і загальні: місяць не перераховано після оновлення «Прибутковості»"
+msgstr "ZUS и общие: месяц не пересчитан после обновления «Прибыльности»"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "лінії немає — прибутковість не рахується"
+msgstr "линии нет — прибыльность не считается"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "немає даних:"
+msgstr "нет данных:"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Картка лінії ›"
+msgstr "Карточка линии ›"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Останні зміни"
+msgstr "Последние изменения"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "змін ще немає"
+msgstr "изменений пока нет"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Оберіть клієнта у списку «Умови клієнтів»"
+msgstr "Выберите клиента в списке «Условия клиентов»"
+
+#. module: workset_client
+#. odoo-javascript
+#: code:addons/workset_client/static/src/xml/client_card.xml:0
+msgid "Відкрити список"
+msgstr "Открыть список"
