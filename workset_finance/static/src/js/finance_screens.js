@@ -271,20 +271,19 @@ export class FinanceOwner extends Component {
         return tile.value < 0 ? "text-danger" : "text-primary";
     }
 
-    /** Клітинка таблиці: обраний місяць підсвічено; число з пометкою «розрах.» / «поправка» — тонке підкреслення; є список — клік. */
+    /** Клітинка таблиці: обраний місяць підсвічено; є список — клік. Позначка «розр.» / «попр.» — видима мітка в шаблоні (круг 2б). */
     cellCls(cell, index) {
-        return [
-            index === this.data.ladder.selected ? "o_workset_finance_sel" : "",
-            cell.src && cell.src !== "fact" ? "o_workset_finance_src" : "",
-            this.clickCls(cell.open),
-        ]
-            .filter(Boolean)
-            .join(" ");
+        return [index === this.data.ladder.selected ? "o_workset_finance_sel" : "", this.clickCls(cell.open)].filter(Boolean).join(" ");
     }
 
-    /** Підказка клітинки: звідки число («розрахунок штабу», «поправка: <підстава>») і «Відкрити записи». */
+    /** Підказка клітинки й «Разом»: звідки число («розрахунок штабу», «поправка: <підстава>») і «Відкрити записи». */
     cellTitle(cell) {
         return [cell.hint, this.hint(cell.open)].filter(Boolean).join(" · ") || false;
+    }
+
+    /** Підказка чипа: свій текст сервера (якість даних — «не розібрано X € із Y €, поріг 1 %»), інакше — як у всього клікабельного. */
+    chipTitle(chip) {
+        return chip.hint || this.hint(chip.open);
     }
 
     /** Нижній ряд — стільки карток, скільки є що показати (порожньої не буває): клас сітки за їх числом, усі однієї ширини й висоти. */
@@ -357,7 +356,9 @@ export class FinanceOwner extends Component {
     }
 
     /** Стовпці — чистий прибуток місяця (тис. €): обраний місяць — бренд, решта — бренд світліше, мінус — червоний; число над стовпцем (під
-     *  мінусом); тонка сіра лінія з точками — «до часток»; обраний місяць — смуга під рядами й підпис осі кольором бренду. Клік — вибір місяця. */
+     *  мінусом); тонка сіра лінія з точками — «до часток» з числами над точками (менше й сіріше за числа стовпців; близько до числа стовпця —
+     *  піднімається над ним, без накладання — круг 2б, як у макеті A); обраний місяць — смуга під рядами й підпис осі кольором бренду. Клік —
+     *  вибір місяця. */
     renderChart() {
         this.destroyCharts();
         const d = this.state.data;
@@ -375,17 +376,37 @@ export class FinanceOwner extends Component {
             id: "wsFinanceValues",
             afterDatasetsDraw: (chart) => {
                 const meta = chart.getDatasetMeta(0);
+                const line = chart.getDatasetMeta(1);
                 const ctx = chart.ctx;
                 ctx.save();
-                ctx.font = `600 12px ${c.font}`;
                 ctx.textAlign = "center";
+                const tops = [];
                 meta.data.forEach((bar, i) => {
                     const v = s.net[i];
+                    tops[i] = null;
                     if (v !== null && v !== undefined && s.net_text[i] !== "—") {
+                        ctx.font = `600 12px ${c.font}`;
                         ctx.fillStyle = v < 0 ? c.danger : c.text;
                         ctx.textBaseline = v < 0 ? "top" : "bottom";
                         ctx.fillText(s.net_text[i], bar.x, v < 0 ? bar.y + 6 : bar.y - 3);
+                        // верх числа стовпця (над плюсом) — щоб число лінії не лягло на нього
+                        tops[i] = v < 0 ? null : bar.y - 3 - 13;
                     }
+                });
+                // числа лінії «до часток»: дрібніше й сіріше, над точкою; ближче за 2 px до числа стовпця — вище за нього
+                ctx.font = `400 11px ${c.font}`;
+                ctx.fillStyle = c.line;
+                ctx.textBaseline = "bottom";
+                (line.data || []).forEach((pt, i) => {
+                    const text = (s.base_text || [])[i];
+                    if (!pt || !text || text === "—") {
+                        return;
+                    }
+                    let y = pt.y - 5;
+                    if (tops[i] !== null && y > tops[i] - 2) {
+                        y = tops[i] - 2;
+                    }
+                    ctx.fillText(text, pt.x, y);
                 });
                 ctx.restore();
             },
@@ -474,7 +495,8 @@ export class FinanceOwner extends Component {
                         },
                         y: {
                             beginAtZero: true,
-                            grace: "12%",
+                            // місце зверху на два підписи (стовпця й лінії «до часток»)
+                            grace: "20%",
                             ticks: { color: c.text },
                             grid: { color: (ctx) => (ctx.tick && ctx.tick.value === 0 ? c.zero : c.grid) },
                         },

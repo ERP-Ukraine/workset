@@ -690,6 +690,37 @@ class TestWorksetFinance(TransactionCase):
         self.assertEqual(data['series']['months'], [FEB, M])
         self.assertEqual(data['series']['net'], [calc.k_value(feb.s4_net), calc.k_value(mar.s4_net)])
         self.assertEqual(data['series']['selected'], 1)
+        # круг 2б: «Разом» = «з початку року» плиток (той самий набір місяців)
+        self.assertEqual(calc.cents(rows['s4_net']['total']['value']), calc.cents(tiles['s4_net']['ytd']))
+        self.assertEqual(calc.cents(rows['s4c_cash']['total']['value']), calc.cents(tiles['s4c_cash']['ytd']))
+        self.assertEqual(calc.cents(rows['s2_ukraine']['total']['value']), calc.cents(tiles['s2_ukraine']['ytd']))
+        self.assertEqual(calc.cents(rows['s3_shares']['total']['value']), calc.cents(tiles['s3_shares']['ytd']), 'частки — мінусом і там, і там')
+        self.assertEqual(sum(calc.cents(rows[k]['total']['value']) for k in calc.RECRUITING), calc.cents(tiles['recruiting']['ytd']))
+        # місяць після обраного — ні в таблиці, ні в «Разом», ні в графіку, ні в «з початку року»
+        early = self._owner(FEB)
+        self.assertEqual([m['value'] for m in early['ladder']['months']], [FEB], 'березень (після обраного лютого) не показується')
+        self.assertEqual(early['series']['months'], [FEB])
+        for r in early['ladder']['rows']:
+            sign = -1 if r['key'] == 's3_shares' else 1
+            self.assertEqual(calc.cents(r['total']['value']), calc.cents(sign * feb[r['key']]), '«Разом» лютого — лише лютий: %s' % r['key'])
+        self.assertEqual(calc.cents({x['key']: x for x in early['tiles']}['s4_net']['ytd']), calc.cents(feb.s4_net))
+        # «Разом» ступеня 1 за два місяці — записи ступеня обох місяців (домени через «АБО»): сума списку = число
+        total = rows['s1_docs']['total']
+        self.assertEqual(total['open']['model'], 'account.analytic.line')
+        self.assertAlmostEqual(sum(self._records(total['open']).mapped('amount')), feb.s1_docs + mar.s1_docs, msg='«Разом» = Σ записів')
+        self.assertTrue(feb.s1_docs and mar.s1_docs, 'передумова: обидва місяці не нульові')
+        # видимі позначки: плитки й стовпці водоспаду з поправкою чи розрахунком штабу; «Разом» — найсильніша позначка рядка
+        self.assertEqual({k: x['src'] for k, x in tiles.items()}, {'s4_net': 'adjust', 's4c_cash': 'adjust', 'recruiting': 'adjust', 's2_ukraine': '',
+                                                                    's3_shares': 'adjust'})
+        self.assertEqual({b['key']: b['src'] for b in bars}, {'s1_docs': '', 's1a_owners_in_pl': '', 's1g_no_analytic': 'adjust', 's2_ukraine': '',
+                                                              'base': 'adjust', 's3_shares': 'adjust', 's4_net': 'adjust'})
+        self.assertEqual((rows['s1_docs']['total']['src'], rows['base']['total']['src']), ('', 'adjust'), 'лютий — розрахунок, березень — поправка')
+        self.assertIn('test basis', rows['s3_shares']['total']['hint'])
+        self.assertEqual(data['month']['partial'], '', 'березень завершено (сьогодні 10.04)')
+        # неповний місяць: сьогодні 20.03 — березень «неповний, по 20.03» у шапці й колонці; лютий — повний
+        part = self._owner(M, today='2030-03-20')
+        self.assertEqual(part['month']['partial'], '20.03')
+        self.assertEqual([m['partial'] for m in part['ladder']['months']], ['', '20.03'])
         # без поправок нульові ступені 1г і 3 сховано
         self.Adjust.search([]).write({'active': False})
         self._run((M,))
@@ -767,7 +798,11 @@ class TestWorksetFinance(TransactionCase):
         self.assertEqual(set(cash.mapped('kind')), {'cash', 'cash_other'}, "4' — що віднімається і що не входить")
         self.assertEqual(cell['s4c_cash']['open']['context']['group_by'], ['kind', 'line_id'], 'одна лінія — одна група, не дробимо')
         self.assertFalse(cell['s1g_no_analytic']['open'], 'нуль — без кліку')
-        self.assertEqual(len(self._records(lad['s1_docs']['total']['open'])), 1, '«Разом» — рядки деталі ступеня за місяці року')
+        # «Разом» — записи ступеня за місяці колонок (січень … обраний); тут порахований лише березень — ті самі записи, що в клітинці (круг 2б:
+        # раніше чекали один рядок деталі, а клік відкривав 8 рядків аналітики — dev-збірка 07.11)
+        tot = self._records(lad['s1_docs']['total']['open'])
+        self.assertEqual(tot, self._records(cell['s1_docs']['open']))
+        self.assertAlmostEqual(sum(tot.mapped('amount')), lad['s1_docs']['total']['value'], msg='сума списку = «Разом»')
         # плитки: число = список
         tiles = {x['key']: x for x in data['tiles']}
         rec = self._records(tiles['recruiting']['open'])
@@ -793,7 +828,41 @@ class TestWorksetFinance(TransactionCase):
         self.assertEqual(self._records(aside['customers']['open']), self.inv_cust)
         self.assertEqual(self._records(aside['energy']['open']), self.inv_energy)
         self.assertTrue(aside['energy']['warn'])
+        self.assertEqual(aside['energy']['firm'], self.co_en.name, 'назва групи Energy — з Odoo (фірма, чий партнер у параметрі), не з коду')
+        self.assertIn(self.co_en.name, aside['energy']['open']['title'])
         self.assertEqual(set(self._records(aside['stage2']['open']).mapped('kind')), {'stage2'})
+
+    def _specs(self, node):
+        """Усі описи кліку ('open' з моделлю) у відповіді екрана."""
+        if isinstance(node, dict):
+            if node.get('model') and 'domain' in node:
+                yield node
+            for v in node.values():
+                yield from self._specs(v)
+        elif isinstance(node, list):
+            for v in node:
+                yield from self._specs(v)
+
+    def test_owner_screen_click_context_companies(self):
+        """Клік відкриває список по фірмах периметра, доступних користувачу (allowed_company_ids у контексті дії), а не лише по відмічених у
+        перемикачі: фірма поза периметром — ні, фірма, якої в користувача немає, — ні; поточна фірма — першою."""
+        out_co, _acc = self._out_company()
+        self._adjust('s3', 20, line_id=self.line.id)
+        self._run()
+        base = 'base.group_user,workset_finance.group_owner'
+        user = new_test_user(self.env, login='fin_owner_cos', groups=base, company_id=self.co_ua.id,
+                             company_ids=[(6, 0, [self.co.id, self.co_ua.id, out_co.id])])
+        perim = set(self.Month._perimeter())
+        self.assertTrue({self.co.id, self.co_ua.id} <= perim and out_co.id not in perim, 'передумова: периметр')
+        data = self.Month.with_user(user).with_context(allowed_company_ids=[self.co_ua.id]).finance_owner(M)
+        specs = list(self._specs(data))
+        self.assertTrue(len(specs) > 10, 'описів кліку багато: таблиця, плитки, водоспад, чипи')
+        for spec in specs:
+            self.assertEqual(spec['context'].get('allowed_company_ids'), [self.co_ua.id, self.co.id],
+                             'периметр ∩ фірми користувача, поточна — першою; поза периметром і чужих фірм немає: %s' % spec['title'])
+            self.assertFalse(spec['context'].get('create', True))
+        self.assertEqual(calc.click_companies([1, 2, 3], [2, 3, 9], 3), [3, 2])
+        self.assertEqual(calc.click_companies([1, 2], [2, 9], 9), [2], 'поточна поза периметром — не в списку')
 
     def test_closed_takes_parent_company_lock_date(self):
         Company = self.env['res.company']

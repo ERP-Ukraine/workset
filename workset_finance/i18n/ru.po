@@ -33,9 +33,11 @@ msgid "Перше число місяця, не раніше січня 2026"
 msgstr "Первое число месяца, не раньше января 2026"
 
 #. module: workset_finance
+#. odoo-javascript
 #: model:ir.model.fields,field_description:workset_finance.field_workset_finance_adjust__step
 #: model:ir.model.fields.selection,name:workset_finance.selection__workset_finance_item__kind__step
 #: model_terms:ir.ui.view,arch_db:workset_finance.view_adjust_search
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
 msgid "Ступінь"
 msgstr "Ступень"
 
@@ -726,6 +728,12 @@ msgstr "Владелец — прибыль компании"
 #. module: workset_finance
 #. odoo-javascript
 #: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "неповний, по"
+msgstr "неполный, по"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
 msgid "Не вдалося оновити — на екрані попередні дані"
 msgstr "Не удалось обновить — на экране прежние данные"
 
@@ -738,8 +746,8 @@ msgstr "Чистая прибыль"
 #. module: workset_finance
 #. odoo-javascript
 #: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
-msgid "Рекрутинг за документами"
-msgstr "Рекрутинг по документам"
+msgid "Рекрутинг разом"
+msgstr "Рекрутинг итого"
 
 #. module: workset_finance
 #. odoo-javascript
@@ -752,6 +760,18 @@ msgstr "Доли партнёров"
 #: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
 msgid "з початку року"
 msgstr "с начала года"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "з поправкою"
+msgstr "с поправкой"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "розрахунок штабу"
+msgstr "расчёт штаба"
 
 #. module: workset_finance
 #. odoo-javascript
@@ -770,30 +790,6 @@ msgstr "Сверка сошлась"
 #: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
 msgid "Звірка не зійшлася"
 msgstr "Сверка не сошлась"
-
-#. module: workset_finance
-#. odoo-javascript
-#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
-msgid "(поріг"
-msgstr "(порог"
-
-#. module: workset_finance
-#. odoo-javascript
-#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
-msgid "не розібрано"
-msgstr "не разобрано"
-
-#. module: workset_finance
-#. odoo-javascript
-#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
-msgid "€ із"
-msgstr "€ из"
-
-#. module: workset_finance
-#. odoo-javascript
-#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
-msgid "€ обороту"
-msgstr "€ оборота"
 
 #. module: workset_finance
 #. odoo-javascript
@@ -870,5 +866,35 @@ msgstr "нет данных за"
 #. module: workset_finance
 #. odoo-javascript
 #: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
-msgid "[факт] — з Odoo, [розрах.] — розрахунок штабу, [поправка] — з основою; клік по числу відкриває рядки"
-msgstr "[факт] — из Odoo, [расч.] — расчёт штаба, [поправка] — с основанием; клик по числу открывает строки"
+msgid "розр."
+msgstr "расч."
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "без позначки — з Odoo · розр. — розрахунок штабу · попр. — поправка з підставою (у підказці числа) · клік по числу відкриває записи"
+msgstr "без пометки — из Odoo · расч. — расчёт штаба · попр. — поправка с основанием (в подсказке числа) · клик по числу открывает записи"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "(поріг"
+msgstr "(порог"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "не розібрано"
+msgstr "не разобрано"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "€ із"
+msgstr "€ из"
+
+#. module: workset_finance
+#. odoo-javascript
+#: code:addons/workset_finance/static/src/xml/finance_screens.xml:0
+msgid "€ обороту"
+msgstr "€ оборота"

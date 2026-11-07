@@ -138,8 +138,9 @@ TX = {
     'h_calc': ['розрахунок штабу', 'расчёт штаба'],
     'h_adjust': ['поправка: %s', 'поправка: %s'],
     'h_open': ['Відкрити записи', 'Открыть записи'],
+    'h_partial': ['неповний, по %s', 'неполный, по %s'],
     'o_of': ['%s · %s', '%s · %s'],
-    'o_recruiting': ['Рекрутинг за документами (1 + 1а + 1г)', 'Рекрутинг по документам (1 + 1а + 1г)'],
+    'o_recruiting': ['Рекрутинг разом (1 + 1а + 1г)', 'Рекрутинг итого (1 + 1а + 1г)'],
     'o_cash': ["За грошима: що віднімається (4')", "По деньгам: что вычитается (4')"],
     'o_adjust': ['Поправки', 'Поправки'],
     'o_quality': ['Якість даних: кошики', 'Качество данных: корзины'],
@@ -148,12 +149,12 @@ TX = {
     'o_transfers': ['Перекази на особисті рахунки', 'Переводы на личные счета'],
     'o_stage2': ['II етап', 'II этап'],
     'o_unpaid_customer': ['Не оплачено замовниками', 'Не оплачено заказчиками'],
-    'o_unpaid_energy': ['Не оплачено Energy', 'Не оплачено Energy'],
+    'o_unpaid_energy': ['Не оплачено %s', 'Не оплачено %s'],   # %s — назва групи Energy з Odoo (energy_name), не з коду
     'o_months': ['Місяці драбини', 'Месяцы лестницы'],
     'o_profit': ['Прибутковість ліній', 'Прибыльность линий'],
     'q_ic': ['Міжфірмові', 'Межфирменные'],
     'q_unplaced': ['Без місця', 'Без места'],
-    'h_quality': ['Що не розібрано: три кошики', 'Что не разобрано: три корзины'],
+    'h_quality': ['Не розібрано %s € із %s € обороту, поріг %s %% — клік: три кошики', 'Не разобрано %s € из %s € оборота, порог %s %% — клик: три корзины'],
 }
 
 
@@ -403,6 +404,38 @@ def param_notes(raw, lang=0):
 def or_domain(leaves):
     """[умова, ...] → домен Odoo з «АБО» між ними (одна умова — вона сама, порожньо — [])."""
     return ['|'] * (len(leaves) - 1) + list(leaves) if leaves else []
+
+
+def norm_domain(dom):
+    """Домен Odoo (польський запис) → той самий з явними '&' між виразами верхнього рівня (як normalize_domain Odoo): [A, B, C] →
+    ['&', '&', A, B, C]. Умова — список або кортеж; '&' і '|' беруть два вирази, '!' — один."""
+    out, expected = [], 1
+    for tok in dom or []:
+        if expected == 0:
+            out[0:0] = ['&']
+            expected = 1
+        if isinstance(tok, (list, tuple)):
+            expected -= 1
+        elif tok in ('&', '|'):
+            expected += 1
+        out.append(tok)
+    return out
+
+
+def or_domains(domains):
+    """Кілька доменів (кожен — список умов з неявним «І») → один домен з «АБО» між ними (круг 2б: «Разом» таблиці — записи ступеня за всі
+    місяці колонок, сума списку = число). Порожній домен серед них (це «усі записи») або доменів немає — None: клік тоді — рядки деталі."""
+    doms = [norm_domain(d) for d in domains or []]
+    if not doms or any(not d for d in doms):
+        return None
+    return ['|'] * (len(doms) - 1) + [tok for d in doms for tok in d]
+
+
+def click_companies(perimeter, user_companies, current=0):
+    """Фірми списку кліку (контекст allowed_company_ids, круг 2б): периметр ∩ фірми користувача — інакше список покаже лише фірми,
+    відмічені в перемикачі, і не зійдеться з числом (число — весь периметр); поточна фірма — першою, якщо вона серед них. → [id]."""
+    got = sorted(set(perimeter or []) & set(user_companies or []))
+    return [current] + [c for c in got if c != current] if current in got else got
 
 
 def param_value(kind, raw):
@@ -844,13 +877,54 @@ FALL_THIN_PCT = 2     # крок водоспаду, менший за стіл�
 TRANSFER_ROWS = 8     # «Перекази на особисті рахунки»: стільки найбільших, решта — рядком «Показано N з M»
 
 
-def month_info(first, lang=0):
+def month_info(first, lang=0, partial=''):
     """Місяць для екрана → {'value', 'title' («Вересень 2026» — кнопка вибору), 'title_in' («вересень 2026» — усередині фрази), 'name'
-    («вересень» — заголовок картки), 'short' («Вер» — вісь графіка й шапка таблиці)}."""
+    («вересень» — заголовок картки), 'short' («Вер» — вісь графіка й шапка таблиці), 'partial' (неповний місяць — «ДД.ММ», по який день;
+    повний — ''), 'hint' (підказка колонки: назва й «неповний, по ДД.ММ»)}."""
     s = iso(first)
     label = month_label(s, lang)
-    return {'value': s, 'title': label[0:1].upper() + label[1:], 'title_in': label, 'name': label.split(' ')[0],
-            'short': MONTHS_SHORT[lang][int(s[5:7]) - 1]}
+    title = label[0:1].upper() + label[1:]
+    return {'value': s, 'title': title, 'title_in': label, 'name': label.split(' ')[0], 'short': MONTHS_SHORT[lang][int(s[5:7]) - 1],
+            'partial': partial or '', 'hint': title + (' · ' + t('h_partial', lang) % partial if partial else '')}
+
+
+def partial_day(first, today, stamp=''):
+    """Неповний місяць (круг 2б): числа місяця first пораховано до його кінця → «ДД.ММ» — по який день (день перерахунку за Києвом stamp;
+    його немає або він раніше за сам місяць — today), інакше ''. Неповний — поточний місяць і минулий, який востаннє перераховували ще до
+    його кінця (нічний перерахунок останнього дня йде вже наступною датою за Києвом). День раніше за сам місяць (місяць ще не почався) — ''."""
+    first = iso(first)
+    day = iso(stamp) if iso(stamp) >= first else iso(today)
+    if not day or day < first or day > month_last(first):
+        return ''
+    return day[8:10] + '.' + day[5:7]
+
+
+def src_max(srcs):
+    """Позначка суми кількох чисел: є поправка — 'adjust', є розрахунок — 'calc', усі з Odoo (чи порожньо) — ''."""
+    s = set(srcs or [])
+    return 'adjust' if 'adjust' in s else ('calc' if 'calc' in s else '')
+
+
+def int_text(x):
+    """Євро цілими для тексту підказки: 55057,4 → «55 057», −438 → «−438» (мінус — «−»)."""
+    c = cents(x)
+    whole = (abs(c) + 50) // 100
+    return ('−' if c < 0 and whole else '') + '{:,}'.format(whole).replace(',', ' ')
+
+
+def common_name(names):
+    """Назви фірм (чи партнерів) групи → підпис: спільний початок слів усіх назв («Firm X s.r.o.», «Firm X GmbH» → «Firm X»), одна назва —
+    вона сама, спільного початку немає — перша; порожньо — ''. Для «Не оплачено <група Energy>»: назва — дані Odoo, у коді модуля її немає."""
+    lst = [' '.join(str(n or '').split()) for n in names or []]
+    lst = [n for n in lst if n]
+    if not lst:
+        return ''
+    common = []
+    for parts in zip(*[n.split(' ') for n in lst]):
+        if any(p != parts[0] for p in parts):
+            break
+        common.append(parts[0])
+    return ' '.join(common) or lst[0]
 
 
 def _thousands(x):
@@ -897,8 +971,14 @@ def year_rows(rows, first):
     return sorted([r for r in rows if iso(r['month'])[0:4] == y and iso(r['month']) >= MIN_MONTH], key=lambda r: iso(r['month']))
 
 
+def ytd_rows(rows, first):
+    """Записи місяців від січня року first до first включно (круг 2б: колонки таблиці, ряд графіка, «Разом» і «з початку року» плиток —
+    один набір; місяці після обраного не показуються)."""
+    return [r for r in year_rows(rows, first) if iso(r['month']) <= iso(first)]
+
+
 def tile_cents(row, key):
-    """Число плитки в центах: «рекрутинг за документами» = 1 + 1а + 1г, частки — мінусом, решта — поле як є."""
+    """Число плитки в центах: «рекрутинг разом» = 1 + 1а + 1г, частки — мінусом, решта — поле як є."""
     if key == 'recruiting':
         return sum(cents(row.get(k)) for k in RECRUITING)
     if key == 's3_shares':
@@ -906,22 +986,30 @@ def tile_cents(row, key):
     return cents(row.get(key))
 
 
+def tile_src(rows, key):
+    """Позначка плитки (круг 2б: видно без наведення — «з поправкою» / «розрахунок штабу»): з чого складаються її числа (місяць і «з
+    початку року» — rows) — src_max позначок ненульових доданків (рекрутинг — 1, 1а, 1г; решта — саме поле); усі з Odoo — ''."""
+    return src_max((r.get(f + '_src') or 'fact') for r in rows for f in (RECRUITING if key == 'recruiting' else (key,)) if cents(r.get(f)))
+
+
 def owner_tiles(rows, first):
-    """П'ять плиток місяця first і «з початку року»: rows — записи місяців (словники з полями ступенів і 'month'); «з початку року» — Σ
-    місяців того самого року від січня до first включно (місяця без запису немає — нуль). → [{'key', 'value' (євро; запису місяця немає —
-    None), 'ytd'}] у порядку TILES."""
+    """П'ять плиток місяця first і «з початку року»: rows — записи місяців (словники з полями ступенів, *_src і 'month'); «з початку року»
+    — Σ місяців того самого року від січня до first включно (місяця без запису немає — нуль; той самий набір, що колонки таблиці й «Разом»).
+    → [{'key', 'value' (євро; запису місяця немає — None), 'ytd', 'src' (tile_src)}] у порядку TILES."""
     first = iso(first)
     cur = next((r for r in rows if iso(r['month']) == first), None)
-    ytd = [r for r in year_rows(rows, first) if iso(r['month']) <= first]
-    return [{'key': k, 'value': eur(tile_cents(cur, k)) if cur else None, 'ytd': eur(sum(tile_cents(r, k) for r in ytd))} for k in TILES]
+    ytd = ytd_rows(rows, first)
+    return [{'key': k, 'value': eur(tile_cents(cur, k)) if cur else None, 'ytd': eur(sum(tile_cents(r, k) for r in ytd)), 'src': tile_src(ytd, k)}
+            for k in TILES]
 
 
-def ladder_table(rows, first, lang=0):
+def ladder_table(rows, first, lang=0, partial=None):
     """Таблиця «Драбина <рік>, тис. €»: rows — записи місяців (поля ступенів, *_src, 'month'); колонки — лише пораховані місяці року first
-    (непорахованих колонок немає), «Разом» — Σ колонок до цента. → {'months': [month_info], 'selected': номер колонки first (немає — −1), 'rows':
-    [{'key', 'num', 'label', 'style', 'cells': [{'month', 'value', 'text', 'src'}], 'total': {'value', 'text'}}]}; src нуля — '' (пояснювати
-    нічого), значення частки (3) — мінусом."""
-    rs = year_rows(rows, first)
+    від січня ДО first включно (круг 2б: місяці після обраного не показуються — «Разом» = «з початку року» плиток), «Разом» — Σ колонок до
+    цента. partial — {місяць: «ДД.ММ»} неповних місяців (partial_day). → {'months': [month_info], 'selected': номер колонки first (немає —
+    −1), 'rows': [{'key', 'num', 'label', 'style', 'cells': [{'month', 'value', 'text', 'src'}], 'total': {'value', 'text', 'src'}}]}; src
+    нуля — '' (пояснювати нічого), src «Разом» — src_max клітинок; значення частки (3) — мінусом."""
+    rs = ytd_rows(rows, first)
     months = [iso(r['month']) for r in rs]
     out = []
     for key, num, style, sign in LADDER_ROWS:
@@ -930,8 +1018,10 @@ def ladder_table(rows, first, lang=0):
             c = sign * cents(r.get(key))
             tot += c
             cells.append({'month': iso(r['month']), 'value': eur(c), 'text': k_text(eur(c)), 'src': (r.get(key + '_src') or 'fact') if c else ''})
-        out.append({'key': key, 'num': num, 'label': t('r_' + key, lang), 'style': style, 'cells': cells, 'total': {'value': eur(tot), 'text': k_text(eur(tot))}})
-    return {'months': [month_info(m, lang) for m in months], 'selected': months.index(iso(first)) if iso(first) in months else -1, 'rows': out}
+        total = {'value': eur(tot), 'text': k_text(eur(tot)), 'src': src_max(c['src'] for c in cells) if tot else ''}
+        out.append({'key': key, 'num': num, 'label': t('r_' + key, lang), 'style': style, 'cells': cells, 'total': total})
+    return {'months': [month_info(m, lang, (partial or {}).get(m, '')) for m in months],
+            'selected': months.index(iso(first)) if iso(first) in months else -1, 'rows': out}
 
 
 def chart_series(table, lang=0):
@@ -963,9 +1053,10 @@ def src_hint(key, src, bases, lang=0):
 def fall_bars(v, lang=0):
     """Водоспад «Як складається прибуток» з рядків waterfall(v) (нульові ступені сховано): перший стовпець, «до часток» і «чистий прибуток» —
     від нуля, решта — від поточного підсумку (вгору — плюс, вниз — мінус). Шкала — від min(0, …) до max(0, …). → {'bars': [рядок + {'label',
-    'dir' ('total' / 'up' / 'down'), 'bottom', 'height', 'end', 'thin'}], 'zero', 'ok'}: bottom, height, zero — % висоти поля; end — рівень
-    підсумку після кроку (звідти пунктир до наступного стовпця); thin — крок, менший за FALL_THIN_PCT % найбільшого підсумку; ok — доданки дають
-    «до часток», а «до часток» мінус частки — «чистий прибуток» до цента."""
+    'dir' ('total' / 'up' / 'down'), 'bottom', 'height', 'end', 'thin', 'src'}], 'zero', 'ok'}: bottom, height, zero — % висоти поля; end —
+    рівень підсумку після кроку (звідти пунктир до наступного стовпця); thin — крок, менший за FALL_THIN_PCT % найбільшого підсумку; src —
+    позначка стовпця (поле <ключ>_src місяця: 'calc' / 'adjust'; з Odoo — '', круг 2б); ok — доданки дають «до часток», а «до часток» мінус
+    частки — «чистий прибуток» до цента."""
     rows = waterfall(v)
     run = adds = subs = base = 0
     ok = True
@@ -995,18 +1086,22 @@ def fall_bars(v, lang=0):
     def pct(x):
         return round((x - bottom) * 100.0 / span, 2) if span else 0.0
     bars = [dict(r, label=t('w_' + r['key'], lang), dir=d, bottom=pct(lo), height=round(pct(hi) - pct(lo), 2), end=pct(e),
-                 thin=d != 'total' and abs(c) * 100 < FALL_THIN_PCT * top) for r, c, lo, hi, d, e in raw]
+                 thin=d != 'total' and abs(c) * 100 < FALL_THIN_PCT * top, src=src_max([v.get(r['key'] + '_src')]))
+            for r, c, lo, hi, d, e in raw]
     return {'bars': bars, 'zero': pct(0), 'ok': ok}
 
 
-def quality_chip(v):
-    """Чип «Якість даних N % (поріг 1 %)» — доля як у закриття місяця й сторожа (truth_share, круг 1е): оборот не порахований або кошики
-    порожні — None (чипа немає, сказати нічого); інакше {'pct', 'bad' (доля ≥ порогу — червона крапка), 'parts' (не розібрано: Σ|кошиків|),
-    'ext' (оборот із зовнішніми), 'threshold'}."""
+def quality_chip(v, lang=0):
+    """Чип «Якість даних N %» — доля як у закриття місяця й сторожа (truth_share, круг 1е): оборот не порахований або кошики порожні — None
+    (чипа немає, сказати нічого); інакше {'pct', 'bad' (доля ≥ порогу — червона крапка), 'parts' (не розібрано: Σ|кошиків|), 'ext' (оборот
+    із зовнішніми), 'threshold', 'hint'}. Поріг і «не розібрано X € із Y €» — у підказці (hint) і вікні кошиків, не в чипі (круг 2б: ряд
+    чипів — в один рядок, як у макеті)."""
     q = truth_share(v.get('q_ic'), v.get('q_unplaced'), v.get('q_nodoc'), v.get('q_ext'))
     if q['share'] is None or not cents(q['parts']):
         return None
-    return {'pct': q['share'], 'bad': not q['ok'], 'parts': q['parts'], 'ext': eur(cents(v.get('q_ext'))), 'threshold': TRUTH_PCT}
+    ext = eur(cents(v.get('q_ext')))
+    return {'pct': q['share'], 'bad': not q['ok'], 'parts': q['parts'], 'ext': ext, 'threshold': TRUTH_PCT,
+            'hint': t('h_quality', lang) % (int_text(q['parts']), int_text(ext), ('%g' % TRUTH_PCT).replace('.', ','))}
 
 
 def quality_label(note, lang=0):

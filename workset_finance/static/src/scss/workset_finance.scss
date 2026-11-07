@@ -16,10 +16,30 @@
             text-underline-offset: 0.2em;
         }
     }
+    // число без багатокрапки (круг 2б): розмір плитки — від ширини вікна в межах clamp, а колонки плиток — з xl (нижче — 3 + 2)
     .o_workset_finance_num {
         font-variant-numeric: tabular-nums;
-        overflow: hidden;
-        text-overflow: ellipsis;
+    }
+    .o_workset_finance_tile_num {
+        font-size: clamp(1.5rem, 1rem + 1.2vw, 2.25rem);
+    }
+    // сіра дрібна позначка: «розрахунок штабу» / «з поправкою» у плиток і стовпців водоспаду, «по ДД.ММ» у шапці колонки
+    .o_workset_finance_note {
+        font-size: 0.75rem;
+        font-weight: 400;
+        line-height: 1.25;
+    }
+    // мітка числа таблиці «розр.» / «попр.»: місце є в кожній клітинці (і порожнє, і в шапці) однієї ширини в rem — числа стовпця
+    // праворуч на одній лінії, хоч би який розмір шрифту рядка
+    .o_workset_finance_tag {
+        display: inline-block;
+        box-sizing: content-box;
+        width: 2.1rem;
+        padding-left: 0.25rem;
+        font-size: 0.7rem;
+        font-weight: 400;
+        text-align: left;
+        color: $gray-500;
     }
     // другорядний текст без прозорості (text-muted Odoo напівпрозорий — на темній темі читався слабо, урок М3)
     .o_workset_finance_muted {
@@ -41,8 +61,9 @@
         height: 0.6rem;
     }
 
-    // п'ять плиток — одна сітка, колонки однакові: телефон — в один стовпець (роздільник зверху), планшет — перша на всю ширину й 2 × 2,
-    // широко — п'ять колонок із роздільниками
+    // п'ять плиток — одна сітка, плитки ряду однакової ширини й висоти (заголовок може перенестися в два рядки, число — ні): телефон — в
+    // один стовпець (роздільник зверху); md і lg — 3 + 2 (сітка з 6: перші три по 2, дві нижні по 3; роздільники між плитками й над нижнім
+    // рядом); з xl — п'ять колонок із роздільниками (круг 2б: на lg п'ять колонок обрізали заголовки й числа)
     .o_workset_finance_band {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
@@ -59,20 +80,24 @@
             padding-top: map-get($spacers, 3);
         }
     }
-    @include media-breakpoint-only(md) {
+    @include media-breakpoint-between(md, xl) {
         .o_workset_finance_band {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(6, minmax(0, 1fr));
         }
         .o_workset_finance_band_cell {
-            &:first-child {
-                grid-column: 1 / -1;
+            grid-column: span 2;
+
+            &:nth-child(n + 4) {
+                grid-column: span 3;
+                border-top: 1px solid $border-color;
+                padding-top: map-get($spacers, 3);
             }
-            &:nth-child(odd):not(:first-child) {
+            &:not(:first-child):not(:nth-child(4)) {
                 border-left: 1px solid $border-color;
             }
         }
     }
-    @include media-breakpoint-up(lg) {
+    @include media-breakpoint-up(xl) {
         .o_workset_finance_band {
             grid-template-columns: repeat(5, minmax(0, 1fr));
         }
@@ -81,11 +106,12 @@
         }
     }
 
-    // чипи: у рядок, скільки влазить, однакової висоти; клікабельні — рамка в колір теми при наведенні
+    // чипи: у рядок, скільки влазить; кожен — по своєму вмісту (ряд не розтягується по висоті, align-items: center); клікабельні —
+    // рамка в колір теми при наведенні
     .o_workset_finance_chips {
         display: flex;
         flex-wrap: wrap;
-        align-items: stretch;
+        align-items: center;
         gap: map-get($spacers, 2);
     }
     .o_workset_finance_chip {
@@ -186,10 +212,11 @@
         background-color: $gray-600;
     }
 
-    // «Власники»: код · смуга · сума; частка й витрати компанії — дрібно рядком нижче
+    // «Власники»: код · смуга · сума; частка й витрати компанії — дрібно рядком нижче. Колонки коду й суми — фіксованої ширини: суми
+    // правим краєм на одній лінії, смуги всіх рядків — однієї довжини шкали (круг 2б)
     .o_workset_finance_owner {
         display: grid;
-        grid-template-columns: minmax(0, 5rem) minmax(0, 1fr) auto;
+        grid-template-columns: 5rem minmax(0, 1fr) 7rem;
         align-items: center;
         column-gap: map-get($spacers, 2);
         padding: map-get($spacers, 1) 0;
@@ -210,13 +237,21 @@
     .o_workset_finance_owner_sub {
         grid-column: 1 / -1;
     }
-    // «Перекази на особисті рахунки»: одержувач · сума · статус
+    // «Перекази на особисті рахунки»: одержувач · сума · статус; колонки суми й статусу — фіксованої ширини (суми — правим краєм на одній
+    // лінії, плашки однакової ширини), круг 2б
     .o_workset_finance_transfer {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto auto;
+        grid-template-columns: minmax(0, 1fr) 7rem 8.5rem;
         align-items: center;
         column-gap: map-get($spacers, 3);
         font-variant-numeric: tabular-nums;
+    }
+    .o_workset_finance_status {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: map-get($spacers, 1);
+        width: 100%;
     }
 
     // таблиця «Драбина»: гортається вбік, перша колонка закріплена (телефон); числа праворуч, заголовки не обрізаються
@@ -248,12 +283,6 @@
     .o_workset_finance_total {
         background-color: rgba($body-color, 0.06);
         font-weight: 600;
-    }
-    // число з пометкою «розрах.» / «поправка» — тонке пунктирне підкреслення (при наведенні клікабельного — суцільне)
-    .o_workset_finance_src {
-        text-decoration: underline dotted;
-        text-decoration-thickness: 1px;
-        text-underline-offset: 0.25em;
     }
     // стилі рядків — у кожного явний колір тексту
     .o_workset_finance_row_row {
